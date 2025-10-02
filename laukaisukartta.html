@@ -421,15 +421,17 @@
                     }
                 });
 
-                // Tunnistetaan, ajetaanko sovellusta upotettuna (iframe) vai suoraan.
-                // Tämä varmistaa, että käytetään oikeaa kirjautumistapaa eri ympäristöissä.
-                const isInsideIframe = window.self !== window.top;
-                
-                if (isInsideIframe && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
+                // YKSINKERTAISTETTU KORJAUS:
+                // Poistettu kaikki ympäristön tunnistuslogiikka.
+                // Käytetään AINA anonyymiä kirjautumista, joka on tarkoitettu
+                // julkiselle GitHub Pages -versiolle.
+                try {
                     await signInAnonymously(auth);
+                } catch (authError) {
+                    console.error("Anonymous sign-in failed:", authError);
+                    throw authError; // Heitetään virhe eteenpäin näytettäväksi
                 }
+
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
                 document.body.innerHTML = `<div class="text-white text-center p-8">Tietokantayhteys epäonnistui. Päivitä sivu. Virhe: ${error.message}</div>`;
@@ -1174,6 +1176,10 @@
     </script>
 </body>
 </html>
+
+
+
+
 
 
 
