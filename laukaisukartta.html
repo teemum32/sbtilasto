@@ -115,8 +115,19 @@
 </head>
 <body class="bg-slate-900 h-screen flex flex-col">
     
-    <!-- Aloitusvalikko -->
-    <div id="landing-view" class="flex flex-col items-center justify-center h-full p-4">
+    <!-- Salasanan syöttö -->
+    <div id="password-view" class="flex flex-col items-center justify-center h-full p-4">
+        <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-2xl font-bold text-slate-100 mb-4">Salasana vaaditaan</h1>
+            <p class="text-slate-400 mb-6">Syötä salasana jatkaaksesi.</p>
+            <input id="password-input" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-lg text-center focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+            <p id="password-error" class="text-red-500 text-sm mt-2 h-5"></p>
+            <button id="password-submit-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">Kirjaudu</button>
+        </div>
+    </div>
+
+    <!-- Aloitusvalikko (piilotettu aluksi) -->
+    <div id="landing-view" class="hidden flex-col items-center justify-center h-full p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold text-slate-100 mb-2">Tilastotyökalu</h1>
             <p class="text-slate-400 mb-8">Valitse toiminto</p>
@@ -308,8 +319,17 @@
         const confirmBtn = document.getElementById('confirm-btn');
         const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
         const authStatus = document.getElementById('auth-status');
+        const passwordView = document.getElementById('password-view');
+        const passwordInput = document.getElementById('password-input');
+        const passwordSubmitBtn = document.getElementById('password-submit-btn');
+        const passwordError = document.getElementById('password-error');
         
         // --- Sovelluksen tila (State) ---
+        // ==========================================================
+        // Aseta tähän salasana, jolla sovelluksen saa käyttöön.
+        // Muista vaihtaa tämä johonkin turvallisempaan!
+        const APP_PASSWORD = "sbt";
+        // ==========================================================
         let db, auth, userId;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         let seasonData = { games: [] };
@@ -322,14 +342,42 @@
         let gamesUnsubscribe = () => {}; // Funktio Firestore-kuuntelijan poistamiseen
 
         // --- Alustus ---
-        async function onAppLoad() {
+        function onAppLoad() {
+            // Tarkistetaan, onko käyttäjä jo syöttänyt salasanan tässä istunnossa
+            if (sessionStorage.getItem('isAuthenticated') === 'true') {
+                passwordView.style.display = 'none';
+                startFirebaseApp();
+            } else {
+                // Varmistetaan, että vain salasanakenttä on näkyvissä
+                landingView.style.display = 'none';
+                setupView.style.display = 'none';
+                appContainer.style.display = 'none';
+                passwordView.style.display = 'flex';
+            }
+        }
+
+        function checkPassword() {
+            if (passwordInput.value === APP_PASSWORD) {
+                sessionStorage.setItem('isAuthenticated', 'true'); // Tallenna onnistuminen istuntoon
+                passwordView.style.display = 'none';
+                startFirebaseApp(); // Käynnistä varsinainen sovellus
+            } else {
+                passwordError.textContent = 'Väärä salasana.';
+                passwordInput.value = '';
+                passwordInput.focus();
+                setTimeout(() => passwordError.textContent = '', 2000);
+            }
+        }
+
+        passwordSubmitBtn.addEventListener('click', checkPassword);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        async function startFirebaseApp() {
             try {
-                // ===================================================================
-                // LIITÄ OMA FIREBASE CONFIG -OBJEKTISI TÄHÄN ALAPUOLELLE
-                // Poista tämä oletusobjekti ja korvaa se omallasi.
-                // Saat sen Firebase-konsolista:
-                // Project settings > General > Your apps > SDK setup and configuration
-                // ===================================================================
                 const firebaseConfig = {
                   apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0",
                   authDomain: "sbtilastot.firebaseapp.com",
@@ -1122,8 +1170,6 @@
     </script>
 </body>
 </html>
-
-
 
 
 
