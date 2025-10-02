@@ -324,7 +324,27 @@
         // --- Alustus ---
         async function onAppLoad() {
             try {
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                // ===================================================================
+                // LIITÄ OMA FIREBASE CONFIG -OBJEKTISI TÄHÄN ALAPUOLELLE
+                // Poista tämä oletusobjekti ja korvaa se omallasi.
+                // Saat sen Firebase-konsolista:
+                // Project settings > General > Your apps > SDK setup and configuration
+                // ===================================================================
+                const firebaseConfig = {
+                  apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0",
+                  authDomain: "sbtilastot.firebaseapp.com",
+                  projectId: "sbtilastot",
+                  storageBucket: "sbtilastot.firebasestorage.app",
+                  messagingSenderId: "1056099775207",
+                  appId: "1:1056099775207:web:6dc886fb56b71f708fe842"
+                };
+
+                // Tarkistetaan, onko konfiguraatio oletusarvoissa
+                if (firebaseConfig.projectId === "your-project-id") {
+                    document.body.innerHTML = `<div class="text-white text-center p-8">Firebase-konfiguraatiota ei ole asetettu. Lisää projektisi tiedot HTML-tiedostoon.</div>`;
+                    return;
+                }
+
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -1098,5 +1118,8 @@
     </script>
 </body>
 </html>
+
+
+
 
 
