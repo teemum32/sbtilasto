@@ -2,6 +2,8 @@
 <html lang="fi">
 <head>
     <meta charset="UTF-8">
+    <!-- KORJAUS: Laajennettu CSP käyttämään jokerimerkkiä, joka kattaa kaikki Googlen vaatimat palvelut. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.tailwindcss.com https://www.gstatic.com https://www.googletagmanager.com; connect-src 'self' wss://*.firebaseio.com https://*.googleapis.com https://csp.withgoogle.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: data:; img-src 'self' data:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -120,7 +122,7 @@
         <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-2xl font-bold text-slate-100 mb-4">Salasana vaaditaan</h1>
             <p class="text-slate-400 mb-6">Syötä salasana jatkaaksesi.</p>
-            <input id="password-input" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-lg text-center focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+            <input id="password-input" name="password" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-lg text-center focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
             <p id="password-error" class="text-red-500 text-sm mt-2 h-5"></p>
             <button id="password-submit-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">Kirjaudu</button>
         </div>
@@ -145,10 +147,11 @@
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold text-slate-100 mb-4">Uusi ottelu</h1>
             <p class="text-slate-400 mb-6">Syötä vastustajan nimi ja muokkaa kokoonpanoa.</p>
-            <input id="opponent-name-input" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-lg text-center focus:ring-2 focus:ring-indigo-500 mb-4" placeholder="Vastustajan nimi">
-            <textarea id="player-roster-input" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-sm text-left focus:ring-2 focus:ring-indigo-500 font-mono" placeholder="7 Matti Meikäläinen&#10;10 Teppo Testaaja&#10;21..."></textarea>
+            <input id="opponent-name-input" name="opponent-name" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-lg text-center focus:ring-2 focus:ring-indigo-500 mb-4" placeholder="Vastustajan nimi">
+            <textarea id="player-roster-input" name="player-roster" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 text-slate-100 rounded-lg text-sm text-left focus:ring-2 focus:ring-indigo-500 font-mono" placeholder="7 Matti Meikäläinen&#10;10 Teppo Testaaja&#10;21..."></textarea>
+            <p id="setup-error" class="text-red-500 text-sm mt-2 h-5"></p>
             <p class="text-xs text-slate-500 mt-2 text-left">Syötä jokainen pelaaja omalle rivilleen: numero, välilyönti ja nimi (vapaaehtoinen).</p>
-            <button id="start-button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg">Aloita merkintä</button>
+            <button id="start-button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg disabled:opacity-50">Aloita merkintä</button>
             <button id="back-to-landing-btn" class="mt-2 w-full text-slate-400 hover:text-slate-200 font-semibold py-2">Takaisin</button>
         </div>
     </div>
@@ -166,7 +169,7 @@
         </div>
 
         <!-- Pääsovellus -->
-        <div id="main-app" class="hidden flex-col md:flex-row flex-grow overflow-hidden">
+        <div id="main-app" class="hidden flex flex-col md:flex-row flex-grow overflow-hidden">
             <!-- Sivupalkki pelaajille ja tilastoille -->
             <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col shrink-0 overflow-y-auto">
                 <div class="flex-grow">
@@ -243,12 +246,12 @@
         </div>
         
         <!-- Plus/Miinus -näkymä -->
-        <div id="plus-minus-view" class="hidden flex-grow p-4 bg-slate-200 overflow-y-auto">
+        <div id="plus-minus-view" class="hidden flex flex-grow p-4 bg-slate-200 overflow-y-auto">
             <!-- Sisältö luodaan JS:llä -->
         </div>
 
         <!-- Kausikooste-näkymä -->
-        <div id="season-view" class="hidden flex-grow p-4 bg-slate-200 overflow-y-auto">
+        <div id="season-view" class="hidden flex flex-grow p-4 bg-slate-200 overflow-y-auto">
             <!-- Sisältö luodaan JS:llä -->
         </div>
     </div>
@@ -323,6 +326,7 @@
         const passwordInput = document.getElementById('password-input');
         const passwordSubmitBtn = document.getElementById('password-submit-btn');
         const passwordError = document.getElementById('password-error');
+        const setupError = document.getElementById('setup-error');
         
         // --- Sovelluksen tila (State) ---
         // ==========================================================
@@ -340,14 +344,18 @@
         let tempShotData = {};
         let shotToEditId = null;
         let gamesUnsubscribe = () => {}; // Funktio Firestore-kuuntelijan poistamiseen
+        let previousView = 'landing'; // Muistaa, mistä näkymästä tultiin asetuksiin
 
         // --- Alustus ---
         function onAppLoad() {
+            console.log("onAppLoad: Sovellus käynnistyy.");
             // Tarkistetaan, onko käyttäjä jo syöttänyt salasanan tässä istunnossa
             if (sessionStorage.getItem('isAuthenticated') === 'true') {
+                console.log("onAppLoad: Käyttäjä on jo tunnistautunut salasanalla tässä istunnossa.");
                 passwordView.classList.add('hidden');
                 startFirebaseApp();
             } else {
+                console.log("onAppLoad: Salasanatunnistusta ei löydy, näytetään salasananäkymä.");
                 // Varmistetaan, että vain salasanakenttä on näkyvissä
                 landingView.classList.add('hidden');
                 setupView.classList.add('hidden');
@@ -357,11 +365,14 @@
         }
 
         function checkPassword() {
+            console.log("checkPassword: Tarkistetaan salasana.");
             if (passwordInput.value === APP_PASSWORD) {
+                console.log("checkPassword: Salasana oikein.");
                 sessionStorage.setItem('isAuthenticated', 'true'); // Tallenna onnistuminen istuntoon
                 passwordView.classList.add('hidden');
                 startFirebaseApp(); // Käynnistä varsinainen sovellus
             } else {
+                console.error("checkPassword: Väärä salasana.");
                 passwordError.textContent = 'Väärä salasana.';
                 passwordInput.value = '';
                 passwordInput.focus();
@@ -377,6 +388,7 @@
         });
 
         async function startFirebaseApp() {
+            console.log("startFirebaseApp: Yritetään käynnistää Firebase.");
             try {
                 const firebaseConfig = {
                   apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0",
@@ -387,90 +399,90 @@
                   appId: "1:1056099775207:web:6dc886fb56b71f708fe842"
                 };
 
-                // Tarkistetaan, onko konfiguraatio oletusarvoissa
-                if (firebaseConfig.projectId === "your-project-id") {
-                    document.body.innerHTML = `<div class="text-white text-center p-8">Firebase-konfiguraatiota ei ole asetettu. Lisää projektisi tiedot HTML-tiedostoon.</div>`;
-                    return;
-                }
-
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // KORJAUS: Aktivoidaan offline-tuki.
-                // Tämä tekee sovelluksesta paljon vankemman ja estää "client is offline" -virheet.
                 try {
                     await enableIndexedDbPersistence(db);
+                    console.log("startFirebaseApp: Firestore offline-tuki aktivoitu.");
                 } catch (err) {
-                    if (err.code == 'failed-precondition') {
-                        console.warn("Firestore persistence voi olla päällä vain yhdessä välilehdessä.");
-                    } else if (err.code == 'unimplemented') {
-                        console.warn("Selain ei tue Firestore persistence -ominaisuutta.");
-                    }
+                    console.warn("Firestore offline-tuen aktivointi epäonnistui:", err.code);
                 }
 
                 authStatus.textContent = 'Yhdistetään tietokantaan...';
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        // NÄYTÄ ALOITUSNÄKYMÄ HETI: Estää tyhjän ruudun näkymisen datan latauksen aikana.
+                        console.log(`onAuthStateChanged: Käyttäjä tunnistettu, UID: ${user.uid}`);
                         if (setupView.classList.contains('hidden') && appContainer.classList.contains('hidden')) {
                            landingView.classList.remove('hidden');
+                           console.log("onAuthStateChanged: Näytetään aloitusnäkymä.");
                         }
 
                         userId = user.uid;
                         authStatus.textContent = `Käyttäjä: ${userId.substring(0, 8)}...`;
                         
-                        // Ladataan data taustalla, kun näkymä on jo näkyvissä
                         await loadRosterFromFirestore();
                         listenForGames(); 
                         
                         viewSeasonDataBtn.disabled = seasonData.games.length === 0;
                     } else {
+                        console.log("onAuthStateChanged: Ei käyttäjää.");
                         userId = null;
                         authStatus.textContent = 'Ei kirjautunut sisään.';
-                        gamesUnsubscribe(); // Lopeta kuuntelu uloskirjautuessa
+                        gamesUnsubscribe();
                     }
                 });
 
-                // YKSINKERTAISTETTU KORJAUS:
-                // Poistettu kaikki ympäristön tunnistuslogiikka.
-                // Käytetään AINA anonyymiä kirjautumista, joka on tarkoitettu
-                // julkiselle GitHub Pages -versiolle.
                 try {
+                    console.log("startFirebaseApp: Yritetään anonyymiä sisäänkirjautumista.");
                     await signInAnonymously(auth);
+                    console.log("startFirebaseApp: Anonyymi sisäänkirjautuminen onnistui.");
                 } catch (authError) {
-                    console.error("Anonymous sign-in failed:", authError);
-                    throw authError; // Heitetään virhe eteenpäin näytettäväksi
+                    console.error("startFirebaseApp: Anonyymi sisäänkirjautuminen epäonnistui:", authError);
+                    throw authError;
                 }
 
             } catch (error) {
-                console.error("Firebase Initialization Error:", error);
+                console.error("KOKO SOVELLUKSEN KÄYNNISTYS EPÄONNISTUI:", error);
                 document.body.innerHTML = `<div class="text-white text-center p-8">Tietokantayhteys epäonnistui. Päivitä sivu. Virhe: ${error.message}</div>`;
             }
         }
         
         startNewGameBtn.addEventListener('click', () => {
+            console.log("startNewGameBtn: Klikattu. Siirrytään asetusnäkymään aloitusvalikosta.");
+            previousView = 'landing';
             landingView.classList.add('hidden');
             setupView.classList.remove('hidden');
             prefillRosterInput();
         });
 
         viewSeasonDataBtn.addEventListener('click', () => {
+            console.log("viewSeasonDataBtn: Klikattu. Siirrytään kausinäkymään.");
             landingView.classList.add('hidden');
             appContainer.classList.remove('hidden');
             showView('season');
         });
 
         backToLandingBtn.addEventListener('click', () => {
+            console.log(`backToLandingBtn: Klikattu. Edellinen näkymä oli: ${previousView}`);
             setupView.classList.add('hidden');
-            landingView.classList.remove('hidden');
+            if (previousView === 'season') {
+                console.log("backToLandingBtn: Palataan kausinäkymään.");
+                appContainer.classList.remove('hidden');
+                showView('season');
+            } else {
+                console.log("backToLandingBtn: Palataan aloitusvalikkoon.");
+                landingView.classList.remove('hidden');
+            }
         });
 
         function startNewGame(roster, opponentName) {
+            console.log("startNewGame: Luodaan uusi peli.");
             const players = Object.keys(roster).map(Number).sort((a, b) => a - b);
             currentGame = {
-                id: Date.now(), // Käytetään väliaikaisena, Firestore luo oman ID:n
+                id: Date.now(),
                 date: new Date().toISOString(),
                 opponent: opponentName,
                 players: players,
@@ -486,6 +498,7 @@
             initializePlusMinusView();
             addEventListeners();
             showView(1);
+            console.log("startNewGame: Uusi peli alustettu onnistuneesti.");
         }
 
         function initializePlayers() {
@@ -542,34 +555,62 @@
         
         // --- Tapahtumankuuntelijat ---
         startButton.addEventListener('click', async () => {
-            const rosterText = playerRosterInput.value;
-            const opponentName = opponentNameInput.value.trim();
-            const newRoster = {};
-            const lines = rosterText.split('\n').filter(line => line.trim() !== '');
+            console.log("startButton: 'Aloita merkintä' -painiketta klikattu.");
+            startButton.disabled = true;
+            startButton.textContent = 'Käsitellään...';
+            setupError.textContent = ''; 
             
-            if (opponentName === '') { alert('Syötä vastustajan nimi.'); return; }
-            if (lines.length === 0) { alert('Syötä vähintään yksi pelaaja.'); return; }
-
-            let error = false;
-            lines.forEach(line => {
-                const parts = line.trim().split(/\s+/);
-                const number = parseInt(parts[0], 10);
-                if (isNaN(number)) {
-                    error = true;
-                } else {
-                    const name = parts.slice(1).join(' ');
-                    newRoster[number] = name || '';
+            try {
+                const rosterText = playerRosterInput.value;
+                const opponentName = opponentNameInput.value.trim();
+                const newRoster = {};
+                const lines = rosterText.split('\n').filter(line => line.trim() !== '');
+                
+                if (opponentName === '') { 
+                    console.error("startButton: Validointivirhe - vastustajan nimi puuttuu.");
+                    setupError.textContent = 'Syötä vastustajan nimi.';
+                    return; 
                 }
-            });
+                if (lines.length === 0) { 
+                    console.error("startButton: Validointivirhe - pelaajia ei syötetty.");
+                    setupError.textContent = 'Syötä vähintään yksi pelaaja.';
+                    return; 
+                }
 
-            if(error) { alert('Virheellinen syöte pelaajalistassa. Varmista, että jokainen rivi alkaa numerolla.'); return; }
+                let error = false;
+                lines.forEach(line => {
+                    const parts = line.trim().split(/\s+/);
+                    const number = parseInt(parts[0], 10);
+                    if (isNaN(number)) {
+                        error = true;
+                    } else {
+                        const name = parts.slice(1).join(' ');
+                        newRoster[number] = name || '';
+                    }
+                });
 
-            await saveRosterToFirestore(newRoster);
-            rosterData = newRoster;
+                if(error) { 
+                    console.error("startButton: Validointivirhe - virheellinen syöte pelaajalistassa.");
+                    setupError.textContent = 'Virheellinen syöte pelaajalistassa.';
+                    return; 
+                }
 
-            setupView.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            startNewGame(newRoster, opponentName);
+                console.log("startButton: Validointi onnistui. Tallennetaan kokoonpanoa...");
+                await saveRosterToFirestore(newRoster);
+                rosterData = newRoster;
+
+                console.log("startButton: Siirrytään pelinäkymään.");
+                setupView.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                startNewGame(newRoster, opponentName);
+            } catch (e) {
+                console.error("startButton: Pelin aloitus epäonnistui virheeseen:", e);
+                setupError.textContent = 'Pelin aloitus epäonnistui. Yritä uudelleen.';
+            } finally {
+                // Palautetaan painikkeen tila, jos tapahtui virhe ja näkymä ei vaihtunut.
+                startButton.disabled = false;
+                startButton.textContent = 'Aloita merkintä';
+            }
         });
         
         saveGameButton.addEventListener('click', () => {
@@ -597,10 +638,11 @@
             fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
         }
 
-        // --- Raahauslogiikka (ei muutoksia) ---
+        // --- Raahauslogiikka ---
         function onDragStart(e) {
             const target = e.target.closest('.player-number');
-            if (!target || typeof currentGame.currentPeriod !== 'number') return;
+            if (!target || !currentGame.id) return;
+            
             draggedElement = target;
             ghostElement = target.cloneNode(true);
             ghostElement.classList.add('dragging');
@@ -638,7 +680,7 @@
              if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; }
         }
 
-        // --- Laukauksen tuloksen ja datan käsittely (ei muutoksia) ---
+        // --- Laukauksen tuloksen ja datan käsittely ---
         function onOutcomeSelect(e) {
             const target = e.target.closest('.outcome-btn');
             if (!target) return;
@@ -704,7 +746,7 @@
             shotToEditId = null;
         }
         
-        // --- Plus/Miinus-käsittely (ei muutoksia) ---
+        // --- Plus/Miinus-käsittely ---
         function onPlusMinusClick(e) {
             const target = e.target.closest('[data-player]');
             if (!target) return;
@@ -724,7 +766,7 @@
             renderPlusMinusView();
         }
 
-        // --- xG Laskentamalli (ei muutoksia) ---
+        // --- xG Laskentamalli ---
         function calculateXg(x, y, team) {
             const [MAX_XG, Y_POWER, X_POWER] = [0.65, 3, 1.5];
             const yNorm = y / 100;
@@ -742,6 +784,7 @@
         }
 
         function showView(viewId) {
+            console.log(`showView: Yritetään näyttää näkymä: ${viewId}`);
             document.querySelectorAll('.period-tab').forEach(tab => tab.classList.remove('active'));
             const activeTab = document.querySelector(`.period-tab[data-period="${viewId}"]`);
             if(activeTab) activeTab.classList.add('active');
@@ -754,7 +797,7 @@
                 renderPlusMinusView();
                 plusMinusView.classList.remove('hidden');
             } else if (viewId === 'season') {
-                renderSeasonStats(); // Tämä renderöi datan `seasonData`-muuttujasta
+                renderSeasonStats();
                 seasonView.classList.remove('hidden');
             } else {
                 mainAppView.classList.remove('hidden');
@@ -767,42 +810,42 @@
         // --- Datan tallennus & luku (Firestore) ---
         async function saveAndEndGameInFirestore() {
             if (!userId) {
-                alert("Et ole kirjautunut sisään. Tietoja ei voi tallentaa.");
+                console.error("saveAndEndGameInFirestore: Ei käyttäjätunnusta, tallennus epäonnistui.");
                 return;
             }
             try {
                 const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
-                // Poistetaan väliaikainen id ennen tallennusta
                 const gameToSave = { ...currentGame };
                 delete gameToSave.id; 
                 await addDoc(gamesCol, gameToSave);
-                // Siirry kausikoosteeseen, onSnapshot hoitaa päivityksen
+                console.log("saveAndEndGameInFirestore: Peli tallennettu onnistuneesti.");
                 showView('season');
             } catch (error) {
-                console.error("Error saving game: ", error);
-                alert("Ottelun tallennus epäonnistui.");
+                console.error("Pelin tallennus epäonnistui: ", error);
             }
         }
         
         function listenForGames() {
             if (!userId) return;
-            gamesUnsubscribe(); // Sulje vanha kuuntelija ensin
+            console.log("listenForGames: Aloitetaan pelidatan kuuntelu.");
+            gamesUnsubscribe();
             const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
-            const q = query(gamesCol); // Voit lisätä tähän lajittelun myöhemmin, esim. orderBy('date', 'desc')
+            const q = query(gamesCol);
             
             gamesUnsubscribe = onSnapshot(q, (querySnapshot) => {
                 const games = [];
                 querySnapshot.forEach((doc) => {
                     games.push({ id: doc.id, ...doc.data() });
                 });
+                console.log(`listenForGames: ${games.length} peliä haettu tietokannasta.`);
                 seasonData.games = games;
                 viewSeasonDataBtn.disabled = seasonData.games.length === 0;
-                // Jos olemme kausinäkymässä, päivitä se heti
-                if (seasonView.style.display === 'flex') {
+                if (!seasonView.classList.contains('hidden')) {
+                    console.log("listenForGames: Päivitetään avoinna oleva kausinäkymä.");
                     renderSeasonStats();
                 }
             }, (error) => {
-                console.error("Error listening for games:", error);
+                console.error("Pelidatan kuuntelu epäonnistui:", error);
             });
         }
 
@@ -811,24 +854,27 @@
             try {
                 const rosterDoc = doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main');
                 await setDoc(rosterDoc, { players: rosterToSave });
+                console.log("saveRosterToFirestore: Kokoonpano tallennettu.");
             } catch (error) {
-                console.error("Error saving roster: ", error);
+                console.error("Kokoonpanon tallennus epäonnistui: ", error);
             }
         }
 
         async function loadRosterFromFirestore() {
              if (!userId) return;
              try {
+                console.log("loadRosterFromFirestore: Ladataan kokoonpanoa...");
                 const rosterDoc = doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main');
                 const docSnap = await getDoc(rosterDoc);
                 if (docSnap.exists()) {
                     rosterData = docSnap.data().players || {};
+                    console.log("loadRosterFromFirestore: Kokoonpano ladattu onnistuneesti.");
                 } else {
                     rosterData = {};
+                    console.log("loadRosterFromFirestore: Ei olemassa olevaa kokoonpanoa.");
                 }
              } catch (error) {
-                console.error("Error loading roster: ", error);
-                // KORJAUS: Heitetään virhe eteenpäin, jotta se voidaan näyttää käyttäjälle.
+                console.error("Kokoonpanon lataus epäonnistui: ", error);
                 throw error;
              }
         }
@@ -838,15 +884,16 @@
             try {
                 const gameDoc = doc(db, 'artifacts', appId, 'users', userId, 'games', gameId);
                 await deleteDoc(gameDoc);
-                // onSnapshot päivittää näkymän automaattisesti
+                console.log(`Peli ${gameId} poistettu.`);
             } catch (error) {
-                console.error("Error deleting game: ", error);
+                console.error(`Pelin ${gameId} poisto epäonnistui: `, error);
             }
         }
         
         async function deleteAllSeasonData() {
             if (!userId) return;
             try {
+                console.log("deleteAllSeasonData: Poistetaan kaikki kauden tiedot.");
                 const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
                 const querySnapshot = await getDocs(gamesCol);
                 const batch = writeBatch(db);
@@ -855,18 +902,17 @@
                 });
                 await batch.commit();
 
-                // Tyhjennä myös rosteri
                 const rosterDoc = doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main');
                 await deleteDoc(rosterDoc);
                 rosterData = {};
+                console.log("deleteAllSeasonData: Kaikki data poistettu. Palataan aloitusnäkymään.");
 
-                // KORJATTU: Ei ladata koko sovellusta uudelleen, vaan palataan siististi aloitusnäkymään.
                 appContainer.classList.add('hidden');
                 setupView.classList.add('hidden');
                 landingView.classList.remove('hidden');
 
             } catch (error) {
-                console.error("Error deleting all data: ", error);
+                console.error("Kausidatan poisto epäonnistui: ", error);
             }
         }
 
@@ -880,7 +926,7 @@
             playerRosterInput.value = rosterString;
         }
         
-        // --- Piirtäminen ja tilastojen päivitys (ei suuria muutoksia) ---
+        // --- Piirtäminen ja tilastojen päivitys ---
         function renderShots() {
             shotsLayer.innerHTML = '';
             const shotsToRender = currentGame.shots ? currentGame.shots.filter(shot =>
@@ -948,7 +994,7 @@
         function updatePlayerStats() {
             let tableHTML = `<h3 class="text-lg font-bold text-slate-100 text-center mb-3">Pelaajakohtaiset tilastot</h3>
                              <div class="grid grid-cols-5 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
-                                <span>Pelaaja</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span>
+                                 <span>Pelaaja</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span>
                              </div>`;
             
             currentGame.players.forEach(playerNum => {
@@ -962,8 +1008,8 @@
                     const balanceText = balance > 0 ? `+${balance}` : balance;
                     const playerName = currentGame.roster[playerNum] ? ` ${currentGame.roster[playerNum].split(' ')[0]}` : '';
                     tableHTML += `<div class="grid grid-cols-5 text-center text-sm text-slate-200 py-1 border-b border-slate-700">
-                                    <span class="font-bold text-left">#${playerNum}${playerName}</span><span>${playerShots.length}</span><span>${playerGoals}</span>
-                                    <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
+                                      <span class="font-bold text-left">#${playerNum}${playerName}</span><span>${playerShots.length}</span><span>${playerGoals}</span>
+                                      <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
                                   </div>`;
                 }
             });
@@ -976,7 +1022,7 @@
             
             let summaryHTML = `<h3 class="text-xl font-bold text-slate-100 text-center mb-3">+/- Saldo</h3>
                                <div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
-                                 <span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span>
+                                   <span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span>
                                </div>`;
             
             currentGame.players.forEach(pNum => {
@@ -986,10 +1032,10 @@
                 const playerName = currentGame.roster[pNum] ? ` ${currentGame.roster[pNum].split(' ')[0]}` : '';
 
                 summaryHTML += `<div class="grid grid-cols-4 text-center text-sm text-slate-200 py-2 border-b border-slate-700 items-center">
-                                  <span class="font-bold text-left truncate pr-2">#${pNum}${playerName}</span>
-                                  <button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500 cursor-pointer rounded-md hover:bg-slate-700">${stats.plus}</button>
-                                  <button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500 cursor-pointer rounded-md hover:bg-slate-700">${stats.minus}</button>
-                                  <span class="font-semibold text-lg">${balanceText}</span>
+                                    <span class="font-bold text-left truncate pr-2">#${pNum}${playerName}</span>
+                                    <button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500 cursor-pointer rounded-md hover:bg-slate-700">${stats.plus}</button>
+                                    <button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500 cursor-pointer rounded-md hover:bg-slate-700">${stats.minus}</button>
+                                    <span class="font-semibold text-lg">${balanceText}</span>
                                 </div>`;
             });
 
@@ -1027,7 +1073,7 @@
 
             let playerTable = `<h3 class="text-xl font-bold text-slate-100 mb-3">Kauden pelaajatilastot</h3>
                                <div class="grid grid-cols-6 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
-                                 <span>Pelaaja</span><span>Ott.</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span>
+                                   <span>Pelaaja</span><span>Ott.</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span>
                                </div>`;
             allPlayers.forEach(pNum => {
                 const stats = seasonPlayerStats[pNum];
@@ -1036,8 +1082,8 @@
                 const balanceText = balance > 0 ? `+${balance}` : balance;
                 const playerName = fullRoster[pNum] ? ` ${fullRoster[pNum]}` : '';
                 playerTable += `<div class="grid grid-cols-6 text-center text-sm text-slate-200 py-1.5 border-b border-slate-700">
-                                  <span class="font-bold text-left">#${pNum}${playerName}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span>
-                                  <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
+                                    <span class="font-bold text-left">#${pNum}${playerName}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span>
+                                    <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
                                 </div>`;
             });
 
@@ -1077,6 +1123,8 @@
                 </div>`;
             
             document.getElementById('new-game-from-season-btn').addEventListener('click', () => {
+                console.log("new-game-from-season-btn: Klikattu. Siirrytään asetusnäkymään kausidatasta.");
+                previousView = 'season';
                 appContainer.classList.add('hidden');
                 setupView.classList.remove('hidden');
                 opponentNameInput.value = '';
@@ -1106,7 +1154,7 @@
         }
 
         function generateShareableText() {
-            // Tämä funktio vaatisi datan muotoilun tekstiksi, toteutus myöhemmin.
+            // This function would need to format the data into text, implementation later.
             return "Kausidataa...";
         }
 
@@ -1144,9 +1192,9 @@
                     const balanceText = balance > 0 ? `+${balance}` : balance;
                     const playerName = game.roster[playerNum] ? ` ${game.roster[playerNum]}` : '';
                     playerStatsHTML += `<div class="grid grid-cols-5 text-center text-xs text-slate-300 py-1 border-b border-slate-700">
-                                        <span class="font-semibold text-left">#${playerNum}${playerName}</span><span>${playerShots.length}</span><span>${playerGoals}</span>
-                                        <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
-                                      </div>`;
+                                            <span class="font-semibold text-left">#${playerNum}${playerName}</span><span>${playerShots.length}</span><span>${playerGoals}</span>
+                                            <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
+                                        </div>`;
                 }
             });
 
@@ -1193,16 +1241,6 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
 
 
 
