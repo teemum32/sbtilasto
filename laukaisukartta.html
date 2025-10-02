@@ -169,7 +169,7 @@
         </div>
 
         <!-- Pääsovellus -->
-        <div id="main-app" class="hidden flex flex-col md:flex-row flex-grow overflow-hidden">
+        <div id="main-app" class="hidden flex flex-row flex-grow overflow-hidden">
             <!-- Sivupalkki pelaajille ja tilastoille -->
             <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col shrink-0 overflow-y-auto">
                 <div class="flex-grow">
@@ -228,8 +228,8 @@
                 </button>
             </div>
 
-            <!-- Pääsisältö: Kenttä - Lisätty min-w-0 estämään flexbox-kutistumista -->
-            <main class="flex-1 flex flex-col items-center justify-center p-4 bg-slate-200 overflow-hidden min-w-0">
+            <!-- Pääsisältö: Kenttä - Muokattu keskitystä siirtämään kenttää vasemmalle. -->
+            <main class="flex-1 flex flex-col items-center justify-center p-4 md:pr-32 bg-slate-200 overflow-hidden min-w-0">
                 <div class="text-slate-500 font-bold text-lg mb-1">Vieras</div>
                 <div id="field-container" class="relative w-auto max-w-full max-h-[85vh] aspect-[1/2] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
                     <svg class="w-full h-full" viewBox="0 0 200 400" preserveAspectRatio="xMidYMid meet">
@@ -1241,6 +1241,7 @@
     </script>
 </body>
 </html>
+
 
 
 
