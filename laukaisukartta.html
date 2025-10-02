@@ -358,9 +358,13 @@
                         await loadRosterFromFirestore();
                         listenForGames(); // Aloita pelien kuuntelu
                         
-                        landingView.style.display = 'flex';
-                        setupView.style.display = 'none';
-                        appContainer.style.display = 'none';
+                        // Korjattu: Estetään näkymän "välähtäminen" takaisin aloitussivulle,
+                        // jos käyttäjä on jo siirtynyt eteenpäin. Palautetaan aloitusnäkymä
+                        // vain, jos sekä asetus- että pelinäkymä ovat piilossa.
+                        if (setupView.style.display === 'none' && appContainer.style.display === 'none') {
+                           landingView.style.display = 'flex';
+                        }
+                        
                         viewSeasonDataBtn.disabled = seasonData.games.length === 0;
                     } else {
                         userId = null;
@@ -1118,6 +1122,7 @@
     </script>
 </body>
 </html>
+
 
 
 
