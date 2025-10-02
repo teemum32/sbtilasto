@@ -288,8 +288,8 @@
     <script type="module">
         // --- Firebase & Globaalit muuttujat ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Elementtiviittaukset ---
         const landingView = document.getElementById('landing-view');
@@ -396,6 +396,18 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+
+                // KORJAUS: Aktivoidaan offline-tuki.
+                // Tämä tekee sovelluksesta paljon vankemman ja estää "client is offline" -virheet.
+                try {
+                    await enableIndexedDbPersistence(db);
+                } catch (err) {
+                    if (err.code == 'failed-precondition') {
+                        console.warn("Firestore persistence voi olla päällä vain yhdessä välilehdessä.");
+                    } else if (err.code == 'unimplemented') {
+                        console.warn("Selain ei tue Firestore persistence -ominaisuutta.");
+                    }
+                }
 
                 authStatus.textContent = 'Yhdistetään tietokantaan...';
 
@@ -816,6 +828,8 @@
                 }
              } catch (error) {
                 console.error("Error loading roster: ", error);
+                // KORJAUS: Heitetään virhe eteenpäin, jotta se voidaan näyttää käyttäjälle.
+                throw error;
              }
         }
         
@@ -1179,6 +1193,7 @@
     </script>
 </body>
 </html>
+
 
 
 
