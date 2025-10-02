@@ -401,17 +401,17 @@
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        userId = user.uid;
-                        authStatus.textContent = `Käyttäjä: ${userId.substring(0, 8)}...`;
-                        await loadRosterFromFirestore();
-                        listenForGames(); // Aloita pelien kuuntelu
-                        
-                        // Korjattu: Estetään näkymän "välähtäminen" takaisin aloitussivulle,
-                        // jos käyttäjä on jo siirtynyt eteenpäin. Palautetaan aloitusnäkymä
-                        // vain, jos sekä asetus- että pelinäkymä ovat piilossa.
+                        // NÄYTÄ ALOITUSNÄKYMÄ HETI: Estää tyhjän ruudun näkymisen datan latauksen aikana.
                         if (setupView.classList.contains('hidden') && appContainer.classList.contains('hidden')) {
                            landingView.classList.remove('hidden');
                         }
+
+                        userId = user.uid;
+                        authStatus.textContent = `Käyttäjä: ${userId.substring(0, 8)}...`;
+                        
+                        // Ladataan data taustalla, kun näkymä on jo näkyvissä
+                        await loadRosterFromFirestore();
+                        listenForGames(); 
                         
                         viewSeasonDataBtn.disabled = seasonData.games.length === 0;
                     } else {
@@ -846,8 +846,11 @@
                 await deleteDoc(rosterDoc);
                 rosterData = {};
 
-                // onSnapshot päivittää pelilistan tyhjäksi, UI reagoi
-                onAppLoad(); // Ladataan sovellus uudelleen
+                // KORJATTU: Ei ladata koko sovellusta uudelleen, vaan palataan siististi aloitusnäkymään.
+                appContainer.classList.add('hidden');
+                setupView.classList.add('hidden');
+                landingView.classList.remove('hidden');
+
             } catch (error) {
                 console.error("Error deleting all data: ", error);
             }
@@ -1176,6 +1179,7 @@
     </script>
 </body>
 </html>
+
 
 
 
