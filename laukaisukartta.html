@@ -345,21 +345,21 @@
         function onAppLoad() {
             // Tarkistetaan, onko käyttäjä jo syöttänyt salasanan tässä istunnossa
             if (sessionStorage.getItem('isAuthenticated') === 'true') {
-                passwordView.style.display = 'none';
+                passwordView.classList.add('hidden');
                 startFirebaseApp();
             } else {
                 // Varmistetaan, että vain salasanakenttä on näkyvissä
-                landingView.style.display = 'none';
-                setupView.style.display = 'none';
-                appContainer.style.display = 'none';
-                passwordView.style.display = 'flex';
+                landingView.classList.add('hidden');
+                setupView.classList.add('hidden');
+                appContainer.classList.add('hidden');
+                passwordView.classList.remove('hidden');
             }
         }
 
         function checkPassword() {
             if (passwordInput.value === APP_PASSWORD) {
                 sessionStorage.setItem('isAuthenticated', 'true'); // Tallenna onnistuminen istuntoon
-                passwordView.style.display = 'none';
+                passwordView.classList.add('hidden');
                 startFirebaseApp(); // Käynnistä varsinainen sovellus
             } else {
                 passwordError.textContent = 'Väärä salasana.';
@@ -409,8 +409,8 @@
                         // Korjattu: Estetään näkymän "välähtäminen" takaisin aloitussivulle,
                         // jos käyttäjä on jo siirtynyt eteenpäin. Palautetaan aloitusnäkymä
                         // vain, jos sekä asetus- että pelinäkymä ovat piilossa.
-                        if (setupView.style.display === 'none' && appContainer.style.display === 'none') {
-                           landingView.style.display = 'flex';
+                        if (setupView.classList.contains('hidden') && appContainer.classList.contains('hidden')) {
+                           landingView.classList.remove('hidden');
                         }
                         
                         viewSeasonDataBtn.disabled = seasonData.games.length === 0;
@@ -433,20 +433,20 @@
         }
         
         startNewGameBtn.addEventListener('click', () => {
-            landingView.style.display = 'none';
-            setupView.style.display = 'flex';
+            landingView.classList.add('hidden');
+            setupView.classList.remove('hidden');
             prefillRosterInput();
         });
 
         viewSeasonDataBtn.addEventListener('click', () => {
-            landingView.style.display = 'none';
-            appContainer.style.display = 'flex';
+            landingView.classList.add('hidden');
+            appContainer.classList.remove('hidden');
             showView('season');
         });
 
         backToLandingBtn.addEventListener('click', () => {
-            setupView.style.display = 'none';
-            landingView.style.display = 'flex';
+            setupView.classList.add('hidden');
+            landingView.classList.remove('hidden');
         });
 
         function startNewGame(roster, opponentName) {
@@ -549,8 +549,8 @@
             await saveRosterToFirestore(newRoster);
             rosterData = newRoster;
 
-            setupView.style.display = 'none';
-            appContainer.style.display = 'flex';
+            setupView.classList.add('hidden');
+            appContainer.classList.remove('hidden');
             startNewGame(newRoster, opponentName);
         });
         
@@ -728,18 +728,18 @@
             const activeTab = document.querySelector(`.period-tab[data-period="${viewId}"]`);
             if(activeTab) activeTab.classList.add('active');
 
-            mainAppView.style.display = 'none';
-            plusMinusView.style.display = 'none';
-            seasonView.style.display = 'none';
+            mainAppView.classList.add('hidden');
+            plusMinusView.classList.add('hidden');
+            seasonView.classList.add('hidden');
 
             if (viewId === 'plus-minus') {
                 renderPlusMinusView();
-                plusMinusView.style.display = 'flex';
+                plusMinusView.classList.remove('hidden');
             } else if (viewId === 'season') {
                 renderSeasonStats(); // Tämä renderöi datan `seasonData`-muuttujasta
-                seasonView.style.display = 'flex';
+                seasonView.classList.remove('hidden');
             } else {
-                mainAppView.style.display = 'flex';
+                mainAppView.classList.remove('hidden');
                 currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId);
                 renderShots();
                 updateStats();
@@ -1014,7 +1014,7 @@
                 const playerName = fullRoster[pNum] ? ` ${fullRoster[pNum]}` : '';
                 playerTable += `<div class="grid grid-cols-6 text-center text-sm text-slate-200 py-1.5 border-b border-slate-700">
                                   <span class="font-bold text-left">#${pNum}${playerName}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span>
-                                  <span>{efficiency}</span><span class="font-semibold">{balanceText}</span>
+                                  <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
                                 </div>`;
             });
 
@@ -1054,8 +1054,8 @@
                 </div>`;
             
             document.getElementById('new-game-from-season-btn').addEventListener('click', () => {
-                appContainer.style.display = 'none';
-                setupView.style.display = 'flex';
+                appContainer.classList.add('hidden');
+                setupView.classList.remove('hidden');
                 opponentNameInput.value = '';
                 prefillRosterInput();
             });
@@ -1170,6 +1170,10 @@
     </script>
 </body>
 </html>
+
+
+
+
 
 
 
