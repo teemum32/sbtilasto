@@ -136,10 +136,9 @@
                     if (user) {
                         userId = user.uid;
                         userEmailDisplay.textContent = user.email;
-                        const savedGameJSON = sessionStorage.getItem('inProgressGame');
+                        const savedGameJSON = sessionStorage.getItem('inProgressGame-' + userId);
                         if(savedGameJSON) {
                             currentGame = JSON.parse(savedGameJSON);
-                            // Jos kesken oleva peli löytyy, näytä suoraan se
                             showMainView('app');
                             initializeGameUI();
                             addEventListeners();
@@ -150,7 +149,7 @@
                         }
                     } else {
                         userId = null; currentTeamId = null; currentGame = {};
-                        sessionStorage.removeItem('inProgressGame');
+                        sessionStorage.clear();
                         if(gamesUnsubscribe) gamesUnsubscribe();
                         if(teamsUnsubscribe) teamsUnsubscribe();
                         showMainView('auth');
@@ -165,7 +164,7 @@
             try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { authError.textContent = 'Kirjautuminen epäonnistui.'; }
         });
 
-        [logoutBtn, logoutBtnTeams].forEach(btn => btn.addEventListener('click', () => { sessionStorage.removeItem('inProgressGame'); signOut(auth); }));
+        [logoutBtn, logoutBtnTeams].forEach(btn => btn.addEventListener('click', () => { sessionStorage.removeItem('inProgressGame-' + userId); signOut(auth); }));
         
         document.getElementById('start-new-game-btn').addEventListener('click', () => {
             if (currentGame && currentGame.id) { showMainView('app'); } 
@@ -174,7 +173,7 @@
 
         document.getElementById('view-season-data-btn').addEventListener('click', () => { showMainView('app'); showView('season'); });
         document.getElementById('back-to-landing-btn').addEventListener('click', () => showMainView('landing'));
-        changeTeamBtn.addEventListener('click', () => { currentGame = {}; sessionStorage.removeItem('inProgressGame'); showMainView('teams'); });
+        changeTeamBtn.addEventListener('click', () => { currentGame = {}; sessionStorage.removeItem('inProgressGame-' + userId); showMainView('teams'); });
 
         createTeamBtn.addEventListener('click', async () => {
             const teamName = newTeamNameInput.value.trim();
@@ -239,7 +238,7 @@
             if (players.length === 0) { setupError.textContent = 'Kokoonpano tyhjä.'; showMainView('setup'); return; }
             currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
-            sessionStorage.setItem('inProgressGame', JSON.stringify(currentGame));
+            sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame));
             initializeGameUI(); addEventListeners(); showView(1);
         }
         
@@ -268,7 +267,7 @@
         }
         
         function addEventListeners() {
-            document.getElementById('save-game-button').addEventListener('click', () => showConfirmation('Tallenna ottelu?', 'Haluatko tallentaa nykyisen ottelun tiedot?', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore));
+            document.getElementById('save-game-button').addEventListener('click', () => showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun?', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore));
             document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
             document.getElementById('home-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
             document.getElementById('away-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
@@ -286,16 +285,16 @@
         function onPointerMove(e) { if (!ghostElement) return; e.preventDefault(); updateGhostPosition(e.pageX, e.pageY); }
         function onPointerUp(e) { if (!draggedElement || !ghostElement) return; ghostElement.style.display = 'none'; const dropTarget = document.elementFromPoint(e.clientX, e.clientY); ghostElement.style.display = ''; const fieldContainer = document.getElementById('field-container'); if (fieldContainer && fieldContainer.contains(dropTarget)) { const shotsLayer = document.getElementById('shots-layer'); const rect = shotsLayer.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y }; showOutcomeModal(e.clientX, e.clientY); } document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null; }
         function updateGhostPosition(x, y) { if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; } }
-        function onOutcomeSelect(e) { const target = e.target.closest('[data-outcome]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; currentGame.shots.push(newShot); sessionStorage.setItem('inProgressGame', JSON.stringify(currentGame)); hideOutcomeModal(); renderShots(); updateStats(); }
+        function onOutcomeSelect(e) { const target = e.target.closest('[data-outcome]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; currentGame.shots.push(newShot); sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame)); hideOutcomeModal(); renderShots(); updateStats(); }
         function onShotMarkerClick(e) { const target = e.target.closest('.shot-marker'); if (!target || draggedElement) { hideEditOutcomeModal(); return; } shotToEditId = Number(target.dataset.shotId); showEditOutcomeModal(e.clientX, e.clientY); }
-        function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; } sessionStorage.setItem('inProgressGame', JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
+        function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; } sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
         function showOutcomeModal(x, y) { hideEditOutcomeModal(); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
         function hideOutcomeModal() { outcomeModal.classList.add('hidden'); tempShotData = {}; }
         function showEditOutcomeModal(x, y) { hideOutcomeModal(); editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`; editOutcomeModal.classList.remove('hidden'); }
         function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
-        function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem('inProgressGame', JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
+        function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); currentGame = {}; sessionStorage.removeItem('inProgressGame'); showView('season'); } catch (error) {} }
+        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); currentGame = {}; sessionStorage.removeItem('inProgressGame-' + userId); showView('season'); } catch (error) {} }
         function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
         async function loadRosterFromFirestore() { if (!userId || !currentTeamId) return; try { const docSnap = await getDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = docSnap.exists() ? docSnap.data().players || {} : {}; } catch (error) {} }
@@ -348,9 +347,7 @@
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:10}, {wch:10}, {wch:10}]; for (let i = 2; i <= data.length; i++) { if(ws[`D${i}`]) { ws[`D${i}`].t = 'n'; ws[`D${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
-        // KORJATTU: Varmistetaan, että sovellus käynnistyy luotettavasti.
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
-
     </script>
 </body>
 </html>
