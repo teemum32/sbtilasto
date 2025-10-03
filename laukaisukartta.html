@@ -7,8 +7,19 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; overflow: hidden; }
-        .player-number { cursor: grab; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        /* KORJATTU: Sallitaan vieritys, mutta estetään se vain raahattavilla elementeillä */
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: pan-y; /* sallii pystysuuntaisen vierityksen */
+            -webkit-user-select: none; user-select: none;
+            overflow: auto; /* Sallii sisällön vierityksen tarvittaessa (esim. kausinäkymä) */
+        }
+        .player-number {
+            cursor: grab; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 1.2rem; border: 2px solid white; background-color: #020617; color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            touch-action: none; /* Estää selaimen oletustoiminnot vain tästä elementistä raahatessa */
+        }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         .shot-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; font-size: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: white; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; }
@@ -26,7 +37,6 @@
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
 
-    <!-- UUSI YKSINKERTAISTETTU RAKENNE -->
     <div id="password-view" class="h-full w-full flex items-center justify-center p-4">
         <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-2xl font-bold">Salasana vaaditaan</h1>
@@ -68,7 +78,8 @@
                 <div class="w-full md:w-64 bg-slate-900 p-4 shrink-0 overflow-y-auto order-last md:order-first">
                     <div class="flex-grow">
                         <h2 class="text-xl font-bold mb-4 text-center">Koti</h2>
-                        <div id="home-player-list" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-3 gap-4 mb-6"></div>
+                        <!-- KORJATTU: Pelaajalistan ruudukko -->
+                        <div id="home-player-list" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-3 mb-6"></div>
                         <h2 class="text-xl font-bold mb-4 text-center">Vieras</h2>
                         <div id="away-player-list" class="flex justify-center mb-6"></div>
                         <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
@@ -76,9 +87,10 @@
                     </div>
                     <button id="save-game-button" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded-lg">Tallenna</button>
                 </div>
+                <!-- KORJATTU: Kentän asettelu ja koko -->
                 <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0 order-first md:order-last">
                     <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
-                    <div id="field-container" class="relative max-w-full max-h-full aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800">
+                    <div id="field-container" class="relative w-full max-w-[1200px] aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800">
                         <svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg>
                         <div id="shots-layer" class="absolute inset-0"></div>
                     </div>
@@ -179,10 +191,11 @@
             else { showMainView('landing'); }
         });
 
-        function startNewGame(roster, opponentName) {
+        function startNewNewGame(roster, opponentName) {
             shotsLayer.innerHTML = '';
             const players = Object.keys(roster).map(Number).sort((a, b) => a - b);
-            currentGame = { id: Date.now(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
+            // KORJATTU: Lisätty päivämäärä
+            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
             initializePlayers(); initializePlusMinusView(); addEventListeners(); showView(1);
         }
@@ -236,37 +249,74 @@
         saveGameButton.addEventListener('click', () => showConfirmation('Tallenna ottelu?', 'Haluatko tallentaa nykyisen ottelun tiedot?', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore));
         document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
 
+        // KORJATTU: Vanhat tapahtumankuuntelijat poistettu ja korvattu Pointer Events -versioilla
         function addEventListeners() {
-            [homePlayerList, awayPlayerList].forEach(bar => { bar.addEventListener('mousedown', onDragStart); bar.addEventListener('touchstart', onDragStart, { passive: false }); });
-            document.body.addEventListener('mousemove', onDragMove); document.body.addEventListener('touchmove', onDragMove, { passive: false });
-            document.body.addEventListener('mouseup', onDragEnd); document.body.addEventListener('touchend', onDragEnd);
-            outcomeModal.addEventListener('click', onOutcomeSelect); editOutcomeModal.addEventListener('click', onEditOutcomeSelect);
-            shotsLayer.addEventListener('click', onShotMarkerClick); periodTabs.addEventListener('click', onPeriodChange);
-            plusMinusView.addEventListener('click', onPlusMinusClick); fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
+            [homePlayerList, awayPlayerList].forEach(bar => { bar.addEventListener('pointerdown', onPointerDown, { passive: false }); });
+            document.body.addEventListener('pointermove', onPointerMove, { passive: false });
+            document.body.addEventListener('pointerup', onPointerUp);
+
+            outcomeModal.addEventListener('click', onOutcomeSelect);
+            editOutcomeModal.addEventListener('click', onEditOutcomeSelect);
+            shotsLayer.addEventListener('click', onShotMarkerClick);
+
+            // KORJATTU: Varmistetaan, että tabit reagoivat luotettavasti
+            periodTabs.addEventListener('click', (e) => {
+                const btn = e.target.closest('button.period-tab');
+                if (btn) showView(btn.dataset.period);
+            });
+            periodTabs.addEventListener('pointerup', (e) => {
+                const btn = e.target.closest('button.period-tab');
+                if (btn) showView(btn.dataset.period);
+            });
+            
+            plusMinusView.addEventListener('click', onPlusMinusClick);
+            fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
+        }
+        
+        // KORJATTU: Uudet Pointer Event -käsittelijät
+        function onPointerDown(e) {
+            const target = e.target.closest('.player-number');
+            if (!target || !currentGame.id) return;
+            draggedElement = target;
+            ghostElement = target.cloneNode(true);
+            ghostElement.classList.add('dragging');
+            document.body.appendChild(ghostElement);
+            updateGhostPosition(e.pageX, e.pageY);
         }
 
-        function onDragStart(e) {
-            const target = e.target.closest('.player-number'); if (!target || !currentGame.id) return;
-            draggedElement = target; ghostElement = target.cloneNode(true);
-            ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement);
-            const touch = e.touches ? e.touches[0] : e; updateGhostPosition(touch.pageX, touch.pageY);
+        function onPointerMove(e) {
+            if (!ghostElement) return;
+            e.preventDefault();
+            updateGhostPosition(e.pageX, e.pageY);
         }
-        function onDragMove(e) { if (!ghostElement) return; e.preventDefault(); const touch = e.touches ? e.touches[0] : e; updateGhostPosition(touch.pageX, touch.pageY); }
-        function onDragEnd(e) {
+
+        function onPointerUp(e) {
             if (!draggedElement || !ghostElement) return;
-            const touch = e.changedTouches ? e.changedTouches[0] : e;
-            const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+            // Piilotetaan haamuelementti hetkeksi, jotta elementFromPoint ei osu siihen
+            ghostElement.style.display = 'none';
+            const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+            ghostElement.style.display = ''; // Palautetaan näkyviin
+
             if (fieldContainer.contains(dropTarget)) {
                 const rect = shotsLayer.getBoundingClientRect();
-                const x = ((touch.clientX - rect.left) / rect.width) * 100; const y = ((touch.clientY - rect.top) / rect.height) * 100;
-                tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y };
-                showOutcomeModal(touch.clientX, touch.clientY);
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                tempShotData = {
+                    player: draggedElement.textContent,
+                    team: draggedElement.classList.contains('away-player') ? 'away' : 'home',
+                    x, y
+                };
+                showOutcomeModal(e.clientX, e.clientY);
             }
-            document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null;
+            document.body.removeChild(ghostElement);
+            ghostElement = null;
+            draggedElement = null;
         }
+
         function updateGhostPosition(x, y) { if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; } }
+        
         function onOutcomeSelect(e) {
-            const target = e.target.closest('.outcome-btn'); if (!target) return;
+            const target = e.target.closest('[data-outcome]'); if (!target) return;
             const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) };
             currentGame.shots.push(newShot);
             hideOutcomeModal(); renderShots(); updateStats();
@@ -276,7 +326,7 @@
             const target = e.target; if (!shotToEditId) return;
             const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return;
             if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } 
-            else if (target.closest('.edit-outcome-btn')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; }
+            else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; }
             hideEditOutcomeModal(); renderShots(); updateStats();
         }
         function showOutcomeModal(x, y) { hideEditOutcomeModal(); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
@@ -296,7 +346,9 @@
             renderPlusMinusSummary();
         }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        function onPeriodChange(e) { const target = e.target.closest('.period-tab'); if (target) showView(target.dataset.period); }
+        
+        // --- Loput apufunktiot pysyvät pääosin ennallaan ---
+        
         async function saveAndEndGameInFirestore() { if (!userId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'artifacts', 'default-app-id', 'users', userId, 'games'), gameToSave); showView('season'); } catch (error) { console.error("Pelin tallennus epäonnistui: ", error); } }
         function listenForGames() { if (!userId) return; gamesUnsubscribe(); const q = query(collection(db, 'artifacts', 'default-app-id', 'users', userId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId) await setDoc(doc(db, 'artifacts', 'default-app-id', 'users', userId, 'roster', 'main'), { players: roster }); }
