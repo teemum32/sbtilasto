@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lisätty SheetJS-kirjasto Excel-tiedostojen luomiseen -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
@@ -233,7 +235,115 @@
         function getGameStats(game) { let s = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0 }}; game.shots.forEach(shot => { const shooter = s[shot.team], opponent = s[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); return s; }
         function generateGameDetailsHTML(game) { const gameStats = getGameStats(game); let html = ''; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); html += `<div class="grid grid-cols-5 text-center text-xs py-1 border-b border-slate-700"><span class="font-semibold text-left">#${pNum} ${game.roster[pNum]||''}</span><span>${shots.length}</span><span>${goals}</span><span>${eff}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); return `<div class="space-y-3"><div><p class="font-semibold text-sm">Joukkueet</p><div class="text-xs text-slate-400 mt-1"><p><b>Koti:</b> L ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, T ${gameStats.home.saves}, B ${gameStats.home.blocks}</p><p><b>Vieras:</b> L ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, T ${gameStats.away.saves}, B ${gameStats.away.blocks}</p></div></div><div><p class="font-semibold text-sm mt-3">Pelaajat</p><div class="grid grid-cols-5 text-center font-bold text-xs text-slate-400 mt-2 px-1"><span>Nimi</span><span>L</span><span>M</span><span>T%</span><span>+/-</span></div>${html}</div></div>`; }
         function showConfirmation(title, text, btnText, btnClass, callback) { const confirmTitle = document.getElementById('confirm-title'), confirmText = document.getElementById('confirm-text'), btn = document.getElementById('confirm-btn'); confirmTitle.textContent = title; confirmText.textContent = text; btn.textContent = btnText; btn.className = `px-6 py-2 rounded-lg text-white font-semibold ${btnClass}`; const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn); newBtn.addEventListener('click', () => { callback(); confirmModal.classList.add('hidden'); }); confirmModal.classList.remove('hidden'); }
-        function shareDataByEmail(){ alert("Toteutetaan myöhemmin"); }
+        
+        // --- UUSI DATAN JAKAMISEN LOGIIKKA ---
+        function shareDataByEmail() {
+            if (seasonData.games.length === 0) return;
+
+            // 1. Laske ja muotoile kaikki kausidata
+            const { playerStats, fullRoster, allPlayers } = calculateSeasonStats();
+
+            // 2. Luo tekstiversio sähköpostin bodyyn
+            const textBody = generateShareableText(playerStats, fullRoster, allPlayers);
+            
+            // 3. Luo ja lataa XLSX-tiedosto
+            generateAndDownloadXLSX(playerStats, fullRoster, allPlayers);
+
+            // 4. Avaa sähköpostiohjelma
+            const subject = "Salibandykauden tilastokooste";
+            const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody)}`;
+            window.location.href = mailtoLink;
+        }
+
+        function calculateSeasonStats() {
+            const fullRoster = {};
+            seasonData.games.forEach(g => Object.assign(fullRoster, g.roster));
+            const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players))].sort((a, b) => a - b);
+            const seasonPlayerStats = {};
+            allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 }; });
+            seasonData.games.forEach(game => {
+                game.players.forEach(pNum => { if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++; });
+                game.shots.forEach(shot => {
+                    if (shot.team === 'home' && seasonPlayerStats[shot.player]) {
+                        seasonPlayerStats[shot.player].shots++;
+                        if (shot.outcome === 'goal') seasonPlayerStats[shot.player].goals++;
+                    }
+                });
+                Object.keys(game.plusMinus).forEach(pNum => {
+                    if (seasonPlayerStats[pNum]) {
+                        seasonPlayerStats[pNum].plus += game.plusMinus[pNum].plus;
+                        seasonPlayerStats[pNum].minus += game.plusMinus[pNum].minus;
+                    }
+                });
+            });
+            return { playerStats: seasonPlayerStats, fullRoster, allPlayers };
+        }
+
+        function generateShareableText(playerStats, fullRoster, allPlayers) {
+            let text = "KAUDEN YHTEENVETO\n\n";
+            text += "Pelaajatilastot:\n";
+            text += "Pelaaja\tOtt.\tLauk.\tMaalit\tTeho %\t+/-\n";
+            text += "--------------------------------------------------\n";
+            allPlayers.forEach(pNum => {
+                const stats = playerStats[pNum];
+                const efficiency = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—';
+                const balance = stats.plus - stats.minus;
+                const playerName = `#${pNum} ${fullRoster[pNum] || ''}`;
+                text += `${playerName}\t${stats.games}\t${stats.shots}\t${stats.goals}\t${efficiency}\t${balance > 0 ? '+' : ''}${balance}\n`;
+            });
+
+            text += "\n\nOttelukooste:\n";
+            text += "--------------------------------------------------\n";
+            seasonData.games.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(game => {
+                const s = getGameStats(game);
+                text += `${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent} | Tulos: ${s.home.goals} - ${s.away.goals}\n`;
+            });
+            
+            text += "\n\n---\nLataa sähköpostin liitteeksi juuri laitteellesi tallentunut 'kausitilastot.xlsx'-tiedosto.";
+            return text;
+        }
+
+        function generateAndDownloadXLSX(playerStats, fullRoster, allPlayers) {
+            // Pelaajadata
+            const playerData = [["Pelaaja", "Ottelut", "Laukaukset", "Maalit", "Teho %", "+/-"]];
+            allPlayers.forEach(pNum => {
+                const stats = playerStats[pNum];
+                const efficiency = stats.shots > 0 ? (stats.goals / stats.shots) : 0;
+                const balance = stats.plus - stats.minus;
+                playerData.push([`#${pNum} ${fullRoster[pNum] || ''}`, stats.games, stats.shots, stats.goals, efficiency, balance]);
+            });
+
+            // Otteludata
+            const gameData = [["Päivämäärä", "Vastustaja", "Koti Maalit", "Vieras Maalit"]];
+            seasonData.games.forEach(game => {
+                const s = getGameStats(game);
+                gameData.push([new Date(game.date).toLocaleDateString('fi-FI'), game.opponent, s.home.goals, s.away.goals]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const wsPlayers = XLSX.utils.aoa_to_sheet(playerData);
+            // Muotoillaan tehoprosentti Excelissä
+            wsPlayers['!cols'] = [{wch:20}, {wch:10}, {wch:10}, {wch:10}, {wch:10}, {wch:10}];
+            for (let i = 2; i <= playerData.length; i++) {
+                wsPlayers[`E${i}`].t = 'n';
+                wsPlayers[`E${i}`].z = '0%';
+            }
+
+            const wsGames = XLSX.utils.aoa_to_sheet(gameData);
+            wsGames['!cols'] = [{wch:15}, {wch:20}, {wch:15}, {wch:15}];
+
+            XLSX.utils.book_append_sheet(wb, wsPlayers, "Pelaajatilastot");
+            XLSX.utils.book_append_sheet(wb, wsGames, "Ottelukooste");
+
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'kausitilastot.xlsx';
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
 
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
     </script>
