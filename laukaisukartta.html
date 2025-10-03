@@ -7,8 +7,26 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
-        .player-number { cursor: grab; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
+        /* Yleiset tyylit ja varmistukset mobiilikäyttöön */
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: pan-y; /* sallii pystysuuntaisen vierityksen */
+            -webkit-user-select: none; user-select: none;
+            overflow: auto; /* Sallii sisällön vierityksen tarvittaessa (esim. kausinäkymä) */
+        }
+        .player-number {
+            cursor: grab;
+            /* KORJATTU: Pienennetty pelaajaympyröitä */
+            width: 40px;
+            height: 40px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+            /* KORJATTU: Pienennetty fonttikokoa */
+            font-size: 1rem;
+            border: 2px solid white; background-color: #020617; color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            touch-action: none; /* Estää selaimen oletustoiminnot vain tästä elementistä raahatessa */
+        }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         .shot-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; font-size: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: white; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; }
@@ -64,20 +82,20 @@
     <div id="app-container" class="h-full w-full hidden flex-col">
         <div id="period-tabs" class="bg-slate-800 p-2 flex justify-center gap-1 md:gap-2 shrink-0 flex-wrap"></div>
         <div class="flex-1 min-h-0 relative">
-            <div id="main-app" class="absolute inset-0 hidden"></div>
-            <div id="plus-minus-view" class="absolute inset-0 hidden"></div>
-            <div id="season-view" class="absolute inset-0 hidden"></div>
-        </div>
-    </div>
-    
-    <div id="outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
-    <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"></div>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+            <!-- KORJATTU: Vaihdettu CSS Gridiin luotettavamman ja selainyhteensopivamman asettelun vuoksi -->
+            <div id="main-app" class="absolute inset-0 grid grid-cols-1 md:grid-cols-[256px,1fr]">
+                <!-- Sivupalkki pelaajille ja tilastoille -->
+                <div class="bg-slate-900 text-slate-200 p-4 flex flex-col overflow-y-auto order-last md:order-first">
+                    <div id="sidebar-content" class="flex-grow"></div>
+                    <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
+                </div>
+                <!-- Pääsisältö: Kenttä -->
+                <main class="flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0 order-first md:order-last">
+                    <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
+                </main>
+            </div>
+            <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
+            <div id="season-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
 
         // --- Alustus ja globaalit muuttujat ---
         const allViews = { auth: document.getElementById('auth-view'), landing: document.getElementById('landing-view'), setup: document.getElementById('setup-view'), app: document.getElementById('app-container') };
@@ -244,5 +262,7 @@
     </script>
 </body>
 </html>
+
+
 
 
