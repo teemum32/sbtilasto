@@ -79,6 +79,7 @@
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- Alustus ja globaalit muuttujat ---
         const allViews = { auth: document.getElementById('auth-view'), landing: document.getElementById('landing-view'), setup: document.getElementById('setup-view'), app: document.getElementById('app-container') };
         const emailInput = document.getElementById('email-input'), passwordInput = document.getElementById('password-input');
         const loginBtn = document.getElementById('login-btn'), registerBtn = document.getElementById('register-btn'), logoutBtn = document.getElementById('logout-btn');
@@ -93,18 +94,15 @@
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
         const ALLOWED_DOMAIN = "topteamsalibandy.net";
 
-        function showMainView(viewName) {
-            Object.values(allViews).forEach(v => v.classList.add('hidden'));
-            allViews[viewName].classList.remove('hidden');
-            allViews[viewName].classList.add('flex');
-        }
+        // --- Funktiot ---
+        function showMainView(viewName) { Object.values(allViews).forEach(v => v.classList.add('hidden')); allViews[viewName].classList.remove('hidden'); allViews[viewName].classList.add('flex'); }
 
-        function startFirebaseApp() {
+        async function startFirebaseApp() {
             try {
                 const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app); auth = getAuth(app);
-                try { enableIndexedDbPersistence(db); } catch (err) {}
+                try { await enableIndexedDbPersistence(db); } catch (err) {}
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
@@ -112,11 +110,7 @@
                         await loadRosterFromFirestore();
                         listenForGames(); 
                         showMainView('landing');
-                    } else {
-                        userId = null;
-                        if(gamesUnsubscribe) gamesUnsubscribe();
-                        showMainView('auth');
-                    }
+                    } else { userId = null; if(gamesUnsubscribe) gamesUnsubscribe(); showMainView('auth'); }
                 });
             } catch (error) { document.body.innerHTML = `<div class="p-8 text-center">Yhteys epäonnistui: ${error.message}</div>`; }
         }
@@ -144,8 +138,7 @@
         });
         
         function parseRosterTextarea(value) {
-            const roster = {};
-            const matches = value.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
+            const roster = {}; const matches = value.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
             for (const match of matches) {
                 const num = Number(match[1]);
                 if (!isNaN(num)) roster[num] = (match[2] || '').trim();
@@ -155,8 +148,7 @@
         }
 
         startButton.addEventListener('click', async () => {
-            setupError.textContent = '';
-            const opponentName = opponentNameInput.value.trim();
+            setupError.textContent = ''; const opponentName = opponentNameInput.value.trim();
             if (!opponentName) { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
             let newRoster = {};
             try { newRoster = parseRosterTextarea(playerRosterInput.value); } 
@@ -219,6 +211,7 @@
             document.getElementById('field-container').addEventListener('contextmenu', e => e.preventDefault());
         }
         
+        // --- Loput apufunktiot pysyvät pääosin ennallaan ---
         function onPointerDown(e) { const target = e.target.closest('.player-number'); if (!target || !currentGame.id) return; draggedElement = target; ghostElement = target.cloneNode(true); ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement); updateGhostPosition(e.pageX, e.pageY); }
         function onPointerMove(e) { if (!ghostElement) return; e.preventDefault(); updateGhostPosition(e.pageX, e.pageY); }
         function onPointerUp(e) { if (!draggedElement || !ghostElement) return; ghostElement.style.display = 'none'; const dropTarget = document.elementFromPoint(e.clientX, e.clientY); ghostElement.style.display = ''; const fieldContainer = document.getElementById('field-container'); if (fieldContainer && fieldContainer.contains(dropTarget)) { const shotsLayer = document.getElementById('shots-layer'); const rect = shotsLayer.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y }; showOutcomeModal(e.clientX, e.clientY); } document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null; }
@@ -251,11 +244,7 @@
         function showConfirmation(title, text, btnText, btnClass, callback) { const confirmTitle = document.getElementById('confirm-title'), confirmText = document.getElementById('confirm-text'), btn = document.getElementById('confirm-btn'); confirmTitle.textContent = title; confirmText.textContent = text; btn.textContent = btnText; btn.className = `px-6 py-2 rounded-lg text-white font-semibold ${btnClass}`; const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn); newBtn.addEventListener('click', () => { callback(); confirmModal.classList.add('hidden'); }); confirmModal.classList.remove('hidden'); }
         function shareDataByEmail(){ alert("Toteutetaan myöhemmin"); }
 
-        function onAppLoad() {
-            startFirebaseApp();
-        }
-        
-        window.addEventListener('DOMContentLoaded', onAppLoad);
+        window.addEventListener('DOMContentLoaded', startFirebaseApp);
     </script>
 </body>
 </html>
