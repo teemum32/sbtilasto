@@ -45,7 +45,7 @@
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold mb-4">Uusi ottelu</h1>
             <input id="opponent-name-input" name="opponent-name" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center mb-4" placeholder="Vastustajan nimi">
-            <textarea id="player-roster-input" name="player-roster" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm font-mono" placeholder="7 Matti Meikäläinen..."></textarea>
+            <textarea id="player-roster-input" name="player-roster" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm font-mono" placeholder="Syötä pelaajanumerot, esim: 7 Matti, 10, 12, 21..."></textarea>
             <p id="setup-error" class="text-red-500 text-sm mt-2 h-5"></p>
             <button id="start-button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita merkintä</button>
             <button id="back-to-landing-btn" class="mt-2 w-full text-slate-400 hover:text-slate-200 font-semibold py-2">Takaisin</button>
@@ -111,9 +111,8 @@
         let gamesUnsubscribe = () => {}, previousView = 'landing';
 
         function showMainView(viewName) {
-            Object.values(allViews).forEach(v => v.classList.add('hidden'));
+            Object.values(allViews).forEach(v => v.classList.add('hidden', 'flex'));
             allViews[viewName].classList.remove('hidden');
-            allViews[viewName].classList.add('flex');
         }
 
         function onAppLoad() {
@@ -159,41 +158,79 @@
             else { showMainView('landing'); }
         });
         
+        // KORJATTU: Rosterin parsinta tehty kestävämmäksi
         function parseRosterTextarea(value) {
             const roster = {};
-            value.split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach((line, idx) => {
-                const m = line.match(/^(\d{1,3})\s*(.*)$/);
-                if (!m) throw new Error(`Rivi ${idx + 1} ei kelpaa.`);
-                roster[Number(m[1])] = (m[2] || '').trim();
+            // Sallitaan sekä Windows (\r\n) että iOS/Mac (\n), nollataan turhat välit
+            const lines = value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+            lines.forEach((line, idx) => {
+                // Hyväksyy muodot: "7 Matti Meikäläinen" tai "7" tai "7, 8, 9"
+                const numbersOnLine = line.match(/\d{1,3}/g) || [];
+                
+                if (numbersOnLine.length === 1) {
+                    const num = Number(numbersOnLine[0]);
+                    const name = line.replace(numbersOnLine[0], '').replace(/,/g, '').trim();
+                    roster[num] = name;
+                } else if (numbersOnLine.length > 1) {
+                    numbersOnLine.forEach(numStr => {
+                        const num = Number(numStr);
+                        if (!roster.hasOwnProperty(num)) {
+                            roster[num] = '';
+                        }
+                    });
+                }
             });
+            
+            if (Object.keys(roster).length === 0) {
+                throw new Error("Syötteestä ei löytynyt pelaajanumeroita.");
+            }
             return roster;
         }
 
         startButton.addEventListener('click', async () => {
             setupError.textContent = '';
             const opponentName = opponentNameInput.value.trim();
-            if (!opponentName) { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
+            if (!opponentName) {
+                setupError.textContent = 'Syötä vastustajan nimi.';
+                return;
+            }
             let newRoster = {};
-            try { newRoster = parseRosterTextarea(playerRosterInput.value); } 
-            catch (err) { setupError.textContent = err.message; return; }
-            if (Object.keys(newRoster).length === 0) { setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
+            try {
+                newRoster = parseRosterTextarea(playerRosterInput.value);
+            } catch (err) {
+                setupError.textContent = err.message || 'Virheellinen syöte pelaajalistassa.';
+                return;
+            }
+            if (Object.keys(newRoster).length === 0) {
+                setupError.textContent = 'Syötä vähintään yksi pelaaja.';
+                return;
+            }
             await saveRosterToFirestore(newRoster);
-            rosterData = newRoster; playerRosterInput.value = '';
-            showMainView('app'); startNewGame(newRoster, opponentName);
+            rosterData = newRoster;
+            playerRosterInput.value = ''; // Tyhjennetään kenttä
+            showMainView('app');
+            startNewGame(newRoster, opponentName);
         });
 
         function startNewGame(roster, opponentName) {
-            const players = Object.keys(roster).map(Number).filter(n => !isNaN(n)).sort((a,b) => a-b);
-            if (players.length === 0) { setupError.textContent = 'Kokoonpano tyhjä.'; showMainView('setup'); return; }
+            const players = Object.keys(roster).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+            if (players.length === 0) {
+                setupError.textContent = 'Kokoonpano tyhjä. Tarkista syöte.';
+                showMainView('setup');
+                return;
+            }
             currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
-            initializeGameUI(); addEventListeners(); showView(1);
+            initializeGameUI();
+            addEventListeners();
+            showView(1);
         }
-
+        
         function initializeGameUI() {
             sidebarContent.innerHTML = `
                 <h2 class="text-xl font-bold mb-4 text-center">Koti</h2>
-                <div id="home-player-list" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-3 mb-6"></div>
+                <div id="home-player-list" class="grid grid-cols-3 gap-3 mb-6"></div>
                 <h2 class="text-xl font-bold mb-4 text-center">Vieras</h2>
                 <div id="away-player-list" class="flex justify-center mb-6"></div>
                 <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
@@ -207,7 +244,10 @@
                 <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>`;
             
             const homePlayerList = document.getElementById('home-player-list');
-            if (!currentGame?.players?.length) { homePlayerList.innerHTML = `<div class="text-sm text-slate-400 col-span-3">Ei pelaajia.</div>`; return; }
+            if (!currentGame?.players?.length) {
+                homePlayerList.innerHTML = `<div class="text-sm text-slate-400 col-span-3">Ei pelaajia.</div>`;
+                return;
+            }
             currentGame.players.forEach(number => { const p = document.createElement('div'); p.className = 'player-number'; p.textContent = number; homePlayerList.appendChild(p); });
             const awayPlayerList = document.getElementById('away-player-list');
             const away = document.createElement('div'); away.className = 'player-number away-player'; away.textContent = 'V'; awayPlayerList.appendChild(away);
@@ -255,7 +295,7 @@
             ghostElement.style.display = 'none';
             const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
             ghostElement.style.display = '';
-            if (document.getElementById('field-container').contains(dropTarget)) {
+            if (document.getElementById('field-container')?.contains(dropTarget)) {
                 const rect = document.getElementById('shots-layer').getBoundingClientRect();
                 const x = ((e.clientX - rect.left) / rect.width) * 100;
                 const y = ((e.clientY - rect.top) / rect.height) * 100;
