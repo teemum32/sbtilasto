@@ -128,7 +128,7 @@
         </div>
     </div>
 
-    <!-- Aloitusvalikko (piilotettu aluksi) -->
+    <!-- Aloitusvalikko (piilotettu aluksi) - KORJATTU: flex lisätty varmistamaan keskitys -->
     <div id="landing-view" class="hidden w-full flex flex-col items-center justify-center h-full p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold text-slate-100 mb-2">Tilastotyökalu</h1>
@@ -142,7 +142,7 @@
     </div>
 
 
-    <!-- Pelaajien valintanäkymä -->
+    <!-- Pelaajien valintanäkymä - KORJATTU: flex lisätty varmistamaan keskitys -->
     <div id="setup-view" class="hidden w-full flex flex-col items-center justify-center h-full p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold text-slate-100 mb-4">Uusi ottelu</h1>
@@ -168,10 +168,10 @@
             <button data-period="season" class="period-tab">Kausi</button>
         </div>
 
-        <!-- Pääsovellus -->
-        <div id="main-app" class="hidden flex flex-row flex-grow overflow-hidden">
-            <!-- Sivupalkki pelaajille ja tilastoille -->
-            <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col shrink-0 overflow-y-auto">
+        <!-- Pääsovellus - KORJATTU: min-h-0 korjaa Safarin ylivuoto-ongelman -->
+        <div id="main-app" class="hidden flex-1 flex flex-row min-h-0">
+            <!-- Sivupalkki pelaajille ja tilastoille - KORJATTU: flex-shrink-0 varmistaa leveyden -->
+            <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col flex-shrink-0 overflow-y-auto">
                 <div class="flex-grow">
                     <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Koti</h2>
                     <div id="home-player-list" class="grid grid-cols-4 md:grid-cols-3 gap-4 mb-6">
@@ -228,33 +228,31 @@
                 </button>
             </div>
 
-            <!-- Pääsisältö: Kenttä - Korjattu selainyhteensopivuusongelma ja asettelu -->
-            <main class="flex-1 p-4 bg-slate-200 overflow-hidden min-w-0">
-                 <div class="w-full h-full flex items-center justify-center gap-4">
-                    <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
-                    <div id="field-container" class="relative h-full w-auto aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
-                        <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
-                            <!-- Uudet vaakasuuntaiset viivat -->
-                            <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
-                            <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                            <line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/>
-                            <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                            <line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/>
-                        </svg>
-                        <div id="shots-layer" class="absolute top-0 left-0 w-full h-full"></div>
-                    </div>
-                    <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>
+            <!-- Pääsisältö: Kenttä - KORJATTU: Yksinkertaistettu ja luotettava asettelu -->
+            <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
+                <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
+                <div id="field-container" class="relative max-w-full max-h-full aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
+                    <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
+                        <!-- Uudet vaakasuuntaiset viivat -->
+                        <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/>
+                        <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/>
+                    </svg>
+                    <div id="shots-layer" class="absolute top-0 left-0 w-full h-full"></div>
                 </div>
+                <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>
             </main>
         </div>
         
-        <!-- Plus/Miinus -näkymä -->
-        <div id="plus-minus-view" class="hidden flex flex-grow p-4 bg-slate-200 overflow-y-auto">
+        <!-- Plus/Miinus -näkymä - KORJATTU: Lisätty flex-1 ja min-h-0 yhdenmukaisuuden vuoksi -->
+        <div id="plus-minus-view" class="hidden flex-1 min-h-0 p-4 bg-slate-200 overflow-y-auto">
             <!-- Sisältö luodaan JS:llä -->
         </div>
 
-        <!-- Kausikooste-näkymä -->
-        <div id="season-view" class="hidden flex flex-grow p-4 bg-slate-200 overflow-y-auto">
+        <!-- Kausikooste-näkymä - KORJATTU: Lisätty flex-1 ja min-h-0 yhdenmukaisuuden vuoksi -->
+        <div id="season-view" class="hidden flex-1 min-h-0 p-4 bg-slate-200 overflow-y-auto">
             <!-- Sisältö luodaan JS:llä -->
         </div>
     </div>
@@ -1254,6 +1252,7 @@
     </script>
 </body>
 </html>
+
 
 
 
