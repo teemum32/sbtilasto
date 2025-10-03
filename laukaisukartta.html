@@ -228,23 +228,21 @@
                 </button>
             </div>
 
-            <!-- Pääsisältö: Kenttä - Suurennettu ja siirretty vasemmalle -->
-            <main class="flex-1 flex items-center justify-start p-4 bg-slate-200 overflow-hidden min-w-0">
-                <div class="flex items-center gap-4 h-full w-full">
-                    <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
-                    <div id="field-container" class="relative max-w-full max-h-full aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
-                        <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
-                            <!-- Uudet vaakasuuntaiset viivat -->
-                            <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
-                            <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                            <line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/>
-                            <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                            <line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/>
-                        </svg>
-                        <div id="shots-layer" class="absolute top-0 left-0 w-full h-full"></div>
-                    </div>
-                    <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>
+            <!-- Pääsisältö: Kenttä - Korjattu selainyhteensopivuusongelma -->
+            <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 overflow-hidden min-w-0">
+                <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
+                <div id="field-container" class="relative h-full w-auto aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
+                    <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
+                        <!-- Uudet vaakasuuntaiset viivat -->
+                        <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                        <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/>
+                        <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/>
+                    </svg>
+                    <div id="shots-layer" class="absolute top-0 left-0 w-full h-full"></div>
                 </div>
+                <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>
             </main>
         </div>
         
@@ -1252,6 +1250,7 @@
     </script>
 </body>
 </html>
+
 
 
 
