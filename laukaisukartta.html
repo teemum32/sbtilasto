@@ -334,7 +334,37 @@
 
         function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); currentGame = {}; sessionStorage.removeItem(`inProgressGame-${userId}`); showView('season'); } catch (error) {} }
+        
+        async function saveAndEndGameInFirestore() {
+            if (!userId || !currentTeamId || !currentGame.id) return;
+            try {
+                const gameToSave = { ...currentGame };
+                delete gameToSave.id; // Poistetaan väliaikainen client-ID
+                await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave);
+                
+                sessionStorage.removeItem(`inProgressGame-${userId}`); // Poistetaan selaimen muistista
+                
+                // Lukitaan käyttöliittymä tallennuksen jälkeen
+                const saveButton = document.getElementById('save-game-button');
+                if (saveButton) {
+                    saveButton.disabled = true;
+                    saveButton.textContent = 'Tallennettu';
+                    saveButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    saveButton.classList.add('bg-gray-500', 'cursor-not-allowed');
+                }
+                const sidebar = document.getElementById('sidebar-content');
+                if (sidebar) {
+                    sidebar.querySelector('#home-player-list').style.pointerEvents = 'none';
+                    sidebar.querySelector('#away-player-list').style.pointerEvents = 'none';
+                }
+                 // Merkitään peli "vain luku" -tilaan, jotta sitä ei voi enää muokata
+                currentGame.isReadOnly = true;
+
+            } catch (error) {
+                console.error("Pelin tallennus epäonnistui:", error);
+            }
+        }
+
         function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
         async function loadRosterFromFirestore() { if (!userId || !currentTeamId) return; try { const docSnap = await getDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = docSnap.exists() ? docSnap.data().players || {} : {}; } catch (error) {} }
@@ -399,6 +429,7 @@
     </script>
 </body>
 </html>
+
 
 
 
