@@ -295,7 +295,16 @@
         function onQualitySelect(e) { const target = e.target.closest('[data-quality]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, quality: target.dataset.quality, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; delete newShot.clientX; delete newShot.clientY; currentGame.shots.push(newShot); sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideQualityModal(); renderShots(); updateStats(); }
         function onShotMarkerClick(e) { const target = e.target.closest('.shot-marker'); if (!target || draggedElement) { hideEditOutcomeModal(); return; } shotToEditId = Number(target.dataset.shotId); showEditOutcomeModal(e.clientX, e.clientY); }
         function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; delete currentGame.shots[shotIndex].quality; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
-        function showOutcomeModal(x, y) { hideEditOutcomeModal(); hideQualityModal(); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
+        
+        function showOutcomeModal(x, y) {
+            hideEditOutcomeModal();
+            // KORJATTU: Poistettu virheellinen kutsu, joka nollasi koordinaatit.
+            // hideQualityModal(); 
+            outcomeModal.style.left = `${x}px`;
+            outcomeModal.style.top = `${y}px`;
+            outcomeModal.classList.remove('hidden');
+        }
+
         function hideOutcomeModal() { outcomeModal.classList.add('hidden'); }
         function showQualityModal(x, y) { hideOutcomeModal(); qualityModal.style.left = `${x}px`; qualityModal.style.top = `${y}px`; qualityModal.classList.remove('hidden'); }
         function hideQualityModal() { qualityModal.classList.add('hidden'); tempShotData = {}; }
@@ -362,4 +371,5 @@
     </script>
 </body>
 </html>
+
 
