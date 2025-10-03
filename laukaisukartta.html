@@ -31,9 +31,9 @@
                 <input id="password-input" name="password" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="salasana">
             </div>
             <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
-            <div class="grid grid-cols-2 gap-4 mt-4">
-                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">Kirjaudu</button>
-                <button id="register-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg">Rekisteröidy</button>
+            <!-- KORJATTU: Poistettu rekisteröitymispainike ja keskitetty kirjautumispainike -->
+            <div class="mt-4">
+                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">Kirjaudu sisään</button>
             </div>
         </div>
     </div>
@@ -82,7 +82,7 @@
         // --- Alustus ja globaalit muuttujat ---
         const allViews = { auth: document.getElementById('auth-view'), landing: document.getElementById('landing-view'), setup: document.getElementById('setup-view'), app: document.getElementById('app-container') };
         const emailInput = document.getElementById('email-input'), passwordInput = document.getElementById('password-input');
-        const loginBtn = document.getElementById('login-btn'), registerBtn = document.getElementById('register-btn'), logoutBtn = document.getElementById('logout-btn');
+        const loginBtn = document.getElementById('login-btn'), logoutBtn = document.getElementById('logout-btn');
         const authError = document.getElementById('auth-error'), userEmailDisplay = document.getElementById('user-email');
         const opponentNameInput = document.getElementById('opponent-name-input'), playerRosterInput = document.getElementById('player-roster-input'), startButton = document.getElementById('start-button'), setupError = document.getElementById('setup-error');
         const periodTabs = document.getElementById('period-tabs'), mainAppView = document.getElementById('main-app'), plusMinusView = document.getElementById('plus-minus-view'), seasonView = document.getElementById('season-view');
@@ -115,12 +115,8 @@
             } catch (error) { document.body.innerHTML = `<div class="p-8 text-center">Yhteys epäonnistui: ${error.message}</div>`; }
         }
         
-        registerBtn.addEventListener('click', async () => {
-            const email = emailInput.value; const password = passwordInput.value; authError.textContent = '';
-            if (!email || !password) { authError.textContent = 'Sähköposti ja salasana vaaditaan.'; return; }
-            if (!email.endsWith('@' + ALLOWED_DOMAIN)) { authError.textContent = 'Vain ' + ALLOWED_DOMAIN + '-päätteiset sähköpostit sallittu.'; return; }
-            try { await createUserWithEmailAndPassword(auth, email, password); } catch (error) { authError.textContent = 'Rekisteröinti epäonnistui.'; }
-        });
+        // KORJATTU: Rekisteröitymistoiminto poistettu sovelluksesta
+        // registerBtn.addEventListener('click', ... );
 
         loginBtn.addEventListener('click', async () => {
             const email = emailInput.value; const password = passwordInput.value; authError.textContent = '';
@@ -248,4 +244,5 @@
     </script>
 </body>
 </html>
+
 
