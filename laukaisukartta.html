@@ -250,7 +250,7 @@
         function generateGameDetailsHTML(game) { const gameStats = getGameStats(game); let html = ''; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); html += `<div class="grid grid-cols-5 text-center text-xs py-1 border-b border-slate-700"><span class="font-semibold text-left">#${pNum} ${game.roster[pNum]||''}</span><span>${shots.length}</span><span>${goals}</span><span>${eff}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); return `<div class="space-y-3"><div><p class="font-semibold text-sm">Joukkueet</p><div class="text-xs text-slate-400 mt-1"><p><b>Koti:</b> L ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, T ${gameStats.home.saves}, B ${gameStats.home.blocks}</p><p><b>Vieras:</b> L ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, T ${gameStats.away.saves}, B ${gameStats.away.blocks}</p></div></div><div><p class="font-semibold text-sm mt-3">Pelaajat</p><div class="grid grid-cols-5 text-center font-bold text-xs text-slate-400 mt-2 px-1"><span>Nimi</span><span>L</span><span>M</span><span>T%</span><span>+/-</span></div>${html}</div></div>`; }
         function showConfirmation(title, text, btnText, btnClass, callback) { const confirmTitle = document.getElementById('confirm-title'), confirmText = document.getElementById('confirm-text'), btn = document.getElementById('confirm-btn'); confirmTitle.textContent = title; confirmText.textContent = text; btn.textContent = btnText; btn.className = `px-6 py-2 rounded-lg text-white font-semibold ${btnClass}`; const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn); newBtn.addEventListener('click', () => { callback(); confirmModal.classList.add('hidden'); }); confirmModal.classList.remove('hidden'); }
         
-        // --- Jakamisen logiikka KORJATTU ---
+        // --- KORJATTU JAKAMISEN LOGIIKKA ---
         function shareDataByEmail(type, gameId = null) {
             let subject = "", textBody = "", xlsxFilename = "";
             const { playerStats, fullRoster, allPlayers } = calculateSeasonStats();
@@ -271,10 +271,9 @@
 
             const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody)}`;
             
-            // Näytä ilmoitusikkuna, joka ohjaa käyttäjää
             showConfirmation(
                 'Lataus valmis', 
-                `Tiedosto "${xlsxFilename}" on ladattu laitteesi Tiedostot-sovellukseen (Lataukset-kansioon). Voit nyt avata sähköpostin ja liittää sen.`, 
+                `Tiedosto "${xlsxFilename}" on ladattu. Löydät sen Safarin osoiterivin latausvalikosta (nuolikuvake) tai iPadisi Tiedostot-sovelluksen Lataukset-kansiosta.`, 
                 'Avaa sähköposti', 
                 'bg-emerald-600', 
                 () => { window.location.href = mailtoLink; }
@@ -295,10 +294,31 @@
             allPlayers.forEach(pNum => { const stats = playerStats[pNum], eff = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—', bal = stats.plus - stats.minus; text += `#${pNum} ${fullRoster[pNum] || ''}\t${stats.games}\t${stats.shots}\t${stats.goals}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; });
             return text;
         }
-
+        
+        // KORJATTU: Ottelutekstin luonti
         function generateShareableText_Game(game) {
-            let text = `Ottelukooste: ${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}\n\n`;
-            text += generateGameDetailsHTML(game).replace(/<[^>]*>/g, '\n').replace(/\n\s*\n/g, '\n').trim();
+            const gameStats = getGameStats(game);
+            let text = `Ottelukooste: ${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}\n`;
+            text += `Lopputulos: ${gameStats.home.goals} - ${gameStats.away.goals}\n\n`;
+
+            text += "Joukkueiden tilastot:\n";
+            text += `Koti:\tLauk. ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, Torj. ${gameStats.home.saves}, Blok. ${gameStats.home.blocks}\n`;
+            text += `Vieras:\tLauk. ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, Torj. ${gameStats.away.saves}, Blok. ${gameStats.away.blocks}\n\n`;
+
+            text += "Pelaajakohtaiset tilastot:\n";
+            text += "Pelaaja".padEnd(20) + "L\tM\tT%\t+/-\n" + "-".repeat(50) + "\n";
+
+            game.players.forEach(pNum => {
+                const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum);
+                const goals = shots.filter(s => s.outcome === 'goal').length;
+                const pm = game.plusMinus[pNum];
+                if (shots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) {
+                    const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—';
+                    const bal = (pm?.plus || 0) - (pm?.minus || 0);
+                    const playerName = `#${pNum} ${game.roster[pNum] || ''}`;
+                    text += `${playerName.padEnd(20)}\t${shots.length}\t${goals}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`;
+                }
+            });
             return text;
         }
 
