@@ -297,10 +297,10 @@
         function onShotMarkerClick(e) { const target = e.target.closest('.shot-marker'); if (!target || draggedElement) { hideEditOutcomeModal(); return; } shotToEditId = Number(target.dataset.shotId); showEditOutcomeModal(e.clientX, e.clientY); }
         function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; delete currentGame.shots[shotIndex].quality; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
         
-        // KORJATTU: Siistitty ja korjattu modaalien näyttämis- ja piilotuslogiikka
+        // KORJATTU: Varmistetaan, että väliaikaista dataa ei tyhjennetä liian aikaisin.
         function showOutcomeModal(x, y) {
             hideEditOutcomeModal();
-            hideQualityModal();
+            hideQualityModal(false); // Vain piilottaa, ei tyhjennä dataa
             outcomeModal.style.left = `${x}px`;
             outcomeModal.style.top = `${y}px`;
             outcomeModal.classList.remove('hidden');
@@ -309,22 +309,28 @@
             outcomeModal.classList.add('hidden'); 
         }
         function showQualityModal(x, y) {
+            hideOutcomeModal();
             qualityModal.style.left = `${x}px`;
             qualityModal.style.top = `${y}px`;
             qualityModal.classList.remove('hidden');
         }
-        function hideQualityModal() {
+        function hideQualityModal(clearData = true) {
             qualityModal.classList.add('hidden');
-            tempShotData = {}; // Nollataan data vasta kun koko prosessi on valmis
+            if (clearData) {
+                tempShotData = {}; // Nollataan data vain, kun prosessi on valmis.
+            }
         }
         function showEditOutcomeModal(x, y) { 
             hideOutcomeModal(); 
-            hideQualityModal(); 
+            hideQualityModal(false); // Vain piilottaa
             editOutcomeModal.style.left = `${x}px`; 
             editOutcomeModal.style.top = `${y}px`; 
             editOutcomeModal.classList.remove('hidden'); 
         }
-        function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
+        function hideEditOutcomeModal() { 
+            editOutcomeModal.classList.add('hidden'); 
+            shotToEditId = null;
+        }
 
         function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
@@ -393,5 +399,6 @@
     </script>
 </body>
 </html>
+
 
 
