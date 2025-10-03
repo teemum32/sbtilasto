@@ -267,7 +267,7 @@
         }
         
         function addEventListeners() {
-            document.getElementById('save-game-button').addEventListener('click', () => showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun?', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore));
+            document.getElementById('save-game-button').addEventListener('click', () => showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun? Tallennuksen jälkeen nykyisen pelin merkinnät poistuvat näkyvistä. Ota tarvittavat ruutukaappaukset ennen tallennusta.', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore));
             document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
             document.getElementById('home-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
             document.getElementById('away-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
@@ -351,4 +351,5 @@
     </script>
 </body>
 </html>
+
 
