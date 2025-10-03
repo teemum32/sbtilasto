@@ -16,6 +16,7 @@
         .shot-marker span { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
         .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
+        .quality-high { border: 4px solid #b91c1c; } .quality-low { border: 4px solid #2563eb; }
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
         .period-tab.active { background-color: #4f46e5; }
@@ -92,6 +93,7 @@
     </div>
     
     <div id="outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
+    <div id="quality-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
     <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"></div>
     
@@ -106,12 +108,11 @@
         const authError = document.getElementById('auth-error'), userEmailDisplay = document.getElementById('user-email');
         const opponentNameInput = document.getElementById('opponent-name-input'), playerRosterInput = document.getElementById('player-roster-input'), startButton = document.getElementById('start-button'), setupError = document.getElementById('setup-error');
         const periodTabs = document.getElementById('period-tabs'), mainAppView = document.getElementById('main-app'), plusMinusView = document.getElementById('plus-minus-view'), seasonView = document.getElementById('season-view');
-        const outcomeModal = document.getElementById('outcome-modal'), editOutcomeModal = document.getElementById('edit-outcome-modal'), confirmModal = document.getElementById('confirm-modal');
+        const outcomeModal = document.getElementById('outcome-modal'), editOutcomeModal = document.getElementById('edit-outcome-modal'), confirmModal = document.getElementById('confirm-modal'), qualityModal = document.getElementById('quality-modal');
         const teamsList = document.getElementById('teams-list'), newTeamNameInput = document.getElementById('new-team-name'), createTeamBtn = document.getElementById('create-team-btn');
         const teamNameHeader = document.getElementById('team-name-header'), changeTeamBtn = document.getElementById('change-team-btn');
 
         let db, auth, userId, currentTeamId;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         let seasonData = { games: [] }, rosterData = {}, currentGame = {};
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
@@ -121,8 +122,7 @@
             allViews[viewName].classList.remove('hidden');
             allViews[viewName].classList.add('flex');
             if (viewName === 'landing') {
-                const startBtn = document.getElementById('start-new-game-btn');
-                startBtn.textContent = (currentGame && currentGame.id) ? 'Jatka ottelua' : 'Aloita uusi ottelu';
+                document.getElementById('start-new-game-btn').textContent = (currentGame && currentGame.id) ? 'Jatka ottelua' : 'Aloita uusi ottelu';
             }
         }
 
@@ -136,9 +136,13 @@
                     if (user) {
                         userId = user.uid;
                         userEmailDisplay.textContent = user.email;
-                        const savedGameJSON = sessionStorage.getItem('inProgressGame-' + userId);
-                        if(savedGameJSON) {
+                        const savedGameJSON = sessionStorage.getItem(`inProgressGame-${userId}`);
+                        if (savedGameJSON) {
                             currentGame = JSON.parse(savedGameJSON);
+                            currentTeamId = currentGame.teamId;
+                            teamNameHeader.textContent = currentGame.teamName;
+                            await loadRosterFromFirestore();
+                            listenForGames();
                             showMainView('app');
                             initializeGameUI();
                             addEventListeners();
@@ -150,8 +154,8 @@
                     } else {
                         userId = null; currentTeamId = null; currentGame = {};
                         sessionStorage.clear();
-                        if(gamesUnsubscribe) gamesUnsubscribe();
-                        if(teamsUnsubscribe) teamsUnsubscribe();
+                        if (gamesUnsubscribe) gamesUnsubscribe();
+                        if (teamsUnsubscribe) teamsUnsubscribe();
                         showMainView('auth');
                     }
                 });
@@ -164,7 +168,7 @@
             try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { authError.textContent = 'Kirjautuminen epäonnistui.'; }
         });
 
-        [logoutBtn, logoutBtnTeams].forEach(btn => btn.addEventListener('click', () => { sessionStorage.removeItem('inProgressGame-' + userId); signOut(auth); }));
+        [logoutBtn, logoutBtnTeams].forEach(btn => btn.addEventListener('click', () => { sessionStorage.removeItem(`inProgressGame-${userId}`); signOut(auth); }));
         
         document.getElementById('start-new-game-btn').addEventListener('click', () => {
             if (currentGame && currentGame.id) { showMainView('app'); } 
@@ -173,7 +177,7 @@
 
         document.getElementById('view-season-data-btn').addEventListener('click', () => { showMainView('app'); showView('season'); });
         document.getElementById('back-to-landing-btn').addEventListener('click', () => showMainView('landing'));
-        changeTeamBtn.addEventListener('click', () => { currentGame = {}; sessionStorage.removeItem('inProgressGame-' + userId); showMainView('teams'); });
+        changeTeamBtn.addEventListener('click', () => { currentGame = {}; sessionStorage.removeItem(`inProgressGame-${userId}`); showMainView('teams'); });
 
         createTeamBtn.addEventListener('click', async () => {
             const teamName = newTeamNameInput.value.trim();
@@ -236,9 +240,9 @@
         function startNewGame(roster, opponentName) {
             const players = Object.keys(roster).map(Number).filter(n => !isNaN(n)).sort((a,b) => a-b);
             if (players.length === 0) { setupError.textContent = 'Kokoonpano tyhjä.'; showMainView('setup'); return; }
-            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
+            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {}, teamId: currentTeamId, teamName: teamNameHeader.textContent };
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
-            sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame));
+            sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame));
             initializeGameUI(); addEventListeners(); showView(1);
         }
         
@@ -247,6 +251,7 @@
             document.getElementById('sidebar-content').innerHTML = `<h2 class="text-xl font-bold mb-4 text-center">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-3 mb-6"></div><h2 class="text-xl font-bold mb-4 text-center">Vieras</h2><div id="away-player-list" class="flex justify-center mb-6"></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
             document.getElementById('field-area').innerHTML = `<div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div><div id="field-container" class="relative w-full max-w-[1200px] aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>`;
             outcomeModal.innerHTML = `<button data-outcome="goal" class="w-28 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-28 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-28 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-28 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button>`;
+            qualityModal.innerHTML = `<button data-quality="high" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-red-700">Laadukas</button><button data-quality="low" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-blue-700">Heikko</button>`;
             editOutcomeModal.innerHTML = `<button data-outcome="goal" class="w-32 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-32 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-32 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-32 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button><div class="border-t my-1"></div> <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 rounded-md bg-slate-600">Poista</button>`;
             confirmModal.innerHTML = `<div class="bg-white rounded-lg shadow-xl p-6 max-w-sm text-center"><h3 id="confirm-title" class="text-xl font-bold text-slate-800 mb-4"></h3> <p id="confirm-text" class="text-slate-600 mb-6"></p><div class="flex justify-center gap-4"><button id="cancel-confirm-btn" class="px-6 py-2 rounded-lg bg-slate-200 text-slate-800">Peruuta</button><button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold"></button></div></div>`;
             const homePlayerList = document.getElementById('home-player-list');
@@ -274,6 +279,7 @@
             document.body.addEventListener('pointermove', onPointerMove, { passive: false });
             document.body.addEventListener('pointerup', onPointerUp);
             outcomeModal.addEventListener('click', onOutcomeSelect);
+            qualityModal.addEventListener('click', onQualitySelect);
             editOutcomeModal.addEventListener('click', onEditOutcomeSelect);
             document.getElementById('shots-layer').addEventListener('click', onShotMarkerClick);
             periodTabs.addEventListener('click', (e) => { const btn = e.target.closest('button.period-tab'); if (btn) showView(btn.dataset.period); });
@@ -283,25 +289,28 @@
         
         function onPointerDown(e) { const target = e.target.closest('.player-number'); if (!target || !currentGame.id) return; draggedElement = target; ghostElement = target.cloneNode(true); ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement); updateGhostPosition(e.pageX, e.pageY); }
         function onPointerMove(e) { if (!ghostElement) return; e.preventDefault(); updateGhostPosition(e.pageX, e.pageY); }
-        function onPointerUp(e) { if (!draggedElement || !ghostElement) return; ghostElement.style.display = 'none'; const dropTarget = document.elementFromPoint(e.clientX, e.clientY); ghostElement.style.display = ''; const fieldContainer = document.getElementById('field-container'); if (fieldContainer && fieldContainer.contains(dropTarget)) { const shotsLayer = document.getElementById('shots-layer'); const rect = shotsLayer.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y }; showOutcomeModal(e.clientX, e.clientY); } document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null; }
+        function onPointerUp(e) { if (!draggedElement || !ghostElement) return; ghostElement.style.display = 'none'; const dropTarget = document.elementFromPoint(e.clientX, e.clientY); ghostElement.style.display = ''; const fieldContainer = document.getElementById('field-container'); if (fieldContainer && fieldContainer.contains(dropTarget)) { const shotsLayer = document.getElementById('shots-layer'); const rect = shotsLayer.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y, clientX: e.clientX, clientY: e.clientY }; showOutcomeModal(e.clientX, e.clientY); } document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null; }
         function updateGhostPosition(x, y) { if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; } }
-        function onOutcomeSelect(e) { const target = e.target.closest('[data-outcome]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; currentGame.shots.push(newShot); sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame)); hideOutcomeModal(); renderShots(); updateStats(); }
+        function onOutcomeSelect(e) { const target = e.target.closest('[data-outcome]'); if (!target) return; tempShotData.outcome = target.dataset.outcome; hideOutcomeModal(); showQualityModal(tempShotData.clientX, tempShotData.clientY); }
+        function onQualitySelect(e) { const target = e.target.closest('[data-quality]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, quality: target.dataset.quality, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; delete newShot.clientX; delete newShot.clientY; currentGame.shots.push(newShot); sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideQualityModal(); renderShots(); updateStats(); }
         function onShotMarkerClick(e) { const target = e.target.closest('.shot-marker'); if (!target || draggedElement) { hideEditOutcomeModal(); return; } shotToEditId = Number(target.dataset.shotId); showEditOutcomeModal(e.clientX, e.clientY); }
-        function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; } sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
-        function showOutcomeModal(x, y) { hideEditOutcomeModal(); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
-        function hideOutcomeModal() { outcomeModal.classList.add('hidden'); tempShotData = {}; }
-        function showEditOutcomeModal(x, y) { hideOutcomeModal(); editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`; editOutcomeModal.classList.remove('hidden'); }
+        function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; delete currentGame.shots[shotIndex].quality; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
+        function showOutcomeModal(x, y) { hideEditOutcomeModal(); hideQualityModal(); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
+        function hideOutcomeModal() { outcomeModal.classList.add('hidden'); }
+        function showQualityModal(x, y) { hideOutcomeModal(); qualityModal.style.left = `${x}px`; qualityModal.style.top = `${y}px`; qualityModal.classList.remove('hidden'); }
+        function hideQualityModal() { qualityModal.classList.add('hidden'); tempShotData = {}; }
+        function showEditOutcomeModal(x, y) { hideOutcomeModal(); hideQualityModal(); editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`; editOutcomeModal.classList.remove('hidden'); }
         function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
-        function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem('inProgressGame-' + userId, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
+        function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); currentGame = {}; sessionStorage.removeItem('inProgressGame-' + userId); showView('season'); } catch (error) {} }
+        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); currentGame = {}; sessionStorage.removeItem(`inProgressGame-${userId}`); showView('season'); } catch (error) {} }
         function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
         async function loadRosterFromFirestore() { if (!userId || !currentTeamId) return; try { const docSnap = await getDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = docSnap.exists() ? docSnap.data().players || {} : {}; } catch (error) {} }
         async function deleteGameFromFirestore(gameId) { if (userId && currentTeamId) await deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', gameId)); }
         function prefillRosterInput() { playerRosterInput.value = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(num => `${num} ${rosterData[num]||''}`).join('\n'); }
         function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; const shotsToRender = currentGame.shots?.filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
-        function createShotMarker(shotData) { const s = document.createElement('div'); s.className = `shot-marker ${shotData.outcome}`; s.dataset.shotId = shotData.id; s.innerHTML = `<span>${shotData.player}</span>`; s.style.left = `${shotData.x}%`; s.style.top = `${shotData.y}%`; return s; }
+        function createShotMarker(shotData) { const s = document.createElement('div'); s.className = `shot-marker ${shotData.outcome}`; if (shotData.quality === 'high') s.classList.add('quality-high'); if (shotData.quality === 'low') s.classList.add('quality-low'); s.dataset.shotId = shotData.id; s.innerHTML = `<span>${shotData.player}</span>`; s.style.left = `${shotData.x}%`; s.style.top = `${shotData.y}%`; return s; }
         function updateStats() { if (!currentGame?.shots) return; let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0 }}; const shotsToConsider = currentGame.shots.filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToConsider.forEach(shot => { const shooter = stats[shot.team], opponent = stats[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); document.getElementById('stats-container').innerHTML = `<h3 class="text-lg font-bold text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod}`}</h3><div class="space-y-4"><div><div class="flex justify-between font-semibold"><span>Koti</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div><div class="flex justify-end text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div></div><div><div class="flex justify-between font-semibold"><span>Vieras</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div><div class="flex justify-end text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div></div></div>`; document.getElementById('player-stats-container').classList.toggle('hidden', currentGame.currentPeriod !== 'summary'); if(currentGame.currentPeriod === 'summary') updatePlayerStats(); }
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-5 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>L</span><span>M</span><span>T%</span><span>+/-</span></div>`; currentGame.players.forEach(pNum => { const shots = currentGame.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = currentGame.roster[pNum]?.split(' ')[0] || ''; html += `<div class="grid grid-cols-5 text-center text-sm py-1 border-b border-slate-700"><span class="font-bold text-left">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span>${eff}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
         function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); currentGame.players.forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
@@ -347,9 +356,10 @@
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:10}, {wch:10}, {wch:10}]; for (let i = 2; i <= data.length; i++) { if(ws[`D${i}`]) { ws[`D${i}`].t = 'n'; ws[`D${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
+        // KORJATTU: Varmistetaan, että sovellus käynnistyy luotettavasti.
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
+
     </script>
 </body>
 </html>
-
 
