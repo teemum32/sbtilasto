@@ -168,10 +168,10 @@
             <button data-period="season" class="period-tab">Kausi</button>
         </div>
 
-        <!-- Pääsovellus - KORJATTU: Asettelu mukautuu nyt näyttökokoon (pysty/vaaka) -->
-        <div id="main-app" class="hidden flex-1 flex flex-col md:flex-row min-h-0">
+        <!-- Pääsovellus - KORJATTU: Vaihdettu CSS Gridiin luotettavamman ja selainyhteensopivamman asettelun vuoksi -->
+        <div id="main-app" class="hidden flex-1 grid grid-cols-1 md:grid-cols-[256px,1fr] min-h-0">
             <!-- Sivupalkki pelaajille ja tilastoille -->
-            <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col flex-shrink-0 overflow-y-auto">
+            <div class="bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col overflow-y-auto md:order-first order-last">
                 <div class="flex-grow">
                     <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Koti</h2>
                     <div id="home-player-list" class="grid grid-cols-4 md:grid-cols-3 gap-4 mb-6">
@@ -228,8 +228,8 @@
                 </button>
             </div>
 
-            <!-- Pääsisältö: Kenttä - KORJATTU: Asettelu yksinkertaistettu maksimaalisen selainyhteensopivuuden saavuttamiseksi -->
-            <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
+            <!-- Pääsisältö: Kenttä -->
+            <main class="flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
                 <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
                 <div id="field-container" class="relative max-w-full max-h-full aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
                     <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
@@ -1252,6 +1252,7 @@
     </script>
 </body>
 </html>
+
 
 
 
