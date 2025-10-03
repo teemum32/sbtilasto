@@ -115,7 +115,15 @@
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
 
-        function showMainView(viewName) { Object.values(allViews).forEach(v => v.classList.add('hidden')); allViews[viewName].classList.remove('hidden'); allViews[viewName].classList.add('flex'); }
+        function showMainView(viewName) {
+            Object.values(allViews).forEach(v => v.classList.add('hidden'));
+            allViews[viewName].classList.remove('hidden');
+            allViews[viewName].classList.add('flex');
+            if (viewName === 'landing') {
+                const startBtn = document.getElementById('start-new-game-btn');
+                startBtn.textContent = (currentGame && currentGame.id) ? 'Jatka ottelua' : 'Aloita uusi ottelu';
+            }
+        }
 
         async function startFirebaseApp() {
             try {
@@ -130,7 +138,7 @@
                         listenForTeams();
                         showMainView('teams');
                     } else {
-                        userId = null; currentTeamId = null;
+                        userId = null; currentTeamId = null; currentGame = {};
                         if(gamesUnsubscribe) gamesUnsubscribe();
                         if(teamsUnsubscribe) teamsUnsubscribe();
                         showMainView('auth');
@@ -147,16 +155,19 @@
 
         [logoutBtn, logoutBtnTeams].forEach(btn => btn.addEventListener('click', () => signOut(auth)));
         
-        document.getElementById('start-new-game-btn').addEventListener('click', () => { showMainView('setup'); prefillRosterInput(); });
+        document.getElementById('start-new-game-btn').addEventListener('click', () => {
+            if (currentGame && currentGame.id) { showMainView('app'); } 
+            else { showMainView('setup'); prefillRosterInput(); }
+        });
+
         document.getElementById('view-season-data-btn').addEventListener('click', () => { showMainView('app'); showView('season'); });
         document.getElementById('back-to-landing-btn').addEventListener('click', () => showMainView('landing'));
-        changeTeamBtn.addEventListener('click', () => showMainView('teams'));
+        changeTeamBtn.addEventListener('click', () => { currentGame = {}; showMainView('teams'); });
 
         createTeamBtn.addEventListener('click', async () => {
             const teamName = newTeamNameInput.value.trim();
             if (teamName && userId) {
-                const teamsCol = collection(db, 'users', userId, 'teams');
-                await addDoc(teamsCol, { name: teamName, createdAt: serverTimestamp() });
+                await addDoc(collection(db, 'users', userId, 'teams'), { name: teamName, createdAt: serverTimestamp() });
                 newTeamNameInput.value = '';
             }
         });
@@ -164,26 +175,20 @@
         function listenForTeams() {
             if (!userId) return;
             if (teamsUnsubscribe) teamsUnsubscribe();
-            const teamsCol = collection(db, 'users', userId, 'teams');
-            teamsUnsubscribe = onSnapshot(query(teamsCol), (snap) => {
-                const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderTeamsList(teams);
+            teamsUnsubscribe = onSnapshot(query(collection(db, 'users', userId, 'teams')), (snap) => {
+                renderTeamsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             });
         }
         
         function renderTeamsList(teams) {
-            teamsList.innerHTML = '';
-            if (teams.length === 0) {
-                teamsList.innerHTML = `<p class="text-slate-400">Ei joukkueita. Luo ensimmäinen joukkueesi alla.</p>`;
-            } else {
-                teams.forEach(team => {
-                    const btn = document.createElement('button');
-                    btn.className = "w-full bg-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg";
-                    btn.textContent = team.name;
-                    btn.onclick = () => selectTeam(team);
-                    teamsList.appendChild(btn);
-                });
-            }
+            teamsList.innerHTML = teams.length === 0 ? `<p class="text-slate-400">Ei joukkueita.</p>` : '';
+            teams.forEach(team => {
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg";
+                btn.textContent = team.name;
+                btn.onclick = () => selectTeam(team);
+                teamsList.appendChild(btn);
+            });
         }
 
         async function selectTeam(team) {
@@ -226,7 +231,7 @@
         }
         
         function initializeGameUI() {
-            periodTabs.innerHTML = `<button data-period="1" class="period-tab active">Erä 1</button> <button data-period="2" class="period-tab">Erä 2</button> <button data-period="3" class="period-tab">Erä 3</button> <button data-period="summary" class="period-tab">Ottelu</button> <button data-period="plus-minus" class="period-tab">+/-</button> <button data-period="season" class="period-tab">Kausi</button>`;
+            periodTabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button> <button data-period="1" class="period-tab active">Erä 1</button> <button data-period="2" class="period-tab">Erä 2</button> <button data-period="3" class="period-tab">Erä 3</button> <button data-period="summary" class="period-tab">Ottelu</button> <button data-period="plus-minus" class="period-tab">+/-</button> <button data-period="season" class="period-tab">Kausi</button>`;
             document.getElementById('sidebar-content').innerHTML = `<h2 class="text-xl font-bold mb-4 text-center">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-3 mb-6"></div><h2 class="text-xl font-bold mb-4 text-center">Vieras</h2><div id="away-player-list" class="flex justify-center mb-6"></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
             document.getElementById('field-area').innerHTML = `<div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div><div id="field-container" class="relative w-full max-w-[1200px] aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>`;
             outcomeModal.innerHTML = `<button data-outcome="goal" class="w-28 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-28 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-28 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-28 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button>`;
@@ -243,13 +248,10 @@
             document.querySelectorAll('.period-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelector(`.period-tab[data-period="${viewId}"]`)?.classList.add('active');
             mainAppView.classList.add('hidden'); plusMinusView.classList.add('hidden'); seasonView.classList.add('hidden');
+            if(viewId === 'home') { showMainView('landing'); return; }
             if (viewId === 'plus-minus') { renderPlusMinusView(); plusMinusView.classList.remove('hidden'); } 
             else if (viewId === 'season') { renderSeasonStats(); seasonView.classList.remove('hidden'); } 
-            else {
-                mainAppView.classList.remove('hidden');
-                currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId);
-                renderShots(); updateStats();
-            }
+            else { mainAppView.classList.remove('hidden'); currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId); renderShots(); updateStats(); }
         }
         
         function addEventListeners() {
@@ -280,21 +282,23 @@
         function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
         function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); showView('season'); } catch (error) {} }
+        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); currentGame = {}; showView('season'); } catch (error) {} }
         function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
         async function loadRosterFromFirestore() { if (!userId || !currentTeamId) return; try { const docSnap = await getDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = docSnap.exists() ? docSnap.data().players || {} : {}; } catch (error) {} }
         async function deleteGameFromFirestore(gameId) { if (userId && currentTeamId) await deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', gameId)); }
+        async function deleteAllSeasonData() { if (!userId || !currentTeamId) return; const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); const snap = await getDocs(q); const batch = writeBatch(db); snap.forEach(doc => batch.delete(doc.ref)); await batch.commit(); await deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = {}; }
         function prefillRosterInput() { playerRosterInput.value = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(num => `${num} ${rosterData[num]||''}`).join('\n'); }
-        function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; currentGame.shots?.filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod).forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
+        function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; currentGame.shots?.filter(s => s.period === 'summary' || s.period === currentGame.currentPeriod).forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
         function createShotMarker(shotData) { const s = document.createElement('div'); s.className = `shot-marker ${shotData.outcome}`; s.dataset.shotId = shotData.id; s.innerHTML = `<span>${shotData.player}</span>`; s.style.left = `${shotData.x}%`; s.style.top = `${shotData.y}%`; return s; }
-        function updateStats() { if (!currentGame?.shots) return; let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0 }}; currentGame.shots.filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod).forEach(shot => { const shooter = stats[shot.team], opponent = stats[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); document.getElementById('stats-container').innerHTML = `<h3 class="text-lg font-bold text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod}`}</h3><div class="space-y-4"><div><div class="flex justify-between font-semibold"><span>Koti</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div><div class="flex justify-end text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div></div><div><div class="flex justify-between font-semibold"><span>Vieras</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div><div class="flex justify-end text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div></div></div>`; document.getElementById('player-stats-container').classList.toggle('hidden', currentGame.currentPeriod !== 'summary'); if(currentGame.currentPeriod === 'summary') updatePlayerStats(); }
+        function updateStats() { if (!currentGame?.shots) return; let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0 }}; currentGame.shots.filter(s => s.period === 'summary' || s.period === currentGame.currentPeriod).forEach(shot => { const shooter = stats[shot.team], opponent = stats[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); document.getElementById('stats-container').innerHTML = `<h3 class="text-lg font-bold text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod}`}</h3><div class="space-y-4"><div><div class="flex justify-between font-semibold"><span>Koti</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div><div class="flex justify-end text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div></div><div><div class="flex justify-between font-semibold"><span>Vieras</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div><div class="flex justify-end text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div></div></div>`; document.getElementById('player-stats-container').classList.toggle('hidden', currentGame.currentPeriod !== 'summary'); if(currentGame.currentPeriod === 'summary') updatePlayerStats(); }
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-5 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>L</span><span>M</span><span>T%</span><span>+/-</span></div>`; currentGame.players.forEach(pNum => { const shots = currentGame.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = currentGame.roster[pNum]?.split(' ')[0] || ''; html += `<div class="grid grid-cols-5 text-center text-sm py-1 border-b border-slate-700"><span class="font-bold text-left">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span>${eff}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
         function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); currentGame.players.forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; currentGame.players.forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = stats.plus - stats.minus; const name = currentGame.roster[pNum]?.split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
         function renderSeasonStats() {
             const fullRoster = {}, seasonPlayerStats = {}; seasonData.games.forEach(g => Object.assign(fullRoster, g.roster));
-            [...new Set(seasonData.games.flatMap(g => g.players))].sort((a,b)=>a-b).forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 }; });
+            const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players))].sort((a,b)=>a-b);
+            allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 }; });
             seasonData.games.forEach(game => { game.players.forEach(pNum => { if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++; }); game.shots.forEach(shot => { if (shot.team === 'home' && seasonPlayerStats[shot.player]) { seasonPlayerStats[shot.player].shots++; if (shot.outcome === 'goal') seasonPlayerStats[shot.player].goals++; } }); Object.keys(game.plusMinus).forEach(pNum => { if (seasonPlayerStats[pNum]) { seasonPlayerStats[pNum].plus += game.plusMinus[pNum].plus; seasonPlayerStats[pNum].minus += game.plusMinus[pNum].minus; } }); });
             let playerTable = `<div class="flex justify-between items-center"><h3 class="text-xl font-bold text-slate-100 mb-3">Pelaajatilastot</h3><button id="share-players-btn" class="bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa</button></div><div class="grid grid-cols-6 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>O</span><span>L</span><span>M</span><span>T%</span><span>+/-</span></div>`;
             Object.keys(seasonPlayerStats).forEach(pNum => { const stats = seasonPlayerStats[pNum], eff = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—'; const bal = stats.plus - stats.minus; playerTable += `<div class="grid grid-cols-6 text-center text-sm py-1.5 border-b border-slate-700"><span class="font-bold text-left">#${pNum} ${fullRoster[pNum]||''}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span><span>${eff}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; });
@@ -325,14 +329,26 @@
             const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody + "\n\n---\nLataa liitteeksi juuri tallentunut tiedosto: " + xlsxFilename)}`;
             showConfirmation( 'Lataus valmis', `Tiedosto "${xlsxFilename}" on ladattu. Löydät sen selaimesi latausvalikosta tai laitteesi Tiedostot-sovelluksesta.`, 'Avaa sähköposti', 'bg-emerald-600', () => { window.location.href = mailtoLink; });
         }
-        function calculateSeasonStats() { const fullRoster = {}, seasonPlayerStats = {}; seasonData.games.forEach(g => Object.assign(fullRoster, g.roster)); const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players))].sort((a, b) => a - b); allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 }; }); seasonData.games.forEach(game => { game.players.forEach(pNum => { if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++; }); game.shots.forEach(shot => { if (shot.team === 'home' && seasonPlayerStats[shot.player]) { seasonPlayerStats[shot.player].shots++; if (shot.outcome === 'goal') seasonPlayerStats[shot.player].goals++; } }); Object.keys(game.plusMinus).forEach(pNum => { if (seasonPlayerStats[pNum]) { seasonPlayerStats[pNum].plus += game.plusMinus[pNum].plus; seasonPlayerStats[pNum].minus += game.plusMinus[pNum].minus; } }); }); return { playerStats: seasonPlayerStats, fullRoster, allPlayers }; }
+        function calculateSeasonStats() {
+            const fullRoster = {}, seasonPlayerStats = {};
+            seasonData.games.forEach(g => Object.assign(fullRoster, g.roster));
+            const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players))].sort((a, b) => a - b);
+            allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 }; });
+            seasonData.games.forEach(game => { game.players.forEach(pNum => { if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++; }); game.shots.forEach(shot => { if (shot.team === 'home' && seasonPlayerStats[shot.player]) { seasonPlayerStats[shot.player].shots++; if (shot.outcome === 'goal') seasonPlayerStats[shot.player].goals++; } }); Object.keys(game.plusMinus).forEach(pNum => { if (seasonPlayerStats[pNum]) { seasonPlayerStats[pNum].plus += game.plusMinus[pNum].plus; seasonPlayerStats[pNum].minus += game.plusMinus[pNum].minus; } }); });
+            return { playerStats: seasonPlayerStats, fullRoster, allPlayers };
+        }
         function generateShareableText_Players(playerStats, fullRoster, allPlayers) { let text = "Pelaajatilastot:\n\nPelaaja\tOtt.\tLauk.\tMaalit\tTeho %\t+/-\n" + "-".repeat(50) + "\n"; allPlayers.forEach(pNum => { const stats = playerStats[pNum], eff = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—', bal = stats.plus - stats.minus; text += `#${pNum} ${fullRoster[pNum] || ''}\t${stats.games}\t${stats.shots}\t${stats.goals}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; }); return text; }
         function generateShareableText_Game(game) { const gameStats = getGameStats(game); let text = `Ottelukooste: ${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}\nLopputulos: ${gameStats.home.goals} - ${gameStats.away.goals}\n\nJoukkueiden tilastot:\nKoti:\tLauk. ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, Torj. ${gameStats.home.saves}, Blok. ${gameStats.home.blocks}\nVieras:\tLauk. ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, Torj. ${gameStats.away.saves}, B ${gameStats.away.blocks}\n\nPelaajakohtaiset tilastot:\nPelaaja`.padEnd(20) + "L\tM\tT%\t+/-\n" + "-".repeat(50) + "\n"; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum); const goals = shots.filter(s => s.outcome === 'goal').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); const playerName = `#${pNum} ${game.roster[pNum] || ''}`; text += `${playerName.padEnd(20)}\t${shots.length}\t${goals}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; } }); return text; }
         function generateAndDownloadXLSX_Players(playerStats, fullRoster, allPlayers, filename) { const data = [["Pelaaja", "Ottelut", "Laukaukset", "Maalit", "Teho %", "+/-"]]; allPlayers.forEach(pNum => { const stats = playerStats[pNum]; data.push([`#${pNum} ${fullRoster[pNum] || ''}`, stats.games, stats.shots, stats.goals, stats.shots > 0 ? (stats.goals / stats.shots) : 0, stats.plus - stats.minus]); }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:10}, {wch:10}, {wch:10}, {wch:10}]; for (let i = 2; i <= data.length; i++) { if(ws[`E${i}`]) { ws[`E${i}`].t = 'n'; ws[`E${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Pelaajatilastot"); downloadXLSX(wb, filename); }
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:10}, {wch:10}, {wch:10}]; for (let i = 2; i <= data.length; i++) { if(ws[`D${i}`]) { ws[`D${i}`].t = 'n'; ws[`D${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
+        
+        function onAppLoad() {
+            startFirebaseApp();
+        }
+        
+        window.addEventListener('DOMContentLoaded', onAppLoad);
 
-        window.addEventListener('DOMContentLoaded', startFirebaseApp);
     </script>
 </body>
 </html>
