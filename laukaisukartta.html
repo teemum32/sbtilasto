@@ -11,113 +11,52 @@
         body {
             font-family: 'Inter', sans-serif;
             touch-action: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-            overflow: hidden; /* Estää koko sivun vierityksen */
+            -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+            overflow: hidden;
         }
-
-        /* Pelaajanumero sivupalkissa */
         .player-number {
-            cursor: grab;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-            border: 2px solid white;
-            background-color: #020617; /* slate-950 */
-            color: white;
+            cursor: grab; width: 50px; height: 50px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 1.2rem; border: 2px solid white;
+            background-color: #020617; color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-
-        /* Vierasjoukkueen merkki */
-        .away-player {
-            font-size: 1.5rem;
-        }
-
-        /* Raahattava "haamu"-elementti */
+        .away-player { font-size: 1.5rem; }
         .dragging {
-            position: absolute;
-            pointer-events: none;
-            opacity: 0.7;
-            z-index: 1000;
+            position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000;
         }
-
-        /* Kentälle pudotettu laukausmerkintä */
         .shot-marker {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-weight: bold;
-            font-size: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-            color: white;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.2s;
+            position: absolute; width: 40px; height: 40px; border-radius: 50%;
+            font-weight: bold; font-size: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            color: white; transform: translate(-50%, -50%); transition: opacity 0.2s;
             cursor: pointer;
         }
-        
         .shot-marker span {
-           position: absolute;
-           top: 50%;
-           left: 50%;
-           transform: translate(-50%, -50%);
+           position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
         }
-        
-        /* Väritäytöt laukauksen tuloksen mukaan */
-        .goal { background-color: #10B981; }
-        .miss { background-color: #3B82F6; }
-        .block { background-color: #FACC15; color: black; }
-        .save { background-color: #EF4444; }
-        
-        /* Valintamodaalit */
+        .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
+        .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
         .action-modal {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
+            position: absolute; transform: translate(-50%, -50%); z-index: 50;
+            display: flex; flex-direction: column;
         }
-        
-        /* Erävalinnan välilehdet */
         .period-tab {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 600;
+            padding: 8px 16px; border-radius: 6px; font-weight: 600;
             transition: background-color 0.2s;
         }
-        .period-tab.active {
-            background-color: #4f46e5; /* indigo-600 */
-        }
-        /* Plus/Miinus näkymän pelaajanapit */
-        #plus-minus-view .pm-player-btn {
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-        #plus-minus-view .pm-player-btn:active {
-            transform: scale(0.9);
-        }
-        
-        /* Kausikoosteen haitarivalikko */
-        details > summary {
-            cursor: pointer;
-            list-style: none;
-        }
-        details > summary::-webkit-details-marker {
-            display: none;
-        }
+        .period-tab.active { background-color: #4f46e5; }
+        #plus-minus-view .pm-player-btn { cursor: pointer; transition: transform 0.1s; }
+        #plus-minus-view .pm-player-btn:active { transform: scale(0.9); }
+        details > summary { cursor: pointer; list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
     </style>
 </head>
-<body class="bg-slate-900 h-full flex flex-col">
-    
+<body class="bg-slate-900 h-full">
+
+    <!-- KORJATTU RAKENNE: Jokainen päänäkymä on oma, koko ruudun täyttävä elementtinsä -->
+
     <!-- Salasanan syöttö -->
-    <div id="password-view" class="w-full flex flex-col items-center justify-center h-full p-4">
+    <div id="password-view" class="h-full w-full flex items-center justify-center p-4">
         <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-2xl font-bold text-slate-100 mb-4">Salasana vaaditaan</h1>
             <p class="text-slate-400 mb-6">Syötä salasana jatkaaksesi.</p>
@@ -127,8 +66,8 @@
         </div>
     </div>
 
-    <!-- Aloitusvalikko (piilotettu aluksi) - KORJATTU: flex lisätty varmistamaan keskitys -->
-    <div id="landing-view" class="hidden w-full flex flex-col items-center justify-center h-full p-4">
+    <!-- Aloitusvalikko -->
+    <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold text-slate-100 mb-2">Tilastotyökalu</h1>
             <p class="text-slate-400 mb-8">Valitse toiminto</p>
@@ -140,9 +79,8 @@
         </div>
     </div>
 
-
-    <!-- Pelaajien valintanäkymä - KORJATTU: flex lisätty varmistamaan keskitys -->
-    <div id="setup-view" class="hidden w-full flex flex-col items-center justify-center h-full p-4">
+    <!-- Pelaajien valintanäkymä -->
+    <div id="setup-view" class="h-full w-full hidden items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-3xl font-bold text-slate-100 mb-4">Uusi ottelu</h1>
             <p class="text-slate-400 mb-6">Syötä vastustajan nimi ja muokkaa kokoonpanoa.</p>
@@ -155,8 +93,8 @@
         </div>
     </div>
 
-    <!-- Varsinainen sovellus (piilossa aluksi) - KORJATTU: overflow-hidden lisätty -->
-    <div id="app-container" class="hidden h-full w-full flex flex-col overflow-hidden">
+    <!-- Varsinainen sovellus -->
+    <div id="app-container" class="h-full w-full hidden flex-col">
         <!-- Erävalinta -->
         <div id="period-tabs" class="bg-slate-800 text-white p-2 flex justify-center gap-1 md:gap-2 shrink-0 flex-wrap">
             <button data-period="1" class="period-tab active">Erä 1</button>
@@ -167,105 +105,58 @@
             <button data-period="season" class="period-tab">Kausi</button>
         </div>
 
-        <!-- Pääsovellus - KORJATTU: Asettelu on nyt täysin responsiivinen ja selainyhteensopiva -->
-        <div id="main-app" class="hidden flex-1 flex flex-col md:flex-row min-h-0">
-            <!-- Sivupalkki pelaajille ja tilastoille -->
-            <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col flex-shrink-0 overflow-y-auto order-last md:order-first">
-                <div class="flex-grow">
-                    <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Koti</h2>
-                    <div id="home-player-list" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-3 gap-4 mb-6">
-                        <!-- Kotijoukkueen pelaajanumerot luodaan JavaScriptillä -->
-                    </div>
-                    <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Vieras</h2>
-                    <div id="away-player-list" class="flex justify-center mb-6">
-                         <!-- Vierasjoukkueen pelaaja luodaan JavaScriptillä -->
-                    </div>
-
-                    <!-- Tilastot -->
-                    <div id="stats-container" class="border-t border-slate-700 pt-4">
-                        <h3 id="stats-title" class="text-lg font-bold text-slate-100 text-center mb-3">Erä 1 tilastot</h3>
-                        <div class="space-y-4">
-                             <div>
-                                <div class="flex justify-between font-semibold text-slate-100"><span>Koti</span></div>
-                                <div class="flex justify-between text-sm text-slate-300 mt-1">
-                                    <span id="home-goals-display">Maalit: 0</span>
-                                    <span id="home-shots-display">Laukaukset: 0</span>
-                                </div>
-                                <div class="flex justify-end text-sm text-slate-300">
-                                    <span id="home-xg-display">xG: 0.00</span>
-                                </div>
-                                <div class="flex justify-between text-sm text-slate-300 mt-1 border-t border-slate-700 pt-1">
-                                    <span id="home-saves-made-display">Torjunnat: 0</span>
-                                    <span id="home-blocks-made-display">Blokit: 0</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between font-semibold text-slate-100"><span>Vieras</span></div>
-                                <div class="flex justify-between text-sm text-slate-300 mt-1">
-                                    <span id="away-goals-display">Maalit: 0</span>
-                                    <span id="away-shots-display">Laukaukset: 0</span>
-                                </div>
-                                <div class="flex justify-end text-sm text-slate-300">
-                                    <span id="away-xg-display">xG: 0.00</span>
-                                </div>
-                                <div class="flex justify-between text-sm text-slate-300 mt-1 border-t border-slate-700 pt-1">
-                                    <span id="away-saves-made-display">Torjunnat: 0</span>
-                                    <span id="away-blocks-made-display">Blokit: 0</span>
-                                </div>
-                            </div>
+        <!-- Sisältöalue, jossa näkymät vaihtuvat -->
+        <div class="flex-1 min-h-0 relative">
+            
+            <!-- Pelinäkymä -->
+            <div id="main-app" class="absolute inset-0 flex flex-col md:flex-row">
+                <!-- Sivupalkki -->
+                <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shrink-0 overflow-y-auto order-last md:order-first">
+                    <div class="flex-grow">
+                        <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Koti</h2>
+                        <div id="home-player-list" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-3 gap-4 mb-6"></div>
+                        <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Vieras</h2>
+                        <div id="away-player-list" class="flex justify-center mb-6"></div>
+                        <div id="stats-container" class="border-t border-slate-700 pt-4">
+                           <!-- Tilastot tulevat tänne -->
                         </div>
+                        <div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>
                     </div>
-                    
-                    <!-- Pelaajakohtaiset tilastot (vain koosteessa) -->
-                    <div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4">
-                        <!-- Sisältö luodaan JavaScriptillä -->
-                    </div>
-
+                    <button id="save-game-button" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tallenna ottelu</button>
                 </div>
-                <button id="save-game-button" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    Tallenna ottelu
-                </button>
+
+                <!-- Kenttä -->
+                <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0 order-first md:order-last">
+                    <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
+                    <div id="field-container" class="relative max-w-full max-h-full aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
+                        <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
+                            <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
+                            <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                            <line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/>
+                            <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                            <line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/>
+                        </svg>
+                        <div id="shots-layer" class="absolute top-0 left-0 w-full h-full"></div>
+                    </div>
+                    <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>
+                </main>
             </div>
+            
+            <!-- Plus/Miinus -näkymä -->
+            <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto"></div>
 
-            <!-- Pääsisältö: Kenttä -->
-            <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
-                <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
-                <div id="field-container" class="relative max-w-full max-h-full aspect-[2/1] bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
-                    <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
-                        <!-- Uudet vaakasuuntaiset viivat -->
-                        <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
-                        <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                        <line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/>
-                        <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                        <line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/>
-                    </svg>
-                    <div id="shots-layer" class="absolute top-0 left-0 w-full h-full"></div>
-                </div>
-                <div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>
-            </main>
-        </div>
-        
-        <!-- Plus/Miinus -näkymä - KORJATTU: Lisätty flex-1 ja min-h-0 yhdenmukaisuuden vuoksi -->
-        <div id="plus-minus-view" class="hidden flex-1 min-h-0 p-4 bg-slate-200 overflow-y-auto">
-            <!-- Sisältö luodaan JS:llä -->
-        </div>
-
-        <!-- Kausikooste-näkymä - KORJATTU: Lisätty flex-1 ja min-h-0 yhdenmukaisuuden vuoksi -->
-        <div id="season-view" class="hidden flex-1 min-h-0 p-4 bg-slate-200 overflow-y-auto">
-            <!-- Sisältö luodaan JS:llä -->
+            <!-- Kausikooste-näkymä -->
+            <div id="season-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto"></div>
         </div>
     </div>
-
-
-    <!-- Laukauksen tuloksen valintamodaali (oletuksena piilossa) -->
+    
+    <!-- Modaali-ikkunat pysyvät ennallaan -->
     <div id="outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border border-slate-200">
         <button data-outcome="goal" class="outcome-btn w-28 text-white font-semibold py-2 px-4 rounded-md bg-emerald-500 hover:bg-emerald-600">Maali</button>
         <button data-outcome="miss" class="outcome-btn w-28 text-white font-semibold py-2 px-4 rounded-md bg-blue-500 hover:bg-blue-600">Ohi</button>
         <button data-outcome="block" class="outcome-btn w-28 text-slate-800 font-semibold py-2 px-4 rounded-md bg-yellow-400 hover:bg-yellow-500">Blokki</button>
         <button data-outcome="save" class="outcome-btn w-28 text-white font-semibold py-2 px-4 rounded-md bg-red-500 hover:bg-red-600">Torjunta</button>
     </div>
-
-    <!-- Laukauksen muokkausmodaali -->
     <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border border-slate-200">
         <button data-outcome="goal" class="edit-outcome-btn w-32 text-white font-semibold py-2 px-4 rounded-md bg-emerald-500 hover:bg-emerald-600">Maali</button>
         <button data-outcome="miss" class="edit-outcome-btn w-32 text-white font-semibold py-2 px-4 rounded-md bg-blue-500 hover:bg-blue-600">Ohi</button>
@@ -274,8 +165,6 @@
         <div class="border-t my-1"></div>
         <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 px-4 rounded-md bg-slate-600 hover:bg-slate-700">Poista laukaus</button>
     </div>
-
-    <!-- Varmistusmodaali nollaukselle -->
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm text-center">
             <h3 id="confirm-title" class="text-xl font-bold text-slate-800 mb-4"></h3>
@@ -295,12 +184,12 @@
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Elementtiviittaukset ---
-        const landingView = document.getElementById('landing-view');
-        const setupView = document.getElementById('setup-view');
-        const appContainer = document.getElementById('app-container');
-        const startNewGameBtn = document.getElementById('start-new-game-btn');
-        const viewSeasonDataBtn = document.getElementById('view-season-data-btn');
-        const backToLandingBtn = document.getElementById('back-to-landing-btn');
+        const allViews = {
+            password: document.getElementById('password-view'),
+            landing: document.getElementById('landing-view'),
+            setup: document.getElementById('setup-view'),
+            app: document.getElementById('app-container')
+        };
         const opponentNameInput = document.getElementById('opponent-name-input');
         const playerRosterInput = document.getElementById('player-roster-input');
         const startButton = document.getElementById('start-button');
@@ -317,62 +206,50 @@
         const seasonView = document.getElementById('season-view');
         const playerStatsContainer = document.getElementById('player-stats-container');
         const confirmModal = document.getElementById('confirm-modal');
-        const confirmTitle = document.getElementById('confirm-title');
-        const confirmText = document.getElementById('confirm-text');
-        const confirmBtn = document.getElementById('confirm-btn');
-        const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
-        const authStatus = document.getElementById('auth-status');
-        const passwordView = document.getElementById('password-view');
         const passwordInput = document.getElementById('password-input');
         const passwordSubmitBtn = document.getElementById('password-submit-btn');
         const passwordError = document.getElementById('password-error');
         const setupError = document.getElementById('setup-error');
         
         // --- Sovelluksen tila (State) ---
-        // ==========================================================
-        // Aseta tähän salasana, jolla sovelluksen saa käyttöön.
-        // Muista vaihtaa tämä johonkin turvallisempaan!
         const APP_PASSWORD = "sbt";
-        // ==========================================================
         let db, auth, userId;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         let seasonData = { games: [] };
         let rosterData = {};
         let currentGame = {};
-        let draggedElement = null;
-        let ghostElement = null;
-        let tempShotData = {};
-        let shotToEditId = null;
-        let gamesUnsubscribe = () => {}; // Funktio Firestore-kuuntelijan poistamiseen
-        let previousView = 'landing'; // Muistaa, mistä näkymästä tultiin asetuksiin
+        let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
+        let gamesUnsubscribe = () => {};
+        let previousView = 'landing';
+
+        // --- Päänäkymien hallinta ---
+        function showMainView(viewName) {
+            Object.keys(allViews).forEach(key => {
+                const isTarget = key === viewName;
+                allViews[key].classList.toggle('hidden', !isTarget);
+                // Varmistetaan, että aktiivinen näkymä on flex, jotta keskitys toimii
+                if (isTarget && key !== 'app') {
+                    allViews[key].classList.add('flex');
+                } else {
+                     allViews[key].classList.remove('flex');
+                }
+            });
+        }
 
         // --- Alustus ---
         function onAppLoad() {
-            console.log("onAppLoad: Sovellus käynnistyy.");
-            // Tarkistetaan, onko käyttäjä jo syöttänyt salasanan tässä istunnossa
             if (sessionStorage.getItem('isAuthenticated') === 'true') {
-                console.log("onAppLoad: Käyttäjä on jo tunnistautunut salasanalla tässä istunnossa.");
-                passwordView.classList.add('hidden');
                 startFirebaseApp();
             } else {
-                console.log("onAppLoad: Salasanatunnistusta ei löydy, näytetään salasananäkymä.");
-                // Varmistetaan, että vain salasanakenttä on näkyvissä
-                landingView.classList.add('hidden');
-                setupView.classList.add('hidden');
-                appContainer.classList.add('hidden');
-                passwordView.classList.remove('hidden');
+                showMainView('password');
             }
         }
 
         function checkPassword() {
-            console.log("checkPassword: Tarkistetaan salasana.");
             if (passwordInput.value === APP_PASSWORD) {
-                console.log("checkPassword: Salasana oikein.");
-                sessionStorage.setItem('isAuthenticated', 'true'); // Tallenna onnistuminen istuntoon
-                passwordView.classList.add('hidden');
-                startFirebaseApp(); // Käynnistä varsinainen sovellus
+                sessionStorage.setItem('isAuthenticated', 'true');
+                startFirebaseApp();
             } else {
-                console.error("checkPassword: Väärä salasana.");
                 passwordError.textContent = 'Väärä salasana.';
                 passwordInput.value = '';
                 passwordInput.focus();
@@ -381,14 +258,9 @@
         }
 
         passwordSubmitBtn.addEventListener('click', checkPassword);
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                checkPassword();
-            }
-        });
+        passwordInput.addEventListener('keypress', (e) => e.key === 'Enter' && checkPassword());
 
         async function startFirebaseApp() {
-            console.log("startFirebaseApp: Yritetään käynnistää Firebase.");
             try {
                 const firebaseConfig = {
                   apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0",
@@ -403,160 +275,92 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                try {
-                    await enableIndexedDbPersistence(db);
-                    console.log("startFirebaseApp: Firestore offline-tuki aktivoitu.");
-                } catch (err) {
-                    console.warn("Firestore offline-tuen aktivointi epäonnistui:", err.code);
-                }
-
-                authStatus.textContent = 'Yhdistetään tietokantaan...';
+                try { await enableIndexedDbPersistence(db); } catch (err) { console.warn("Offline-tuki epäonnistui:", err.code); }
 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        console.log(`onAuthStateChanged: Käyttäjä tunnistettu, UID: ${user.uid}`);
-                        if (setupView.classList.contains('hidden') && appContainer.classList.contains('hidden')) {
-                           landingView.classList.remove('hidden');
-                           console.log("onAuthStateChanged: Näytetään aloitusnäkymä.");
-                        }
-
                         userId = user.uid;
-                        authStatus.textContent = `Käyttäjä: ${userId.substring(0, 8)}...`;
-                        
                         await loadRosterFromFirestore();
                         listenForGames(); 
-                        
-                        viewSeasonDataBtn.disabled = seasonData.games.length === 0;
+                        showMainView('landing'); // Näytä aloitusvalikko kun kaikki on valmista
                     } else {
-                        console.log("onAuthStateChanged: Ei käyttäjää.");
                         userId = null;
-                        authStatus.textContent = 'Ei kirjautunut sisään.';
                         gamesUnsubscribe();
                     }
                 });
 
-                try {
-                    console.log("startFirebaseApp: Yritetään anonyymiä sisäänkirjautumista.");
-                    await signInAnonymously(auth);
-                    console.log("startFirebaseApp: Anonyymi sisäänkirjautuminen onnistui.");
-                } catch (authError) {
-                    console.error("startFirebaseApp: Anonyymi sisäänkirjautuminen epäonnistui:", authError);
-                    throw authError;
-                }
-
+                await signInAnonymously(auth);
             } catch (error) {
-                console.error("KOKO SOVELLUKSEN KÄYNNISTYS EPÄONNISTUI:", error);
                 document.body.innerHTML = `<div class="text-white text-center p-8">Tietokantayhteys epäonnistui. Päivitä sivu. Virhe: ${error.message}</div>`;
             }
         }
         
-        startNewGameBtn.addEventListener('click', () => {
-            console.log("startNewGameBtn: Klikattu. Siirrytään asetusnäkymään aloitusvalikosta.");
+        document.getElementById('start-new-game-btn').addEventListener('click', () => {
             previousView = 'landing';
-            landingView.classList.add('hidden');
-            setupView.classList.remove('hidden');
+            showMainView('setup');
             prefillRosterInput();
         });
 
-        viewSeasonDataBtn.addEventListener('click', () => {
-            console.log("viewSeasonDataBtn: Klikattu. Siirrytään kausinäkymään.");
-            landingView.classList.add('hidden');
-            appContainer.classList.remove('hidden');
+        document.getElementById('view-season-data-btn').addEventListener('click', () => {
+            showMainView('app');
             showView('season');
         });
 
-        backToLandingBtn.addEventListener('click', () => {
-            console.log(`backToLandingBtn: Klikattu. Edellinen näkymä oli: ${previousView}`);
-            setupView.classList.add('hidden');
+        document.getElementById('back-to-landing-btn').addEventListener('click', () => {
             if (previousView === 'season') {
-                console.log("backToLandingBtn: Palataan kausinäkymään.");
-                appContainer.classList.remove('hidden');
+                showMainView('app');
                 showView('season');
             } else {
-                console.log("backToLandingBtn: Palataan aloitusvalikkoon.");
-                landingView.classList.remove('hidden');
+                showMainView('landing');
             }
         });
 
         function startNewGame(roster, opponentName) {
-            console.log("startNewGame: Luodaan uusi peli, tyhjennetään vanhat merkinnät.");
-            shotsLayer.innerHTML = ''; // EKSPLISIITTINEN TYHJENNYS
+            shotsLayer.innerHTML = '';
             const players = Object.keys(roster).map(Number).sort((a, b) => a - b);
-            currentGame = {
-                id: Date.now(),
-                date: new Date().toISOString(),
-                opponent: opponentName,
-                players: players,
-                roster: roster,
-                shots: [],
-                plusMinus: {}
-            };
-            players.forEach(p => {
-                currentGame.plusMinus[p] = { plus: 0, minus: 0 };
-            });
-            
+            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
+            players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
             initializePlayers();
             initializePlusMinusView();
             addEventListeners();
             showView(1);
-            console.log("startNewGame: Uusi peli alustettu onnistuneesti.");
         }
 
         function initializePlayers() {
             homePlayerList.innerHTML = '';
             currentGame.players.forEach(number => {
                 const player = document.createElement('div');
-                player.className = 'player-number';
-                player.textContent = number;
+                player.className = 'player-number'; player.textContent = number;
                 homePlayerList.appendChild(player);
             });
-
             awayPlayerList.innerHTML = '';
             const awayPlayer = document.createElement('div');
-            awayPlayer.className = 'player-number away-player';
-            awayPlayer.textContent = 'V';
+            awayPlayer.className = 'player-number away-player'; awayPlayer.textContent = 'V';
             awayPlayerList.appendChild(awayPlayer);
         }
+        
+        function showView(viewId) {
+            document.querySelectorAll('.period-tab').forEach(tab => tab.classList.remove('active'));
+            const activeTab = document.querySelector(`.period-tab[data-period="${viewId}"]`);
+            if(activeTab) activeTab.classList.add('active');
 
-        function initializePlusMinusView() {
-            plusMinusView.innerHTML = `
-                <div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-bold text-slate-100 mb-6 text-center">+/- Merkintä</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                            <h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3>
-                            <p class="text-center text-slate-400 mb-4 text-sm">Paina pelaajia, jotka olivat kentällä oman maalin aikana.</p>
-                            <div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3>
-                            <p class="text-center text-slate-400 mb-4 text-sm">Paina pelaajia, jotka olivat kentällä vastustajan maalin aikana.</p>
-                            <div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
-                        </div>
-                    </div>
-                    <div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div>
-                </div>`;
+            // Piilota kaikki vaihdettavat näkymät
+            mainAppView.classList.add('hidden');
+            plusMinusView.classList.add('hidden');
+            seasonView.classList.add('hidden');
 
-            const plusContainer = document.getElementById('plus-players');
-            const minusContainer = document.getElementById('minus-players');
-
-            currentGame.players.forEach(number => {
-                const plusPlayer = document.createElement('button');
-                plusPlayer.className = 'player-number pm-player-btn';
-                plusPlayer.textContent = number;
-                plusPlayer.dataset.player = number;
-                plusPlayer.dataset.type = 'add-plus';
-                plusContainer.appendChild(plusPlayer);
-                
-                const minusPlayer = plusPlayer.cloneNode(true);
-                minusPlayer.dataset.type = 'add-minus';
-                minusContainer.appendChild(minusPlayer);
-            });
+            if (viewId === 'plus-minus') {
+                renderPlusMinusView(); plusMinusView.classList.remove('hidden');
+            } else if (viewId === 'season') {
+                renderSeasonStats(); seasonView.classList.remove('hidden');
+            } else {
+                mainAppView.classList.remove('hidden');
+                currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId);
+                renderShots(); updateStats();
+            }
         }
         
-        // --- Tapahtumankuuntelijat ---
         startButton.addEventListener('click', async () => {
-            console.log("startButton: 'Aloita merkintä' -painiketta klikattu.");
             startButton.disabled = true;
             startButton.textContent = 'Käsitellään...';
             setupError.textContent = ''; 
@@ -567,48 +371,27 @@
                 const newRoster = {};
                 const lines = rosterText.split('\n').filter(line => line.trim() !== '');
                 
-                if (opponentName === '') { 
-                    console.error("startButton: Validointivirhe - vastustajan nimi puuttuu.");
-                    setupError.textContent = 'Syötä vastustajan nimi.';
-                    return; 
-                }
-                if (lines.length === 0) { 
-                    console.error("startButton: Validointivirhe - pelaajia ei syötetty.");
-                    setupError.textContent = 'Syötä vähintään yksi pelaaja.';
-                    return; 
-                }
+                if (opponentName === '') { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
+                if (lines.length === 0) { setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
 
                 let error = false;
                 lines.forEach(line => {
                     const parts = line.trim().split(/\s+/);
                     const number = parseInt(parts[0], 10);
-                    if (isNaN(number)) {
-                        error = true;
-                    } else {
-                        const name = parts.slice(1).join(' ');
-                        newRoster[number] = name || '';
-                    }
+                    if (isNaN(number)) { error = true; } 
+                    else { newRoster[number] = parts.slice(1).join(' ') || ''; }
                 });
 
-                if(error) { 
-                    console.error("startButton: Validointivirhe - virheellinen syöte pelaajalistassa.");
-                    setupError.textContent = 'Virheellinen syöte pelaajalistassa.';
-                    return; 
-                }
+                if(error) { setupError.textContent = 'Virheellinen syöte pelaajalistassa.'; return; }
 
-                console.log("startButton: Validointi onnistui. Tallennetaan kokoonpanoa...");
                 await saveRosterToFirestore(newRoster);
                 rosterData = newRoster;
 
-                console.log("startButton: Siirrytään pelinäkymään.");
-                setupView.classList.add('hidden');
-                appContainer.classList.remove('hidden');
+                showMainView('app');
                 startNewGame(newRoster, opponentName);
             } catch (e) {
-                console.error("startButton: Pelin aloitus epäonnistui virheeseen:", e);
                 setupError.textContent = 'Pelin aloitus epäonnistui. Yritä uudelleen.';
             } finally {
-                // Palautetaan painikkeen tila, jos tapahtui virhe ja näkymä ei vaihtunut.
                 startButton.disabled = false;
                 startButton.textContent = 'Aloita merkintä';
             }
@@ -618,7 +401,7 @@
             showConfirmation('Tallenna ottelu?', 'Haluatko tallentaa nykyisen ottelun tiedot tietokantaan?', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore);
         });
         
-        cancelConfirmBtn.addEventListener('click', () => confirmModal.classList.add('hidden'));
+        document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
 
         function addEventListeners() {
             [homePlayerList, awayPlayerList].forEach(bar => {
@@ -639,17 +422,14 @@
             fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
         }
 
-        // --- Raahauslogiikka ---
         function onDragStart(e) {
             const target = e.target.closest('.player-number');
             if (!target || !currentGame.id) return;
-            
             draggedElement = target;
             ghostElement = target.cloneNode(true);
             ghostElement.classList.add('dragging');
             document.body.appendChild(ghostElement);
             const touch = e.touches ? e.touches[0] : e;
-            // KORJAUS: Käytetään pageX/pageY-koordinaatteja, jotka ovat luotettavampia kosketusnäytöillä.
             updateGhostPosition(touch.pageX, touch.pageY);
         }
 
@@ -657,7 +437,6 @@
             if (!ghostElement) return;
             e.preventDefault(); 
             const touch = e.touches ? e.touches[0] : e;
-            // KORJAUS: Käytetään pageX/pageY-koordinaatteja.
             updateGhostPosition(touch.pageX, touch.pageY);
         }
 
@@ -683,29 +462,17 @@
              if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; }
         }
 
-        // --- Laukauksen tuloksen ja datan käsittely ---
         function onOutcomeSelect(e) {
             const target = e.target.closest('.outcome-btn');
             if (!target) return;
-            const newShot = {
-                id: Date.now() + Math.random(),
-                ...tempShotData,
-                outcome: target.dataset.outcome,
-                period: currentGame.currentPeriod,
-                xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team)
-            };
+            const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) };
             currentGame.shots.push(newShot);
-            hideOutcomeModal();
-            renderShots();
-            updateStats();
+            hideOutcomeModal(); renderShots(); updateStats();
         }
 
         function onShotMarkerClick(e) {
             const target = e.target.closest('.shot-marker');
-            if (!target || draggedElement) {
-                hideEditOutcomeModal();
-                return;
-            }
+            if (!target || draggedElement) { hideEditOutcomeModal(); return; }
             shotToEditId = Number(target.dataset.shotId);
             showEditOutcomeModal(e.clientX, e.clientY);
         }
@@ -715,46 +482,31 @@
             if (!shotToEditId) return;
             const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId);
             if (shotIndex === -1) return;
-            if (target.id === 'delete-shot-btn') {
-                currentGame.shots.splice(shotIndex, 1);
-            } else if (target.closest('.edit-outcome-btn')) {
-                currentGame.shots[shotIndex].outcome = target.dataset.outcome;
-            }
-            hideEditOutcomeModal();
-            renderShots();
-            updateStats();
+            if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } 
+            else if (target.closest('.edit-outcome-btn')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; }
+            hideEditOutcomeModal(); renderShots(); updateStats();
         }
 
         function showOutcomeModal(x, y) {
             hideEditOutcomeModal();
-            outcomeModal.style.left = `${x}px`;
-            outcomeModal.style.top = `${y}px`;
+            outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`;
             outcomeModal.classList.remove('hidden');
         }
 
-        function hideOutcomeModal() {
-            outcomeModal.classList.add('hidden');
-            tempShotData = {};
-        }
+        function hideOutcomeModal() { outcomeModal.classList.add('hidden'); tempShotData = {}; }
 
         function showEditOutcomeModal(x, y) {
             hideOutcomeModal();
-            editOutcomeModal.style.left = `${x}px`;
-            editOutcomeModal.style.top = `${y}px`;
+            editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`;
             editOutcomeModal.classList.remove('hidden');
         }
 
-        function hideEditOutcomeModal() {
-            editOutcomeModal.classList.add('hidden');
-            shotToEditId = null;
-        }
+        function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
         
-        // --- Plus/Miinus-käsittely ---
         function onPlusMinusClick(e) {
             const target = e.target.closest('[data-player]');
             if (!target) return;
-            const playerNum = target.dataset.player;
-            const type = target.dataset.type;
+            const playerNum = target.dataset.player; const type = target.dataset.type;
             if (!currentGame.plusMinus[playerNum]) return;
             switch (type) {
                 case 'add-plus': currentGame.plusMinus[playerNum].plus++; break;
@@ -769,303 +521,198 @@
             renderPlusMinusView();
         }
 
-        // --- xG Laskentamalli (päivitetty vaakakentälle) ---
         function calculateXg(x, y, team) {
-            const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5]; // Tehot vaihdettu
-            const xNorm = x / 100; // 0-1, etäisyys vasemmasta laidasta
-            const yNorm = Math.abs(y - 50) / 50; // 0-1, etäisyys keskiviivasta
-
-            // xFactor laskee etäisyyden maalista (0 tai 100)
-            const xFactor = (team === 'home')
-                ? Math.pow(1 - xNorm, X_POWER) // Kotijoukkueen maali oikealla (x=100)
-                : Math.pow(xNorm, X_POWER);      // Vierasjoukkueen maali vasemmalla (x=0)
-
-            // yFactor laskee etäisyyden kentän keskeltä
+            const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5];
+            const xNorm = x / 100; const yNorm = Math.abs(y - 50) / 50;
+            const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER);
             const yFactor = Math.pow(1 - yNorm, Y_POWER);
-
             return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2));
         }
 
-        // --- Näkymien vaihto ---
         function onPeriodChange(e) {
             const target = e.target.closest('.period-tab');
-            if (!target) return;
-            showView(target.dataset.period);
-        }
-
-        function showView(viewId) {
-            console.log(`showView: Yritetään näyttää näkymä: ${viewId}`);
-            document.querySelectorAll('.period-tab').forEach(tab => tab.classList.remove('active'));
-            const activeTab = document.querySelector(`.period-tab[data-period="${viewId}"]`);
-            if(activeTab) activeTab.classList.add('active');
-
-            mainAppView.classList.add('hidden');
-            plusMinusView.classList.add('hidden');
-            seasonView.classList.add('hidden');
-
-            if (viewId === 'plus-minus') {
-                renderPlusMinusView();
-                plusMinusView.classList.remove('hidden');
-            } else if (viewId === 'season') {
-                renderSeasonStats();
-                seasonView.classList.remove('hidden');
-            } else {
-                mainAppView.classList.remove('hidden');
-                currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId);
-                renderShots();
-                updateStats();
-            }
+            if (target) showView(target.dataset.period);
         }
         
-        // --- Datan tallennus & luku (Firestore) ---
         async function saveAndEndGameInFirestore() {
-            if (!userId) {
-                console.error("saveAndEndGameInFirestore: Ei käyttäjätunnusta, tallennus epäonnistui.");
-                return;
-            }
+            if (!userId) return;
             try {
                 const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
-                const gameToSave = { ...currentGame };
-                delete gameToSave.id; 
+                const gameToSave = { ...currentGame }; delete gameToSave.id; 
                 await addDoc(gamesCol, gameToSave);
-                console.log("saveAndEndGameInFirestore: Peli tallennettu onnistuneesti.");
                 showView('season');
-            } catch (error) {
-                console.error("Pelin tallennus epäonnistui: ", error);
-            }
+            } catch (error) { console.error("Pelin tallennus epäonnistui: ", error); }
         }
         
         function listenForGames() {
             if (!userId) return;
-            console.log("listenForGames: Aloitetaan pelidatan kuuntelu.");
             gamesUnsubscribe();
             const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
-            const q = query(gamesCol);
-            
-            gamesUnsubscribe = onSnapshot(q, (querySnapshot) => {
-                const games = [];
-                querySnapshot.forEach((doc) => {
-                    games.push({ id: doc.id, ...doc.data() });
-                });
-                console.log(`listenForGames: ${games.length} peliä haettu tietokannasta.`);
-                seasonData.games = games;
-                viewSeasonDataBtn.disabled = seasonData.games.length === 0;
-                if (!seasonView.classList.contains('hidden')) {
-                    console.log("listenForGames: Päivitetään avoinna oleva kausinäkymä.");
-                    renderSeasonStats();
-                }
-            }, (error) => {
-                console.error("Pelidatan kuuntelu epäonnistui:", error);
-            });
+            gamesUnsubscribe = onSnapshot(query(gamesCol), (querySnapshot) => {
+                seasonData.games = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0;
+                if (!seasonView.classList.contains('hidden')) { renderSeasonStats(); }
+            }, (error) => console.error("Pelidatan kuuntelu epäonnistui:", error));
         }
 
         async function saveRosterToFirestore(rosterToSave) {
-            if (!userId) return;
-            try {
-                const rosterDoc = doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main');
-                await setDoc(rosterDoc, { players: rosterToSave });
-                console.log("saveRosterToFirestore: Kokoonpano tallennettu.");
-            } catch (error) {
-                console.error("Kokoonpanon tallennus epäonnistui: ", error);
-            }
+            if (userId) await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main'), { players: rosterToSave });
         }
 
         async function loadRosterFromFirestore() {
              if (!userId) return;
              try {
-                console.log("loadRosterFromFirestore: Ladataan kokoonpanoa...");
-                const rosterDoc = doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main');
-                const docSnap = await getDoc(rosterDoc);
-                if (docSnap.exists()) {
-                    rosterData = docSnap.data().players || {};
-                    console.log("loadRosterFromFirestore: Kokoonpano ladattu onnistuneesti.");
-                } else {
-                    rosterData = {};
-                    console.log("loadRosterFromFirestore: Ei olemassa olevaa kokoonpanoa.");
-                }
-             } catch (error) {
-                console.error("Kokoonpanon lataus epäonnistui: ", error);
-                throw error;
-             }
+                const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main'));
+                rosterData = docSnap.exists() ? docSnap.data().players || {} : {};
+             } catch (error) { console.error("Kokoonpanon lataus epäonnistui: ", error); throw error; }
         }
         
         async function deleteGameFromFirestore(gameId) {
-            if (!userId) return;
-            try {
-                const gameDoc = doc(db, 'artifacts', appId, 'users', userId, 'games', gameId);
-                await deleteDoc(gameDoc);
-                console.log(`Peli ${gameId} poistettu.`);
-            } catch (error) {
-                console.error(`Pelin ${gameId} poisto epäonnistui: `, error);
-            }
+            if (userId) await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'games', gameId));
         }
         
         async function deleteAllSeasonData() {
             if (!userId) return;
-            try {
-                console.log("deleteAllSeasonData: Poistetaan kaikki kauden tiedot.");
-                const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
-                const querySnapshot = await getDocs(gamesCol);
-                const batch = writeBatch(db);
-                querySnapshot.forEach(doc => {
-                    batch.delete(doc.ref);
-                });
-                await batch.commit();
-
-                const rosterDoc = doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main');
-                await deleteDoc(rosterDoc);
-                rosterData = {};
-                console.log("deleteAllSeasonData: Kaikki data poistettu. Palataan aloitusnäkymään.");
-
-                appContainer.classList.add('hidden');
-                setupView.classList.add('hidden');
-                landingView.classList.remove('hidden');
-
-            } catch (error) {
-                console.error("Kausidatan poisto epäonnistui: ", error);
-            }
+            const gamesCol = collection(db, 'artifacts', appId, 'users', userId, 'games');
+            const querySnapshot = await getDocs(gamesCol);
+            const batch = writeBatch(db);
+            querySnapshot.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'roster', 'main'));
+            rosterData = {};
+            showMainView('landing');
         }
-
 
         function prefillRosterInput() {
-            let rosterString = "";
             const sortedNumbers = Object.keys(rosterData).map(Number).sort((a,b) => a-b);
-            sortedNumbers.forEach(number => {
-                rosterString += `${number} ${rosterData[number] || ''}\n`;
-            });
-            playerRosterInput.value = rosterString;
+            playerRosterInput.value = sortedNumbers.map(num => `${num} ${rosterData[num] || ''}`).join('\n');
         }
         
-        // --- Piirtäminen ja tilastojen päivitys ---
         function renderShots() {
             shotsLayer.innerHTML = '';
-            const shotsToRender = currentGame.shots ? currentGame.shots.filter(shot =>
-                currentGame.currentPeriod === 'summary' || shot.period === currentGame.currentPeriod
-            ) : [];
-            shotsToRender.forEach(shotData => {
-                const shotElement = createShotMarker(shotData);
-                shotsLayer.appendChild(shotElement);
-            });
+            const shotsToRender = currentGame.shots?.filter(shot => currentGame.currentPeriod === 'summary' || shot.period === currentGame.currentPeriod) || [];
+            shotsToRender.forEach(shotData => shotsLayer.appendChild(createShotMarker(shotData)));
         }
         
         function createShotMarker(shotData) {
             const shot = document.createElement('div');
-            shot.className = 'shot-marker';
-            shot.dataset.shotId = shotData.id;
+            shot.className = 'shot-marker'; shot.dataset.shotId = shotData.id;
             shot.classList.add(shotData.outcome);
             shot.innerHTML = `<span>${shotData.player}</span>`;
-            shot.style.left = `${shotData.x}%`;
-            shot.style.top = `${shotData.y}%`;
+            shot.style.left = `${shotData.x}%`; shot.style.top = `${shotData.y}%`;
             return shot;
         }
 
         function updateStats() {
-            if (!currentGame || !currentGame.shots) return;
+            if (!currentGame?.shots) return;
             let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0 }};
             const shotsToConsider = currentGame.shots.filter(shot => currentGame.currentPeriod === 'summary' || shot.period === currentGame.currentPeriod);
 
             shotsToConsider.forEach(shot => {
-                if (shot.team === 'home') {
-                    stats.home.shots++;
-                    stats.home.xg += shot.xG;
-                    if (shot.outcome === 'goal') stats.home.goals++;
-                    if (shot.outcome === 'save') stats.away.saves++;
-                    if (shot.outcome === 'block') stats.away.blocks++;
-                } else {
-                    stats.away.shots++;
-                    stats.away.xg += shot.xG;
-                    if (shot.outcome === 'goal') stats.away.goals++;
-                    if (shot.outcome === 'save') stats.home.saves++;
-                    if (shot.outcome === 'block') stats.home.blocks++;
-                }
+                const shooter = stats[shot.team];
+                const opponent = stats[shot.team === 'home' ? 'away' : 'home'];
+                shooter.shots++; shooter.xg += shot.xG;
+                if (shot.outcome === 'goal') shooter.goals++;
+                if (shot.outcome === 'save') opponent.saves++;
+                if (shot.outcome === 'block') opponent.blocks++;
             });
+
+            // Tilastojen näyttöelementit luodaan dynaamisesti, joten varmistetaan niiden olemassaolo
+            const statsContainer = document.getElementById('stats-container');
+            statsContainer.innerHTML = `
+                <h3 id="stats-title" class="text-lg font-bold text-slate-100 text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod} tilastot`}</h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between font-semibold text-slate-100"><span>Koti</span></div>
+                        <div class="flex justify-between text-sm text-slate-300 mt-1">
+                            <span id="home-goals-display">Maalit: ${stats.home.goals}</span>
+                            <span id="home-shots-display">Laukaukset: ${stats.home.shots}</span>
+                        </div>
+                        <div class="flex justify-end text-sm text-slate-300">
+                            <span id="home-xg-display">xG: ${stats.home.xg.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-slate-300 mt-1 border-t border-slate-700 pt-1">
+                            <span id="home-saves-made-display">Torjunnat: ${stats.home.saves}</span>
+                            <span id="home-blocks-made-display">Blokit: ${stats.home.blocks}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between font-semibold text-slate-100"><span>Vieras</span></div>
+                        <div class="flex justify-between text-sm text-slate-300 mt-1">
+                            <span id="away-goals-display">Maalit: ${stats.away.goals}</span>
+                            <span id="away-shots-display">Laukaukset: ${stats.away.shots}</span>
+                        </div>
+                        <div class="flex justify-end text-sm text-slate-300">
+                            <span id="away-xg-display">xG: ${stats.away.xg.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between text-sm text-slate-300 mt-1 border-t border-slate-700 pt-1">
+                            <span id="away-saves-made-display">Torjunnat: ${stats.away.saves}</span>
+                            <span id="away-blocks-made-display">Blokit: ${stats.away.blocks}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
             
-            if (currentGame.currentPeriod === 'summary') {
-                document.getElementById('stats-title').textContent = 'Koko ottelu';
-                updatePlayerStats();
-                playerStatsContainer.classList.remove('hidden');
-            } else {
-                document.getElementById('stats-title').textContent = `Erä ${currentGame.currentPeriod} tilastot`;
-                playerStatsContainer.classList.add('hidden');
-            }
-            
-            document.getElementById('home-goals-display').textContent = `Maalit: ${stats.home.goals}`;
-            document.getElementById('home-shots-display').textContent = `Laukaukset: ${stats.home.shots}`;
-            document.getElementById('home-xg-display').textContent = `xG: ${stats.home.xg.toFixed(2)}`;
-            document.getElementById('home-saves-made-display').textContent = `Torjunnat: ${stats.home.saves}`;
-            document.getElementById('home-blocks-made-display').textContent = `Blokit: ${stats.home.blocks}`;
-            document.getElementById('away-goals-display').textContent = `Maalit: ${stats.away.goals}`;
-            document.getElementById('away-shots-display').textContent = `Laukaukset: ${stats.away.shots}`;
-            document.getElementById('away-xg-display').textContent = `xG: ${stats.away.xg.toFixed(2)}`;
-            document.getElementById('away-saves-made-display').textContent = `Torjunnat: ${stats.away.saves}`;
-            document.getElementById('away-blocks-made-display').textContent = `Blokit: ${stats.away.blocks}`;
+            playerStatsContainer.classList.toggle('hidden', currentGame.currentPeriod !== 'summary');
+            if(currentGame.currentPeriod === 'summary') updatePlayerStats();
         }
         
         function updatePlayerStats() {
-            let tableHTML = `<h3 class="text-lg font-bold text-slate-100 text-center mb-3">Pelaajakohtaiset tilastot</h3>
-                             <div class="grid grid-cols-5 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
-                                 <span>Pelaaja</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span>
-                             </div>`;
-            
+            let tableHTML = `<h3 class="text-lg font-bold text-slate-100 text-center mb-3">Pelaajakohtaiset tilastot</h3><div class="grid grid-cols-5 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span></div>`;
             currentGame.players.forEach(playerNum => {
                 const playerShots = currentGame.shots.filter(s => s.team === 'home' && s.player == playerNum);
                 const playerGoals = playerShots.filter(s => s.outcome === 'goal').length;
                 const pm = currentGame.plusMinus[playerNum];
-                
                 if (playerShots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) {
-                    const efficiency = playerGoals > 0 && playerShots.length > 0 ? `${Math.round((playerGoals / playerShots.length) * 100)}%` : '—';
+                    const efficiency = playerGoals > 0 ? `${Math.round((playerGoals / playerShots.length) * 100)}%` : '—';
                     const balance = pm ? pm.plus - pm.minus : 0;
-                    const balanceText = balance > 0 ? `+${balance}` : balance;
-                    const playerName = currentGame.roster[playerNum] ? ` ${currentGame.roster[playerNum].split(' ')[0]}` : '';
-                    tableHTML += `<div class="grid grid-cols-5 text-center text-sm text-slate-200 py-1 border-b border-slate-700">
-                                      <span class="font-bold text-left">#${playerNum}${playerName}</span><span>${playerShots.length}</span><span>${playerGoals}</span>
-                                      <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
-                                  </div>`;
+                    const name = currentGame.roster[playerNum]?.split(' ')[0] || '';
+                    tableHTML += `<div class="grid grid-cols-5 text-center text-sm text-slate-200 py-1 border-b border-slate-700"><span class="font-bold text-left">#${playerNum} ${name}</span><span>${playerShots.length}</span><span>${playerGoals}</span><span>${efficiency}</span><span class="font-semibold">${balance > 0 ? '+' : ''}${balance}</span></div>`;
                 }
             });
             playerStatsContainer.innerHTML = tableHTML;
         }
         
         function renderPlusMinusView() {
+            let summaryHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg shadow-lg"><h2 class="text-2xl font-bold text-slate-100 mb-6 text-center">+/- Merkintä</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Paina pelaajia, jotka olivat kentällä oman maalin aikana.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Paina pelaajia, jotka olivat kentällä vastustajan maalin aikana.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`;
+            plusMinusView.innerHTML = summaryHTML;
+            const plusContainer = document.getElementById('plus-players'); const minusContainer = document.getElementById('minus-players');
+            currentGame.players.forEach(number => {
+                const plusPlayer = document.createElement('button');
+                plusPlayer.className = 'player-number pm-player-btn'; plusPlayer.textContent = number;
+                plusPlayer.dataset.player = number; plusPlayer.dataset.type = 'add-plus';
+                plusContainer.appendChild(plusPlayer);
+                const minusPlayer = plusPlayer.cloneNode(true);
+                minusPlayer.dataset.type = 'add-minus';
+                minusContainer.appendChild(minusPlayer);
+            });
+            renderPlusMinusSummary();
+        }
+
+        function renderPlusMinusSummary() {
             const container = document.getElementById('plus-minus-summary');
             if (!container) return;
-            
-            let summaryHTML = `<h3 class="text-xl font-bold text-slate-100 text-center mb-3">+/- Saldo</h3>
-                               <div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
-                                   <span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span>
-                               </div>`;
-            
+            let summaryHTML = `<h3 class="text-xl font-bold text-slate-100 text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`;
             currentGame.players.forEach(pNum => {
-                const stats = currentGame.plusMinus[pNum];
-                const balance = stats.plus - stats.minus;
-                const balanceText = balance > 0 ? `+${balance}` : balance;
-                const playerName = currentGame.roster[pNum] ? ` ${currentGame.roster[pNum].split(' ')[0]}` : '';
-
-                summaryHTML += `<div class="grid grid-cols-4 text-center text-sm text-slate-200 py-2 border-b border-slate-700 items-center">
-                                    <span class="font-bold text-left truncate pr-2">#${pNum}${playerName}</span>
-                                    <button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500 cursor-pointer rounded-md hover:bg-slate-700">${stats.plus}</button>
-                                    <button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500 cursor-pointer rounded-md hover:bg-slate-700">${stats.minus}</button>
-                                    <span class="font-semibold text-lg">${balanceText}</span>
-                                </div>`;
+                const stats = currentGame.plusMinus[pNum]; const balance = stats.plus - stats.minus;
+                const name = currentGame.roster[pNum]?.split(' ')[0] || '';
+                summaryHTML += `<div class="grid grid-cols-4 text-center text-sm text-slate-200 py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus}</button><span class="font-semibold text-lg">${balance > 0 ? '+' : ''}${balance}</span></div>`;
             });
-
             container.innerHTML = summaryHTML;
         }
 
         function renderSeasonStats() {
             const fullRoster = {};
-            seasonData.games.forEach(g => {
-                Object.assign(fullRoster, g.roster);
-            });
+            seasonData.games.forEach(g => Object.assign(fullRoster, g.roster));
             const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players))].sort((a,b) => a-b);
             const seasonPlayerStats = {};
-            allPlayers.forEach(p => {
-                seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 };
-            });
-
+            allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0 }; });
             seasonData.games.forEach(game => {
                 game.players.forEach(pNum => {
-                    if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++;
+                    // KORJATTU: Varmistetaan, että pelaaja on olemassa ennen inkrementointia
+                    if (seasonPlayerStats[pNum]) {
+                        seasonPlayerStats[pNum].games++;
+                    }
                 });
                 game.shots.forEach(shot => {
                     if (shot.team === 'home' && seasonPlayerStats[shot.player]) {
@@ -1081,114 +728,58 @@
                 });
             });
 
-            let playerTable = `<h3 class="text-xl font-bold text-slate-100 mb-3">Kauden pelaajatilastot</h3>
-                               <div class="grid grid-cols-6 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
-                                   <span>Pelaaja</span><span>Ott.</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span>
-                               </div>`;
+            let playerTable = `<h3 class="text-xl font-bold text-slate-100 mb-3">Kauden pelaajatilastot</h3><div class="grid grid-cols-6 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>Ott.</span><span>Lauk.</span><span>Maalit</span><span>Teho %</span><span>+/-</span></div>`;
             allPlayers.forEach(pNum => {
                 const stats = seasonPlayerStats[pNum];
-                const efficiency = stats.shots > 0 && stats.goals > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—';
+                const efficiency = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—';
                 const balance = stats.plus - stats.minus;
-                const balanceText = balance > 0 ? `+${balance}` : balance;
-                const playerName = fullRoster[pNum] ? ` ${fullRoster[pNum]}` : '';
-                playerTable += `<div class="grid grid-cols-6 text-center text-sm text-slate-200 py-1.5 border-b border-slate-700">
-                                    <span class="font-bold text-left">#${pNum}${playerName}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span>
-                                    <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
-                                </div>`;
+                const playerName = fullRoster[pNum] || '';
+                playerTable += `<div class="grid grid-cols-6 text-center text-sm text-slate-200 py-1.5 border-b border-slate-700"><span class="font-bold text-left">#${pNum} ${playerName}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span><span>${efficiency}</span><span class="font-semibold">${balance > 0 ? '+' : ''}${balance}</span></div>`;
             });
 
             let gamesTable = `<h3 class="text-xl font-bold text-slate-100 mb-4">Tallennetut ottelut</h3>`;
             if (seasonData.games.length > 0) {
                  seasonData.games.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(game => {
                     const gameStats = getGameStats(game);
-                    const homeGoals = gameStats.home.goals;
-                    const awayGoals = gameStats.away.goals;
-                    gamesTable += `
-                        <details class="bg-slate-900 rounded-lg shadow mb-2">
-                            <summary class="flex justify-between items-center p-3 font-semibold">
-                                <div>
-                                    <p class="font-bold text-slate-100">${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}</p>
-                                    <p class="text-sm text-slate-300">Lopputulos: ${homeGoals} - ${awayGoals}</p>
-                                </div>
-                                <button data-game-id="${game.id}" class="delete-game-btn text-red-500 hover:text-red-700 font-semibold text-sm z-10 p-2">Poista</button>
-                            </summary>
-                            <div class="p-4 border-t border-slate-700">
-                                ${generateGameDetailsHTML(game)}
-                            </div>
-                        </details>`;
+                    gamesTable += `<details class="bg-slate-900 rounded-lg shadow mb-2"><summary class="flex justify-between items-center p-3 font-semibold"><div><p class="font-bold text-slate-100">${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}</p><p class="text-sm text-slate-300">Lopputulos: ${gameStats.home.goals} - ${gameStats.away.goals}</p></div><button data-game-id="${game.id}" class="delete-game-btn text-red-500 hover:text-red-700 font-semibold text-sm z-10 p-2">Poista</button></summary><div class="p-4 border-t border-slate-700">${generateGameDetailsHTML(game)}</div></details>`;
                 });
-            } else {
-                gamesTable += `<p class="text-slate-400 text-center">Ei tallennettuja otteluita.</p>`;
-            }
+            } else { gamesTable += `<p class="text-slate-400 text-center">Ei tallennettuja otteluita.</p>`; }
 
-            seasonView.innerHTML = `
-                <div class="w-full max-w-4xl mx-auto">
-                    <button id="new-game-from-season-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg mb-6">Aloita uusi ottelu</button>
-                    <div class="bg-slate-800 p-6 rounded-lg shadow-lg">${playerTable}</div>
-                    <div class="mt-6 bg-slate-800 p-6 rounded-lg shadow-lg">${gamesTable}</div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                        <button id="share-season-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg">Jaa kausidata sähköpostiin</button>
-                        <button id="delete-season-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg">Tyhjennä koko kausidata</button>
-                    </div>
-                </div>`;
+            seasonView.innerHTML = `<div class="w-full max-w-4xl mx-auto p-4"><button id="new-game-from-season-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg mb-6">Aloita uusi ottelu</button><div class="bg-slate-800 p-6 rounded-lg shadow-lg">${playerTable}</div><div class="mt-6 bg-slate-800 p-6 rounded-lg shadow-lg">${gamesTable}</div><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8"><button id="share-season-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded">Jaa</button><button id="delete-season-btn" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded">Tyhjennä</button></div></div>`;
             
             document.getElementById('new-game-from-season-btn').addEventListener('click', () => {
-                console.log("new-game-from-season-btn: Klikattu. Siirrytään asetusnäkymään kausidatasta.");
-                previousView = 'season';
-                appContainer.classList.add('hidden');
-                setupView.classList.remove('hidden');
-                opponentNameInput.value = '';
-                prefillRosterInput();
+                previousView = 'season'; showMainView('setup');
+                opponentNameInput.value = ''; prefillRosterInput();
             });
-
             document.getElementById('share-season-btn').addEventListener('click', shareDataByEmail);
-
-            document.getElementById('delete-season-btn').addEventListener('click', () => {
-                 showConfirmation('Tyhjennä kausidata?', 'Tämä poistaa kaikki tallennetut ottelut ja kokoonpanon pysyvästi. Toimintoa ei voi perua.', 'Kyllä, poista kaikki', 'bg-red-600', deleteAllSeasonData);
-            });
-
-            document.querySelectorAll('.delete-game-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault(); 
-                    const gameId = e.target.dataset.gameId;
-                    showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun tiedot?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(gameId));
-                });
-            });
+            document.getElementById('delete-season-btn').addEventListener('click', () => showConfirmation('Tyhjennä kausidata?', 'Tämä poistaa kaikki tallennetut ottelut ja kokoonpanon pysyvästi.', 'Kyllä, poista kaikki', 'bg-red-600', deleteAllSeasonData));
+            document.querySelectorAll('.delete-game-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                e.preventDefault(); 
+                showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(e.target.dataset.gameId));
+            }));
         }
         
-        // --- Datan jakaminen ---
         function shareDataByEmail() {
-            const subject = "Salibandykauden tilastokooste";
+             const subject = "Salibandykauden tilastokooste";
             const body = generateShareableText();
             window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         }
-
         function generateShareableText() {
-            // This function would need to format the data into text, implementation later.
+            // Placeholder - this would need a proper implementation
             return "Kausidataa...";
         }
-
-        // --- APUFUNKTIOT ---
         function getGameStats(game) {
             let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0 }};
             game.shots.forEach(shot => {
-                if (shot.team === 'home') {
-                    stats.home.shots++;
-                    stats.home.xg += shot.xG;
-                    if (shot.outcome === 'goal') stats.home.goals++;
-                    if (shot.outcome === 'save') stats.away.saves++;
-                    if (shot.outcome === 'block') stats.away.blocks++;
-                } else {
-                    stats.away.shots++;
-                    stats.away.xg += shot.xG;
-                    if (shot.outcome === 'goal') stats.away.goals++;
-                    if (shot.outcome === 'save') stats.home.saves++;
-                    if (shot.outcome === 'block') stats.home.blocks++;
-                }
+                const shooter = stats[shot.team];
+                const opponent = stats[shot.team === 'home' ? 'away' : 'home'];
+                shooter.shots++; shooter.xg += shot.xG;
+                if (shot.outcome === 'goal') shooter.goals++;
+                if (shot.outcome === 'save') opponent.saves++;
+                if (shot.outcome === 'block') opponent.blocks++;
             });
             return stats;
         }
-        
         function generateGameDetailsHTML(game) {
             const gameStats = getGameStats(game);
             let playerStatsHTML = '';
@@ -1197,14 +788,10 @@
                 const playerGoals = playerShots.filter(s => s.outcome === 'goal').length;
                 const pm = game.plusMinus[playerNum];
                 if (playerShots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) {
-                    const efficiency = playerGoals > 0 && playerShots.length > 0 ? `${Math.round((playerGoals / playerShots.length) * 100)}%` : '—';
+                    const efficiency = playerGoals > 0 ? `${Math.round((playerGoals / playerShots.length) * 100)}%` : '—';
                     const balance = pm ? pm.plus - pm.minus : 0;
-                    const balanceText = balance > 0 ? `+${balance}` : balance;
-                    const playerName = game.roster[playerNum] ? ` ${game.roster[playerNum]}` : '';
-                    playerStatsHTML += `<div class="grid grid-cols-5 text-center text-xs text-slate-300 py-1 border-b border-slate-700">
-                                            <span class="font-semibold text-left">#${playerNum}${playerName}</span><span>${playerShots.length}</span><span>${playerGoals}</span>
-                                            <span>${efficiency}</span><span class="font-semibold">${balanceText}</span>
-                                        </div>`;
+                    const name = game.roster[playerNum] || '';
+                    playerStatsHTML += `<div class="grid grid-cols-5 text-center text-xs text-slate-300 py-1 border-b border-slate-700"><span class="font-semibold text-left">#${playerNum} ${name}</span><span>${playerShots.length}</span><span>${playerGoals}</span><span>${efficiency}</span><span class="font-semibold">${balance > 0 ? '+' : ''}${balance}</span></div>`;
                 }
             });
 
@@ -1227,17 +814,15 @@
                 </div>
             `;
         }
-
-        // --- Varmistusmodaali ---
         function showConfirmation(title, text, confirmButtonText, buttonClass, callback) {
-            confirmTitle.textContent = title;
-            confirmText.textContent = text;
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-text').textContent = text;
+            const confirmBtn = document.getElementById('confirm-btn');
             confirmBtn.textContent = confirmButtonText;
             confirmBtn.className = `px-6 py-2 rounded-lg text-white font-semibold ${buttonClass}`;
             
             const newConfirmBtn = confirmBtn.cloneNode(true);
-            const oldConfirmBtn = document.getElementById('confirm-btn');
-            oldConfirmBtn.parentNode.replaceChild(newConfirmBtn, oldConfirmBtn);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
             newConfirmBtn.addEventListener('click', () => {
                 callback();
                 confirmModal.classList.add('hidden');
