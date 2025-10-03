@@ -156,8 +156,8 @@
         </div>
     </div>
 
-    <!-- Varsinainen sovellus (piilossa aluksi) -->
-    <div id="app-container" class="hidden h-full w-full flex flex-col">
+    <!-- Varsinainen sovellus (piilossa aluksi) - KORJATTU: overflow-hidden lisätty -->
+    <div id="app-container" class="hidden h-full w-full flex flex-col overflow-hidden">
         <!-- Erävalinta -->
         <div id="period-tabs" class="bg-slate-800 text-white p-2 flex justify-center gap-1 md:gap-2 shrink-0 flex-wrap">
             <button data-period="1" class="period-tab active">Erä 1</button>
@@ -168,9 +168,9 @@
             <button data-period="season" class="period-tab">Kausi</button>
         </div>
 
-        <!-- Pääsovellus - KORJATTU: min-h-0 korjaa Safarin ylivuoto-ongelman -->
-        <div id="main-app" class="hidden flex-1 flex flex-row min-h-0">
-            <!-- Sivupalkki pelaajille ja tilastoille - KORJATTU: flex-shrink-0 varmistaa leveyden -->
+        <!-- Pääsovellus - KORJATTU: Asettelu mukautuu nyt näyttökokoon (pysty/vaaka) -->
+        <div id="main-app" class="hidden flex-1 flex flex-col md:flex-row min-h-0">
+            <!-- Sivupalkki pelaajille ja tilastoille -->
             <div class="w-full md:w-64 bg-slate-900 text-slate-200 p-4 shadow-lg flex flex-col flex-shrink-0 overflow-y-auto">
                 <div class="flex-grow">
                     <h2 class="text-xl font-bold mb-4 text-center text-slate-100">Koti</h2>
@@ -1252,6 +1252,7 @@
     </script>
 </body>
 </html>
+
 
 
 
