@@ -33,6 +33,11 @@
         #plus-minus-view .pm-player-btn:active { transform: scale(0.9); }
         details > summary { cursor: pointer; list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
+        /* Varmistetaan, että vasen paneeli skrollaa tarvittaessa */
+        #main-app > .w-full.md\:w-64 {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -78,8 +83,7 @@
                 <div class="w-full md:w-64 bg-slate-900 p-4 shrink-0 overflow-y-auto order-last md:order-first">
                     <div class="flex-grow">
                         <h2 class="text-xl font-bold mb-4 text-center">Koti</h2>
-                        <!-- KORJATTU: Pelaajalistan ruudukko -->
-                        <div id="home-player-list" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-3 mb-6"></div>
+                        <div id="home-player-list" class="grid grid-cols-3 gap-3 mb-6"></div>
                         <h2 class="text-xl font-bold mb-4 text-center">Vieras</h2>
                         <div id="away-player-list" class="flex justify-center mb-6"></div>
                         <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
@@ -87,7 +91,6 @@
                     </div>
                     <button id="save-game-button" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded-lg">Tallenna</button>
                 </div>
-                <!-- KORJATTU: Kentän asettelu ja koko -->
                 <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0 order-first md:order-last">
                     <div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div>
                     <div id="field-container" class="relative w-full max-w-[1200px] aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800">
@@ -190,23 +193,91 @@
             if (previousView === 'season') { showMainView('app'); showView('season'); } 
             else { showMainView('landing'); }
         });
+        
+        // KORJATTU: Rosterin parsinta tehty kestävämmäksi
+        function parseRosterTextarea(value) {
+            const roster = {};
+            const lines = value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-        function startNewNewGame(roster, opponentName) {
+            lines.forEach((line, idx) => {
+                const m = line.match(/^(\d{1,3})\s*(.*)$/);
+                if (!m) { throw new Error(`Rivi ${idx + 1} ei ole muotoa "NUM Nimi".`); }
+                const num = Number(m[1]);
+                const name = (m[2] || '').trim();
+                roster[num] = name;
+            });
+            return roster;
+        }
+
+        startButton.addEventListener('click', async () => {
+            setupError.textContent = '';
+            const opponentName = opponentNameInput.value.trim();
+            if (!opponentName) {
+                setupError.textContent = 'Syötä vastustajan nimi.';
+                return;
+            }
+
+            let newRoster = {};
+            try {
+                newRoster = parseRosterTextarea(playerRosterInput.value);
+            } catch (err) {
+                setupError.textContent = err.message || 'Virheellinen syöte pelaajalistassa.';
+                return;
+            }
+
+            if (Object.keys(newRoster).length === 0) {
+                setupError.textContent = 'Syötä vähintään yksi pelaaja.';
+                return;
+            }
+
+            await saveRosterToFirestore(newRoster);
+            rosterData = newRoster;
+            playerRosterInput.value = ''; // Tyhjennetään kenttä
+
+            showMainView('app');
+            startNewGame(newRoster, opponentName);
+        });
+
+        // KORJATTU: Varmistetaan, että pelaajat renderöidään
+        function startNewGame(roster, opponentName) {
             shotsLayer.innerHTML = '';
-            const players = Object.keys(roster).map(Number).sort((a, b) => a - b);
-            // KORJATTU: Lisätty päivämäärä
-            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {} };
+            const players = Object.keys(roster).map(n => Number(n)).filter(n => !Number.isNaN(n)).sort((a, b) => a - b);
+
+            if (players.length === 0) {
+                document.getElementById('setup-error').textContent = 'Kokoonpano tyhjä. Tarkista syöte.';
+                showMainView('setup');
+                return;
+            }
+
+            currentGame = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                opponent: opponentName,
+                players,
+                roster,
+                shots: [],
+                plusMinus: {}
+            };
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
-            initializePlayers(); initializePlusMinusView(); addEventListeners(); showView(1);
+
+            initializePlayers();
+            initializePlusMinusView();
+            addEventListeners();
+            showView(1);
         }
 
         function initializePlayers() {
             homePlayerList.innerHTML = '';
+            if (!currentGame?.players?.length) {
+                homePlayerList.innerHTML = `<div class="text-sm text-slate-400 col-span-3">Ei pelaajia.</div>`;
+                return;
+            }
             currentGame.players.forEach(number => {
                 const player = document.createElement('div');
                 player.className = 'player-number'; player.textContent = number;
                 homePlayerList.appendChild(player);
             });
+
             awayPlayerList.innerHTML = '';
             const awayPlayer = document.createElement('div');
             awayPlayer.className = 'player-number away-player'; awayPlayer.textContent = 'V';
@@ -226,109 +297,49 @@
             }
         }
         
-        startButton.addEventListener('click', async () => {
-            setupError.textContent = ''; 
-            const opponentName = opponentNameInput.value.trim();
-            const lines = playerRosterInput.value.split('\n').filter(line => line.trim() !== '');
-            if (opponentName === '') { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
-            if (lines.length === 0) { setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
-            const newRoster = {}; let error = false;
-            lines.forEach(line => {
-                const parts = line.trim().split(/\s+/);
-                const number = parseInt(parts[0], 10);
-                if (isNaN(number)) { error = true; } 
-                else { newRoster[number] = parts.slice(1).join(' ') || ''; }
-            });
-            if(error) { setupError.textContent = 'Virheellinen syöte pelaajalistassa.'; return; }
-            await saveRosterToFirestore(newRoster);
-            rosterData = newRoster;
-            showMainView('app');
-            startNewGame(newRoster, opponentName);
-        });
-        
         saveGameButton.addEventListener('click', () => showConfirmation('Tallenna ottelu?', 'Haluatko tallentaa nykyisen ottelun tiedot?', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore));
         document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
 
-        // KORJATTU: Vanhat tapahtumankuuntelijat poistettu ja korvattu Pointer Events -versioilla
         function addEventListeners() {
             [homePlayerList, awayPlayerList].forEach(bar => { bar.addEventListener('pointerdown', onPointerDown, { passive: false }); });
             document.body.addEventListener('pointermove', onPointerMove, { passive: false });
             document.body.addEventListener('pointerup', onPointerUp);
-
             outcomeModal.addEventListener('click', onOutcomeSelect);
             editOutcomeModal.addEventListener('click', onEditOutcomeSelect);
             shotsLayer.addEventListener('click', onShotMarkerClick);
-
-            // KORJATTU: Varmistetaan, että tabit reagoivat luotettavasti
-            periodTabs.addEventListener('click', (e) => {
-                const btn = e.target.closest('button.period-tab');
-                if (btn) showView(btn.dataset.period);
-            });
-            periodTabs.addEventListener('pointerup', (e) => {
-                const btn = e.target.closest('button.period-tab');
-                if (btn) showView(btn.dataset.period);
-            });
-            
+            periodTabs.addEventListener('click', (e) => { const btn = e.target.closest('button.period-tab'); if (btn) showView(btn.dataset.period); });
+            periodTabs.addEventListener('pointerup', (e) => { const btn = e.target.closest('button.period-tab'); if (btn) showView(btn.dataset.period); });
             plusMinusView.addEventListener('click', onPlusMinusClick);
             fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
         }
         
-        // KORJATTU: Uudet Pointer Event -käsittelijät
         function onPointerDown(e) {
-            const target = e.target.closest('.player-number');
-            if (!target || !currentGame.id) return;
-            draggedElement = target;
-            ghostElement = target.cloneNode(true);
-            ghostElement.classList.add('dragging');
-            document.body.appendChild(ghostElement);
+            const target = e.target.closest('.player-number'); if (!target || !currentGame.id) return;
+            draggedElement = target; ghostElement = target.cloneNode(true);
+            ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement);
             updateGhostPosition(e.pageX, e.pageY);
         }
-
-        function onPointerMove(e) {
-            if (!ghostElement) return;
-            e.preventDefault();
-            updateGhostPosition(e.pageX, e.pageY);
-        }
-
+        function onPointerMove(e) { if (!ghostElement) return; e.preventDefault(); updateGhostPosition(e.pageX, e.pageY); }
         function onPointerUp(e) {
             if (!draggedElement || !ghostElement) return;
-            // Piilotetaan haamuelementti hetkeksi, jotta elementFromPoint ei osu siihen
             ghostElement.style.display = 'none';
             const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
-            ghostElement.style.display = ''; // Palautetaan näkyviin
-
+            ghostElement.style.display = '';
             if (fieldContainer.contains(dropTarget)) {
                 const rect = shotsLayer.getBoundingClientRect();
                 const x = ((e.clientX - rect.left) / rect.width) * 100;
                 const y = ((e.clientY - rect.top) / rect.height) * 100;
-                tempShotData = {
-                    player: draggedElement.textContent,
-                    team: draggedElement.classList.contains('away-player') ? 'away' : 'home',
-                    x, y
-                };
+                tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y };
                 showOutcomeModal(e.clientX, e.clientY);
             }
             document.body.removeChild(ghostElement);
-            ghostElement = null;
-            draggedElement = null;
+            ghostElement = null; draggedElement = null;
         }
 
         function updateGhostPosition(x, y) { if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; } }
-        
-        function onOutcomeSelect(e) {
-            const target = e.target.closest('[data-outcome]'); if (!target) return;
-            const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) };
-            currentGame.shots.push(newShot);
-            hideOutcomeModal(); renderShots(); updateStats();
-        }
+        function onOutcomeSelect(e) { const target = e.target.closest('[data-outcome]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, outcome: target.dataset.outcome, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; currentGame.shots.push(newShot); hideOutcomeModal(); renderShots(); updateStats(); }
         function onShotMarkerClick(e) { const target = e.target.closest('.shot-marker'); if (!target || draggedElement) { hideEditOutcomeModal(); return; } shotToEditId = Number(target.dataset.shotId); showEditOutcomeModal(e.clientX, e.clientY); }
-        function onEditOutcomeSelect(e) {
-            const target = e.target; if (!shotToEditId) return;
-            const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return;
-            if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } 
-            else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; }
-            hideEditOutcomeModal(); renderShots(); updateStats();
-        }
+        function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; } hideEditOutcomeModal(); renderShots(); updateStats(); }
         function showOutcomeModal(x, y) { hideEditOutcomeModal(); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
         function hideOutcomeModal() { outcomeModal.classList.add('hidden'); tempShotData = {}; }
         function showEditOutcomeModal(x, y) { hideOutcomeModal(); editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`; editOutcomeModal.classList.remove('hidden'); }
@@ -346,9 +357,6 @@
             renderPlusMinusSummary();
         }
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        
-        // --- Loput apufunktiot pysyvät pääosin ennallaan ---
-        
         async function saveAndEndGameInFirestore() { if (!userId) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'artifacts', 'default-app-id', 'users', userId, 'games'), gameToSave); showView('season'); } catch (error) { console.error("Pelin tallennus epäonnistui: ", error); } }
         function listenForGames() { if (!userId) return; gamesUnsubscribe(); const q = query(collection(db, 'artifacts', 'default-app-id', 'users', userId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId) await setDoc(doc(db, 'artifacts', 'default-app-id', 'users', userId, 'roster', 'main'), { players: roster }); }
