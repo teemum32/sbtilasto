@@ -20,6 +20,7 @@
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
         .period-tab.active { background-color: #4f46e5; }
+        #main-app > .bg-slate-900 { overflow-y: auto; overflow-x: hidden; }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -359,31 +360,7 @@
             const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody + "\n\n---\nLataa liitteeksi juuri tallentunut tiedosto: " + xlsxFilename)}`;
             showConfirmation( 'Lataus valmis', `Tiedosto "${xlsxFilename}" on ladattu. Löydät sen selaimesi latausvalikosta tai laitteesi Tiedostot-sovelluksesta.`, 'Avaa sähköposti', 'bg-emerald-600', () => { window.location.href = mailtoLink; });
         }
-        function calculateSeasonStats() {
-            const fullRoster = {}, seasonPlayerStats = {};
-            seasonData.games.forEach(g => Object.assign(fullRoster, g.roster));
-            const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players || []))].sort((a, b) => a - b);
-            allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0, qualityHigh: 0, qualityLow: 0 }; });
-            seasonData.games.forEach(game => {
-                (game.players || []).forEach(pNum => { if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++; });
-                (game.shots || []).forEach(shot => {
-                    if (shot.team === 'home' && seasonPlayerStats[shot.player]) {
-                        const playerStat = seasonPlayerStats[shot.player];
-                        playerStat.shots++;
-                        if (shot.outcome === 'goal') playerStat.goals++;
-                        if (shot.quality === 'high') playerStat.qualityHigh++;
-                        if (shot.quality === 'low') playerStat.qualityLow++;
-                    }
-                });
-                Object.keys(game.plusMinus || {}).forEach(pNum => {
-                    if (seasonPlayerStats[pNum]) {
-                        seasonPlayerStats[pNum].plus += game.plusMinus[pNum].plus || 0;
-                        seasonPlayerStats[pNum].minus += game.plusMinus[pNum].minus || 0;
-                    }
-                });
-            });
-            return { playerStats: seasonPlayerStats, fullRoster, allPlayers };
-        }
+        function calculateSeasonStats() { const fullRoster = {}, seasonPlayerStats = {}; seasonData.games.forEach(g => Object.assign(fullRoster, g.roster)); const allPlayers = [...new Set(seasonData.games.flatMap(g => g.players || []))].sort((a, b) => a - b); allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0, qualityHigh: 0, qualityLow: 0 }; }); seasonData.games.forEach(game => { (game.players || []).forEach(pNum => { if (seasonPlayerStats[pNum]) seasonPlayerStats[pNum].games++; }); (game.shots || []).forEach(shot => { if (shot.team === 'home' && seasonPlayerStats[shot.player]) { const playerStat = seasonPlayerStats[shot.player]; playerStat.shots++; if (shot.outcome === 'goal') playerStat.goals++; if (shot.quality === 'high') playerStat.qualityHigh++; if (shot.quality === 'low') playerStat.qualityLow++; } }); Object.keys(game.plusMinus || {}).forEach(pNum => { if (seasonPlayerStats[pNum]) { seasonPlayerStats[pNum].plus += game.plusMinus[pNum].plus || 0; seasonPlayerStats[pNum].minus += game.plusMinus[pNum].minus || 0; } }); }); return { playerStats: seasonPlayerStats, fullRoster, allPlayers }; }
         function generateShareableText_Players(playerStats, fullRoster, allPlayers) { let text = "Pelaajatilastot:\n\nPelaaja\tOtt.\tLauk.\tMaalit\tL+\tH-\tT%\t+/-\n" + "-".repeat(60) + "\n"; allPlayers.forEach(pNum => { const stats = playerStats[pNum], eff = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—', bal = stats.plus - stats.minus; text += `#${pNum} ${fullRoster[pNum] || ''}\t${stats.games}\t${stats.shots}\t${stats.goals}\t${stats.qualityHigh || 0}\t${stats.qualityLow || 0}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; }); return text; }
         function generateShareableText_Game(game) { const gameStats = getGameStats(game); let text = `Ottelukooste: ${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}\nLopputulos: ${gameStats.home.goals} - ${gameStats.away.goals}\n\nJoukkueiden tilastot:\nKoti:\tLauk. ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, Torj. ${gameStats.home.saves}, Blok. ${gameStats.home.blocks}\nVieras:\tLauk. ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, Torj. ${gameStats.away.saves}, B ${gameStats.away.blocks}\n\nPelaajakohtaiset tilastot:\nPelaaja`.padEnd(20) + "L\tM\tL+\tH-\tT%\t+/-\n" + "-".repeat(60) + "\n"; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum); const goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length; const qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); const playerName = `#${pNum} ${game.roster[pNum] || ''}`; text += `${playerName.padEnd(20)}\t${shots.length}\t${goals}\t${qH}\t${qL}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; } }); return text; }
         function generateAndDownloadXLSX_Players(playerStats, fullRoster, allPlayers, filename) { const data = [["Pelaaja", "Ottelut", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; allPlayers.forEach(pNum => { const stats = playerStats[pNum]; data.push([`#${pNum} ${fullRoster[pNum] || ''}`, stats.games, stats.shots, stats.goals, stats.qualityHigh || 0, stats.qualityLow || 0, stats.shots > 0 ? (stats.goals / stats.shots) : 0, stats.plus - stats.minus]); }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:8}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`G${i}`]) { ws[`G${i}`].t = 'n'; ws[`G${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Pelaajatilastot"); downloadXLSX(wb, filename); }
