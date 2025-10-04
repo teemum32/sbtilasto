@@ -317,7 +317,6 @@
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`; currentGame.players.forEach(pNum => { const shots = currentGame.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length, qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = currentGame.roster[pNum]?.split(' ')[0] || ''; html += `<div class="grid grid-cols-7 text-center text-sm py-1 border-b border-slate-700 items-center"><span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span class="text-red-400 font-semibold">${qH}</span><span class="text-blue-400 font-semibold">${qL}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
         function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); currentGame.players.forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; currentGame.players.forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = stats.plus - stats.minus; const name = currentGame.roster[pNum]?.split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
-        
         function renderSeasonStats() {
             try {
                 if (!Array.isArray(seasonData.games)) seasonData.games = [];
@@ -338,6 +337,19 @@
                 } else { gamesTable += `<p class="text-center text-slate-400">Ei tallennettuja otteluita.</p>`; }
                 
                 seasonView.innerHTML = `<div class="w-full max-w-4xl mx-auto"><button id="new-game-from-season-btn" class="w-full bg-indigo-600 font-bold py-3 rounded-lg mb-6">Aloita uusi ottelu</button><div class="bg-slate-800 p-6 rounded-lg">${playerTable}</div><div class="mt-6 bg-slate-800 p-6 rounded-lg">${gamesTable}</div></div>`;
+                
+                seasonView.addEventListener('click', (e) => {
+                    const newGameBtn = e.target.closest('#new-game-from-season-btn');
+                    const sharePlayersBtn = e.target.closest('#share-players-btn');
+                    const shareGameBtn = e.target.closest('.share-game-btn');
+                    const deleteGameBtn = e.target.closest('.delete-game-btn');
+
+                    if (newGameBtn) { showMainView('setup'); prefillRosterInput(); } 
+                    else if (sharePlayersBtn) { shareDataByEmail('players'); } 
+                    else if (shareGameBtn) { shareDataByEmail('game', shareGameBtn.dataset.gameId); } 
+                    else if (deleteGameBtn) { e.preventDefault(); showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)); }
+                });
+
             } catch (err) {
                 seasonView.innerHTML = `<div class="w-full max-w-2xl mx-auto bg-red-900/30 border border-red-700 text-red-200 p-4 rounded"><p class="font-bold mb-2">Kausidatan renderöinti epäonnistui.</p><p class="text-sm opacity-80">Virhe: ${err?.message || err}</p></div>`;
             }
@@ -388,9 +400,8 @@
             const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody + "\n\n---\nLataa liitteeksi juuri tallentunut tiedosto: " + xlsxFilename)}`;
             showConfirmation( 'Lataus valmis', `Tiedosto "${xlsxFilename}" on ladattu. Löydät sen selaimesi latausvalikosta tai laitteesi Tiedostot-sovelluksesta.`, 'Avaa sähköposti', 'bg-emerald-600', () => { window.location.href = mailtoLink; });
         }
-        
         function calculateSeasonStats() {
-            const fullRoster = {}; const seasonPlayerStats = {};
+            const fullRoster = {}, seasonPlayerStats = {};
             (seasonData.games || []).forEach(g => Object.assign(fullRoster, g.roster || {}));
             const allPlayers = [...new Set((seasonData.games || []).flatMap(g => g.players || []))].map(n=>Number(n)).filter(n=>!isNaN(n)).sort((a,b)=>a-b);
             allPlayers.forEach(p => { seasonPlayerStats[p] = { games: 0, shots: 0, goals: 0, plus: 0, minus: 0, qualityHigh: 0, qualityLow: 0 }; });
@@ -418,34 +429,7 @@
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
-        // KORJATTU: Lisätty delegoitu tapahtumankuuntelija Kausi-näkymälle
-        seasonView.addEventListener('click', (e) => {
-            const newGameBtn = e.target.closest('#new-game-from-season-btn');
-            const sharePlayersBtn = e.target.closest('#share-players-btn');
-            const shareGameBtn = e.target.closest('.share-game-btn');
-            const deleteGameBtn = e.target.closest('.delete-game-btn');
-
-            if (newGameBtn) {
-                showMainView('setup');
-                prefillRosterInput();
-            } else if (sharePlayersBtn) {
-                shareDataByEmail('players');
-            } else if (shareGameBtn) {
-                shareDataByEmail('game', shareGameBtn.dataset.gameId);
-            } else if (deleteGameBtn) {
-                e.preventDefault();
-                showConfirmation(
-                    'Poista ottelu?', 
-                    'Haluatko varmasti poistaa tämän ottelun?', 
-                    'Kyllä, poista', 
-                    'bg-red-600', 
-                    () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)
-                );
-            }
-        });
-        
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
-
     </script>
 </body>
 </html>
