@@ -7,6 +7,9 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- PALAUTETUT KIRJASTOT PDF-LUONTIA VARTEN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
@@ -20,10 +23,6 @@
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
         .period-tab.active { background-color: #4f46e5; }
-        #main-app > .bg-slate-900 {
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -277,7 +276,7 @@
         }
         
         function addEventListeners() {
-            document.getElementById('save-game-button').addEventListener('click', () => { if (currentGame.isReadOnly) return; showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun? Tallennuksen jälkeen et voi enää muokata merkintöjä.', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore) });
+            document.getElementById('save-game-button').addEventListener('click', () => { if (currentGame.isReadOnly) return; showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun? Tallennuksen jälkeen nykyisen pelin merkinnät poistuvat näkyvistä. Ota tarvittavat ruutukaappaukset ennen tallennusta.', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore) });
             document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
             document.getElementById('home-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
             document.getElementById('away-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
