@@ -387,7 +387,7 @@
 
     function updateStats(){
       if(!currentGame?.shots) return;
-      let stats={ home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0} };
+      let stats={ home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0 }};
       const set=(currentGame.shots||[]).filter(s=> currentGame.currentPeriod==='summary' ? true : s.period===currentGame.currentPeriod);
       set.forEach(shot=>{
         const t=shot.team==='away'?'away':'home', o=t==='home'?'away':'home';
@@ -482,16 +482,38 @@
 
     async function saveAndEndGame(){ const g={...currentGame}; await addGameToFirestore(g); showView('season'); }
 
-    // ---- PDF helpers (kentän kohdistus, isot kuvat, pelaajataulukko) ----
+    // ---- PDF helpers ----
     function callAutoTable(doc, opts){ if(window.jspdfAutoTable) return window.jspdfAutoTable(doc,opts); if(doc.autoTable) return doc.autoTable(opts); throw new Error('AutoTable-plugin ei ole ladattu'); }
 
-    function getStatsForPeriod(game, period){
-      const shots=(game?.shots||[]).filter(s=> period==='summary'?true:s.period===period);
-      const a={home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}};
-      shots.forEach(sh=>{ const t=sh.team==='away'?'away':'home', o=t==='home'?'away':'home'; a[t].shots++; a[t].xg+=Number(sh.xG)||0; if(sh.outcome==='goal') a[t].goals++; if(sh.outcome==='save') a[o].saves++; if(sh.outcome==='block') a[o].blocks++; if(sh.quality==='high') a[t].qualityHigh++; if(sh.quality==='low') a[t].qualityLow++; });
-      return a;
+    // (1) *KORJATTU* — vierasjoukkueen arvot aina oikein ja numeroiksi pakotettuna
+    function getStatsForPeriod(game, period) {
+      const rows = (game?.shots || []).filter(s => period === 'summary' ? true : s.period === period);
+      const S = () => ({ goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0, qualityLow:0 });
+      const out = { home: S(), away: S() };
+
+      rows.forEach(sh => {
+        const t = (sh.team === 'away') ? 'away' : 'home';
+        const o = (t === 'home') ? 'away' : 'home';
+
+        out[t].shots  += 1;
+        out[t].xg     += Number(sh.xG) || 0;
+
+        if (sh.outcome === 'goal')  out[t].goals  += 1;
+        if (sh.outcome === 'save')  out[o].saves  += 1;
+        if (sh.outcome === 'block') out[o].blocks += 1;
+
+        if (sh.quality === 'high') out[t].qualityHigh += 1;
+        if (sh.quality === 'low')  out[t].qualityLow  += 1;
+      });
+
+      ['home','away'].forEach(side => {
+        Object.keys(out[side]).forEach(k => { out[side][k] = Number(out[side][k]) || 0; });
+      });
+
+      return out;
     }
 
+    // (2) *KORJATTU* — pallon keskitys flexillä (PDF & html2canvas)
     function createShotmapElement(game, period){
       const shots=(game?.shots||[]).filter(s=> period==='summary'?true:s.period===period);
       const W=900,H=450;
@@ -505,7 +527,17 @@
         </svg>`; wrap.appendChild(field);
       const layer=document.createElement('div'); Object.assign(layer.style,{position:'absolute',inset:'0'}); field.appendChild(layer);
       const COLORS={goal:'#10B981',miss:'#3B82F6',block:'#FACC15',save:'#EF4444'};
-      shots.forEach(s=>{ const leftPx=Math.max(0,Math.min(W,(s.x/100)*W)); const topPx=Math.max(0,Math.min(H,(s.y/100)*H)); const dot=document.createElement('div'); dot.textContent=s.player; Object.assign(dot.style,{position:'absolute',width:'34px',height:'34px',lineHeight:'34px',textAlign:'center',fontWeight:'700',color:'#fff',borderRadius:'9999px',boxShadow:'0 3px 8px rgba(0,0,0,.3)',transform:'translate(-50%,-50%)',left:`${leftPx}px`,top:`${topPx}px`,background:COLORS[s.outcome]||'#111827'}); if(s.quality==='high') dot.style.outline='4px solid #b91c1c'; if(s.quality==='low') dot.style.outline='4px solid #2563eb'; layer.appendChild(dot); });
+      shots.forEach(s=>{ const leftPx=Math.max(0,Math.min(W,(s.x/100)*W)); const topPx=Math.max(0,Math.min(H,(s.y/100)*H)); const dot=document.createElement('div'); dot.textContent=s.player; Object.assign(dot.style,{
+          position:'absolute', width:'34px', height:'34px',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          textAlign:'center', fontWeight:'700', color:'#fff', borderRadius:'9999px', boxShadow:'0 3px 8px rgba(0,0,0,.3)',
+          transform:'translate(-50%,-50%)', left:`${leftPx}px`, top:`${topPx}px`,
+          background:COLORS[s.outcome]||'#111827'
+        });
+        if(s.quality==='high') dot.style.outline='4px solid #b91c1c';
+        if(s.quality==='low')  dot.style.outline='4px solid #2563eb';
+        layer.appendChild(dot);
+      });
       return wrap;
     }
 
