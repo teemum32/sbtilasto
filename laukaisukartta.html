@@ -12,7 +12,22 @@
                  frame-src 'self' https:;
                  frame-ancestors 'self' https:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Salibandyn Kausitilastot</title>
+  <title>Floorball Shotmap</title>
+
+  <!-- Linkkijako / esikatselu -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Floorball Shotmap">
+  <meta property="og:description" content="Ottelukohtaiset laukaisukartat ja xG-raportit — PDF yhdellä napilla.">
+  <meta property="og:image" content="/icon-1200x630.png">
+  <meta property="og:url" content="/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Floorball Shotmap">
+  <meta name="twitter:description" content="Ottelukohtaiset laukaisukartat ja xG-raportit — PDF yhdellä napilla.">
+  <meta name="twitter:image" content="/icon-1200x630.png">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <meta name="apple-mobile-web-app-title" content="Floorball Shotmap">
+  <meta name="theme-color" content="#0f172a">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -34,7 +49,7 @@
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
 
-  <!-- Kirjautuminen: Email + Password (sallittu domain alla) -->
+  <!-- Kirjautuminen: Email + Password (vain topteamsalibandy.net) -->
   <div id="login-view" class="h-full w-full flex items-center justify-center p-4">
     <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-2xl font-bold">Kirjaudu</h1>
@@ -55,7 +70,7 @@
   <!-- Landing -->
   <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
-      <h1 class="text-3xl font-bold">Tilastotyökalu</h1>
+      <h1 class="text-3xl font-bold">Floorball Shotmap</h1>
       <div class="space-y-4 mt-8">
         <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita uusi ottelu</button>
         <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg disabled:opacity-50">Tarkastele kausidataa</button>
@@ -216,8 +231,9 @@
     document.getElementById('logout-btn').addEventListener('click', ()=>signOut(auth));
 
     // ---- Firestore paths ----
-    const gamesCol = () => collection(db, 'artifacts', 'default-app-id', 'users', userId, 'games');
-    const rosterDoc = () => doc(db, 'artifacts', 'default-app-id', 'users', userId, 'roster', 'main');
+    const userBase = () => doc(db, 'artifacts', 'default-app-id', 'users', userId);
+    const gamesCol = () => collection(userBase(), 'games');
+    const rosterDoc = () => doc(userBase(), 'roster', 'main');
 
     async function saveRosterToFirestore(roster){ if (userId) await setDoc(rosterDoc(), { players: roster }, { merge:true }); }
     async function loadRosterFromFirestore(){
@@ -238,7 +254,7 @@
       });
     }
     async function addGameToFirestore(game){ const toSave = { ...game }; delete toSave.id; await addDoc(gamesCol(), toSave); }
-    async function deleteGameFromFirestore(id){ await deleteDoc(doc(db, gamesCol().path, id)); }
+    async function deleteGameFromFirestore(id){ await deleteDoc(doc(gamesCol(), id)); }
 
     // ---- UI nav ----
     document.getElementById('start-new-game-btn').addEventListener('click', ()=>{ showOnly('setup'); prefillRosterInput(); });
@@ -350,7 +366,8 @@
     function hideQualityModal(clear=true){ const m=document.getElementById('quality-modal'); m.classList.add('hidden'); if(clear) tempShotData={}; }
     function onQualitySelect(e){
       const b=e.target.closest('[data-quality]'); if(!b) return;
-      const s={ id:Date.now()+Math.random(), ...tempShotData, quality:b.dataset.quality, period: currentGame.currentPeriod||1, xG: calculateXg(tempShotData.x,tempShotData.y,tempShotData.team) };
+      const s={ id:Date.now()+Math.random(), ...tempShotData, quality:b.dataset.quality, period: currentGame.currentPeriod||1,
+        xG: calculateXg(tempShotData.x,tempShotData.y,tempShotData.team,b.dataset.quality) };
       delete s.cx; delete s.cy; currentGame.shots.push(s); hideQualityModal(); renderShots(); updateStats();
     }
 
@@ -440,26 +457,102 @@
       }); box.innerHTML=html;
     }
 
-    // ---- xG (ruudut + pehmennys) ----
-    const XG_GRID=[[0.200,0.164,0.075,0.164,0.200],[0.084,0.066,0.050,0.066,0.084],[0.001,0.014,0.022,0.014,0.010]];
-    const GRID_ROWS=XG_GRID.length, GRID_COLS=XG_GRID[0].length;
-    function bilerp(g,u,v){ const x=u*(GRID_COLS-1), y=v*(GRID_ROWS-1); const x0=Math.floor(x), x1=Math.min(x0+1,GRID_COLS-1); const y0=Math.floor(y), y1=Math.min(y0+1,GRID_ROWS-1); const q00=g[y0][x0], q01=g[y0][x1], q10=g[y1][x0], q11=g[y1][x1]; const tx=x-x0, ty=y-y0; const a=q00*(1-tx)+q01*tx, b=q10*(1-tx)+q11*tx; return a*(1-ty)+b*ty; }
-    function toHalfUV(xPct,yPct,team){ const u=Math.min(Math.max(yPct/100,0),1); let v; if(team==='home') v=Math.min(Math.max((100-xPct)/50,0),1); else v=Math.min(Math.max(xPct/50,0),1); return {u,v}; }
-    function calculateXg(xPct,yPct,team){ const {u,v}=toHalfUV(xPct,yPct,team); const base=bilerp(XG_GRID,u,v); const dist=Math.abs(yPct-50)/50; const angle=Math.pow(1-dist,1.2); const distance=Math.pow(1-v,0.6); return Number(Math.min(0.95, Math.max(0.01, base*angle*distance*0.85)).toFixed(2)); }
+    /* ---------- xG — KORJATTU MAPPING ----------
+
+       - along = etäisyys omaan hyökkäysmaaliin päin (0 = maaliviiva, 1 = keskiviiva)
+       - lateral = sivuttaisetäisyys keskiviivasta (0 = keskikaista, 1 = aivan laidat)
+       - Ruudukko (3x5) kuvaa "mahdollisuustasoa" along x lateral.
+    */
+    const XG_GRID = [
+      // lateral: 0 .. 1 (0=keskeltä, 1=laidoilta)
+      // along:   0 (lähellä maalia)  ->  1 (keskiviiva)
+      [0.45, 0.38, 0.30, 0.22, 0.15],  // keskikaista (lateral ~0)
+      [0.35, 0.28, 0.22, 0.16, 0.10],  // puoliväli
+      [0.25, 0.20, 0.16, 0.12, 0.08]   // aivan laita (lateral ~1)
+    ];
+    const GRID_ROWS = XG_GRID.length;      // 3 (lateral)
+    const GRID_COLS = XG_GRID[0].length;   // 5 (along)
+
+    function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+    function bilerp(grid, uAlong, vLat){
+      // uAlong: 0..1 (0 = maalin lähellä, 1 = kaukana)
+      // vLat:   0..1 (0 = keskikaista, 1 = laita)
+      const x = uAlong * (GRID_COLS-1);
+      const y = vLat   * (GRID_ROWS-1);
+      const x0 = Math.floor(x), x1 = Math.min(x0+1, GRID_COLS-1);
+      const y0 = Math.floor(y), y1 = Math.min(y0+1, GRID_ROWS-1);
+      const q00 = grid[y0][x0], q01 = grid[y0][x1], q10 = grid[y1][x0], q11 = grid[y1][x1];
+      const tx = x - x0, ty = y - y0;
+      const a = q00*(1-tx) + q01*tx;
+      const b = q10*(1-tx) + q11*tx;
+      return a*(1-ty) + b*ty;
+    }
+
+    function mapToAlongAndLateral(xPct, yPct, team){
+      // xPct: 0..100 (vasen->oikea), yPct: 0..100 (ylös->alas)
+      // Koti hyökkää oikealla olevaan maaliin => along pienenee kohti oikeaa maalia
+      // Away hyökkää vasemmalla olevaan maaliin => along pienenee kohti vasenta maalia
+      const along = team === 'home'
+        ? clamp01((100 - xPct) / 50)  // 0..1 (0=maaliviiva oikealla, 1=keskiviiva)
+        : clamp01(xPct / 50);         // 0..1 (0=maaliviiva vasemmalla, 1=keskiviiva)
+
+      const lateral = clamp01(Math.abs(yPct - 50) / 50); // 0 keskikaista, 1 laita
+      return { along, lateral };
+    }
+
+    function calculateXg(xPct, yPct, team, quality){
+      const { along, lateral } = mapToAlongAndLateral(xPct, yPct, team);
+
+      // Perus todennäköisyys ruudukosta (ei enää väärää suuntaa)
+      let val = bilerp(XG_GRID, along, lateral);
+
+      // Pieni kulma-/etäisyyden pehmennys:
+      const angleFactor    = 1 - 0.35 * lateral; // laidasta heikompi
+      const distanceFactor = 0.7 + 0.3 * (1 - along); // läheltä hiukan ylös
+
+      val *= angleFactor * distanceFactor;
+
+      // Laatu (L+/H-) vaikuttaa hieman
+      if (quality === 'high') val *= 1.15;
+      if (quality === 'low')  val *= 0.90;
+
+      // Rajat ja pyöristys
+      val = Math.max(0.02, Math.min(0.85, val));
+      return Number(val.toFixed(2));
+    }
 
     // ---- Season view ----
     function safeDateValue(game){ if(game?.date){ const d=new Date(game.date); if(!isNaN(+d)) return +d; } return Date.now(); }
-    function getGameStats(game){ const s={home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}}; (game.shots||[]).forEach(sh=>{ const t=sh.team==='away'?'away':'home', o=t==='home'?'away':'home'; s[t].shots++; s[t].xg+=Number(sh.xG)||0; if(sh.outcome==='goal') s[t].goals++; if(sh.outcome==='save') s[o].saves++; if(sh.outcome==='block') s[o].blocks++; if(sh.quality==='high') s[t].qualityHigh++; if(sh.quality==='low') s[t].qualityLow++; }); return s; }
+    function getGameStats(game){
+      const s={home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}};
+      (game.shots||[]).forEach(sh=>{
+        const t=sh.team==='away'?'away':'home', o=t==='home'?'away':'home';
+        s[t].shots++; s[t].xg+=Number(sh.xG)||0;
+        if(sh.outcome==='goal') s[t].goals++;
+        if(sh.outcome==='save') s[o].saves++;
+        if(sh.outcome==='block') s[o].blocks++;
+        if(sh.quality==='high') s[t].qualityHigh++;
+        if(sh.quality==='low') s[t].qualityLow++;
+      });
+      return s;
+    }
 
     function renderSeasonStats(){
       const sv=document.getElementById('season-view');
       const games=(seasonData.games||[]).slice().sort((a,b)=>safeDateValue(b)-safeDateValue(a));
-      let html=`<div class="w-full max-w-4xl mx-auto"><h3 class="text-xl font-bold text-slate-800 mb-4">Tallennetut ottelut</h3>`;
+      let html=`<div class="w-full max-w-4xl mx-auto">
+        <h3 class="text-xl font-bold text-slate-800 mb-4">Tallennetut ottelut</h3>`;
       if(games.length){
-        games.forEach(g=>{ const s=getGameStats(g); const d=new Date(safeDateValue(g)).toLocaleDateString('fi-FI');
+        games.forEach(g=>{
+          const s=getGameStats(g); const d=new Date(safeDateValue(g)).toLocaleDateString('fi-FI');
+          const rosterList = g.roster ? Object.keys(g.roster).map(n=>`#${n} ${g.roster[n]}`).join(', ') : '';
           html+=`<details class="bg-white rounded-lg shadow mb-3">
-            <summary class="flex justify-between items-center p-3 font-semibold text-slate-800">
-              <div><p class="font-bold">${d} vs ${g.opponent||''}</p><p class="text-sm text-slate-600">Tulos: ${s.home.goals} - ${s.away.goals}</p></div>
+            <summary class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between p-3 font-semibold text-slate-800">
+              <div>
+                <p class="font-bold">${d} vs ${g.opponent||''}</p>
+                <p class="text-sm text-slate-600">Tulos: ${s.home.goals} - ${s.away.goals}</p>
+                ${rosterList ? `<p class="text-xs text-slate-500">Roster: ${rosterList}</p>` : ``}
+              </div>
               <div class="flex gap-2">
                 <button data-game-id="${g.id}" class="generate-pdf-btn bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold py-2 px-3 rounded">Luo PDF-raportti</button>
                 <button data-game-id="${g.id}" class="delete-game-btn bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2 px-3 rounded">Poista</button>
@@ -469,14 +562,22 @@
               <div><b>Koti:</b> L ${s.home.shots}, xG ${s.home.xg.toFixed(2)}, L+ ${s.home.qualityHigh}, H- ${s.home.qualityLow}, T ${s.home.saves}, B ${s.home.blocks}</div>
               <div><b>Vieras:</b> L ${s.away.shots}, xG ${s.away.xg.toFixed(2)}, L+ ${s.away.qualityHigh}, H- ${s.away.qualityLow}, T ${s.away.saves}, B ${s.away.blocks}</div>
             </div>
-          </details>`; });
-      } else { html+=`<div class="text-slate-700">Ei tallennettuja otteluita.</div>`; }
-      html+='</div>'; sv.innerHTML=html;
+          </details>`;
+        });
+      } else {
+        html+=`<div class="text-slate-700">Ei tallennettuja otteluita.</div>`;
+      }
+      html+='</div>';
+      sv.innerHTML=html;
 
       sv.onclick=(e)=>{
         const del=e.target.closest('.delete-game-btn'); const pdf=e.target.closest('.generate-pdf-btn');
         if(del){ e.preventDefault(); deleteGameFromFirestore(del.dataset.gameId); }
-        if(pdf){ e.preventDefault(); const id=pdf.dataset.gameId; const game=(seasonData.games||[]).find(g=>g.id===id); if(game) generatePdfReportDOM(game); }
+        if(pdf){
+          e.preventDefault();
+          const id=pdf.dataset.gameId; const game=(seasonData.games||[]).find(g=>g.id===id);
+          if(game) generatePdfReportDOM(game);
+        }
       };
     }
 
@@ -485,7 +586,6 @@
     // ---- PDF helpers ----
     function callAutoTable(doc, opts){ if(window.jspdfAutoTable) return window.jspdfAutoTable(doc,opts); if(doc.autoTable) return doc.autoTable(opts); throw new Error('AutoTable-plugin ei ole ladattu'); }
 
-    // (1) *KORJATTU* — vierasjoukkueen arvot aina oikein ja numeroiksi pakotettuna
     function getStatsForPeriod(game, period) {
       const rows = (game?.shots || []).filter(s => period === 'summary' ? true : s.period === period);
       const S = () => ({ goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0, qualityLow:0 });
@@ -513,7 +613,6 @@
       return out;
     }
 
-    // (2) *KORJATTU* — pallon keskitys flexillä (PDF & html2canvas)
     function createShotmapElement(game, period){
       const shots=(game?.shots||[]).filter(s=> period==='summary'?true:s.period===period);
       const W=900,H=450;
@@ -527,7 +626,11 @@
         </svg>`; wrap.appendChild(field);
       const layer=document.createElement('div'); Object.assign(layer.style,{position:'absolute',inset:'0'}); field.appendChild(layer);
       const COLORS={goal:'#10B981',miss:'#3B82F6',block:'#FACC15',save:'#EF4444'};
-      shots.forEach(s=>{ const leftPx=Math.max(0,Math.min(W,(s.x/100)*W)); const topPx=Math.max(0,Math.min(H,(s.y/100)*H)); const dot=document.createElement('div'); dot.textContent=s.player; Object.assign(dot.style,{
+      shots.forEach(s=>{
+        const leftPx=Math.max(0,Math.min(W,(s.x/100)*W));
+        const topPx =Math.max(0,Math.min(H,(s.y/100)*H));
+        const dot=document.createElement('div'); dot.textContent=s.player;
+        Object.assign(dot.style,{
           position:'absolute', width:'34px', height:'34px',
           display:'flex', alignItems:'center', justifyContent:'center',
           textAlign:'center', fontWeight:'700', color:'#fff', borderRadius:'9999px', boxShadow:'0 3px 8px rgba(0,0,0,.3)',
@@ -543,7 +646,17 @@
 
     function generatePlayerStatsForPdf(doc, game, startY=20){
       const rows=[]; const players=(game.players||[]).slice().sort((a,b)=>a-b);
-      players.forEach(pNum=>{ const shots=(game.shots||[]).filter(s=>s.team==='home'&&String(s.player)===String(pNum)); const goals=shots.filter(s=>s.outcome==='goal').length; const qH=shots.filter(s=>s.quality==='high').length; const qL=shots.filter(s=>s.quality==='low').length; const pm=(game.plusMinus&&game.plusMinus[pNum])?game.plusMinus[pNum]:{plus:0,minus:0}; const plusMinus=(pm.plus-pm.minus)>=0?`+${pm.plus-pm.minus}`:String(pm.plus-pm.minus); const name=(game.roster?.[pNum]||'').trim(); const display=name?`#${pNum} ${name}`:`#${pNum}`; rows.push([display,shots.length,goals,qH,qL,plusMinus]); });
+      players.forEach(pNum=>{
+        const shots=(game.shots||[]).filter(s=>s.team==='home'&&String(s.player)===String(pNum));
+        const goals=shots.filter(s=>s.outcome==='goal').length;
+        const qH=shots.filter(s=>s.quality==='high').length;
+        const qL=shots.filter(s=>s.quality==='low').length;
+        const pm=(game.plusMinus&&game.plusMinus[pNum])?game.plusMinus[pNum]:{plus:0,minus:0};
+        const plusMinus=(pm.plus-pm.minus)>=0?`+${pm.plus-pm.minus}`:String(pm.plus-pm.minus);
+        const name=(game.roster?.[pNum]||'').trim();
+        const display=name?`#${pNum} ${name}`:`#${pNum}`;
+        rows.push([display,shots.length,goals,qH,qL,plusMinus]);
+      });
       callAutoTable(doc,{ startY, margin:{left:10,right:10}, tableWidth:doc.internal.pageSize.getWidth()-20, theme:'grid',
         head:[['Pelaaja','Lauk.','Maalit','L+','H-','+/-','T%']],
         body: rows.length ? rows.map(r=>{ const shots=r[1]||0, goals=r[2]||0; const pct=shots?Math.round((goals/shots)*100)+'%':'—'; return [r[0],r[1],r[2],r[3],r[4],r[5],pct]; }) : [['—',0,0,0,0,'0','—']],
@@ -602,7 +715,7 @@
         <p class="text-slate-600 mb-6">${text}</p>
         <div class="flex justify-center gap-4">
           <button id="cancel-confirm-btn" class="px-6 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 font-semibold">Peruuta</button>
-          <button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold ${btnClass}">${btnText}</button>
+          <button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold ${btnText.includes('Poista')?'bg-red-600':btnClass}">${btnText}</button>
         </div></div>`;
       m.classList.remove('hidden');
       document.getElementById('cancel-confirm-btn').onclick=()=>m.classList.add('hidden');
