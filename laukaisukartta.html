@@ -475,7 +475,7 @@
             
             generatePlayerStatsForPdf(doc, game, yPos);
 
-            window.open(doc.output('bloburl'));
+            doc.save(`Raportti_${game.opponent}_${new Date(game.date).toLocaleDateString('fi-FI').replace(/\./g, '-')}.pdf`);
             buttonElement.textContent = originalButtonText;
             buttonElement.disabled = false;
         }
@@ -525,7 +525,6 @@
         }
         
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
-
     </script>
 </body>
 </html>
