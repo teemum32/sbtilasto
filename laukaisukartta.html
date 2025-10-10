@@ -7,8 +7,10 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- UUDET KIRJASTOT PDF-LUONTIA VARTEN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- LISÄTTY PUUTTUNUT AUTOTABLE-KIRJASTO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.autotable.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
@@ -101,12 +103,10 @@
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"></div>
     
     <script type="module">
-        // TÄMÄ ON KOKO SOVELLUKSEN KOODI - KORJATTU JA TÄYDENNETTY
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ... (kaikki muuttujat ja funktiot löytyvät täältä) ...
         const allViews = { auth: document.getElementById('auth-view'), teams: document.getElementById('teams-view'), landing: document.getElementById('landing-view'), setup: document.getElementById('setup-view'), app: document.getElementById('app-container') };
         const emailInput = document.getElementById('email-input'), passwordInput = document.getElementById('password-input');
         const loginBtn = document.getElementById('login-btn'), logoutBtn = document.getElementById('logout-btn'), logoutBtnTeams = document.getElementById('logout-btn-teams');
@@ -527,7 +527,6 @@
         }
         
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
-
     </script>
 </body>
 </html>
