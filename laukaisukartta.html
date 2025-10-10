@@ -7,8 +7,11 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- UUDET KIRJASTOT PDF-LUONTIA VARTEN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- LISÄTTY PUUTTUNUT AUTOTABLE-KIRJASTO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.autotable.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
@@ -468,41 +471,35 @@
                 yPos += 6;
                 doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
 
-                // KORJATTU: Luodaan tilastot siistiin taulukkomuotoon
                 const tableX = margin + imgWidth + 10;
                 let tableY = yPos + 5;
-                const col2X = tableX + 35;
-                const col3X = col2X + 15;
                 
-                doc.setFontSize(10);
-                doc.setFont(undefined, 'bold');
-                doc.text('Tapahtuma', tableX, tableY);
-                doc.text('Koti', col2X, tableY, { align: 'right' });
-                doc.text('Vieras', col3X, tableY, { align: 'right' });
-                tableY += 5;
-                doc.setFont(undefined, 'normal');
-
-                const tableData = [
-                    ['Maalit', stats.home.goals, stats.away.goals],
-                    ['Laukaukset', stats.home.shots, stats.away.shots],
-                    ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
-                    ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
-                    ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
-                    ['Torjunnat', stats.home.saves, stats.away.saves],
-                    ['Blokit', stats.home.blocks, stats.away.blocks],
-                ];
-
-                tableData.forEach(row => {
-                    doc.text(row[0], tableX, tableY);
-                    doc.text(String(row[1]), col2X, tableY, { align: 'right' });
-                    doc.text(String(row[2]), col3X, tableY, { align: 'right' });
-                    tableY += 5;
+                doc.autoTable({
+                    startY: tableY,
+                    head: [['Tapahtuma', 'Koti', 'Vieras']],
+                    body: [
+                        ['Maalit', stats.home.goals, stats.away.goals],
+                        ['Laukaukset', stats.home.shots, stats.away.shots],
+                        ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
+                        ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
+                        ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
+                        ['Torjunnat', stats.home.saves, stats.away.saves],
+                        ['Blokit', stats.home.blocks, stats.away.blocks],
+                    ],
+                    theme: 'grid',
+                    startX: tableX,
+                    styles: { font: 'helvetica', fontSize: 10 },
+                    headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                    columnStyles: {
+                        0: { cellWidth: 35 },
+                        1: { cellWidth: 15, halign: 'right' },
+                        2: { cellWidth: 15, halign: 'right' }
+                    }
                 });
                 
                 yPos += imgHeight + 10;
             }
             
-            // LISÄTTY: Pelaajakohtaiset tilastot omalle sivulleen
             doc.addPage();
             yPos = margin;
             doc.setFontSize(16);
@@ -511,8 +508,8 @@
             
             generatePlayerStatsForPdf(doc, game, yPos);
 
-
-            doc.save(`Raportti_${game.opponent}_${new Date(game.date).toLocaleDateString('fi-FI').replace(/\./g, '-')}.pdf`);
+            // KORJATTU: Avataan PDF uuteen ikkunaan lataamisen sijaan
+            window.open(doc.output('bloburl'));
             
             buttonElement.textContent = originalButtonText;
             buttonElement.disabled = false;
@@ -520,66 +517,4 @@
 
         function createShotmapElement(game, period) {
 // ... existing code ... -->
-        }
-
-        function getStatsForPeriod(game, period) {
-            const stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }};
-// ... existing code ... -->
-            shots.forEach(shot => {
-                const teamKey = (shot.team === 'away') ? 'away' : 'home';
-                const oppKey = (teamKey === 'home') ? 'away' : 'home';
-                const shooter = stats[teamKey], opponent = stats[oppKey];
-                shooter.shots++; shooter.xg += Number(shot.xG) || 0;
-                if (shot.quality === 'high') shooter.qualityHigh++;
-                if (shot.quality === 'low') shooter.qualityLow++;
-                if (shot.outcome === 'goal') shooter.goals++;
-                if (shot.outcome === 'save') opponent.saves++;
-                if (shot.outcome === 'block') opponent.blocks++;
-            });
-            return stats;
-        }
-
-        // UUSI FUNKTIO PELAAJATILASTOJEN LUOMISEKSI PDF:ÄÄN
-        function generatePlayerStatsForPdf(doc, game, startY) {
-            const players = Array.isArray(game?.players) ? game.players : [];
-            const roster  = game?.roster || {};
-            const shots   = Array.isArray(game?.shots) ? game.shots : [];
-            const pmAll   = game?.plusMinus || {};
-            
-            const head = [['Pelaaja', 'L', 'M', 'L+', 'H-', 'T%', '+/-']];
-            const body = [];
-
-            players.forEach(pNum => {
-                const p = Number(pNum);
-                const pShots = shots.filter(s => s.team === 'home' && Number(s.player) === p);
-                const goals  = pShots.filter(s => s.outcome === 'goal').length;
-                const qH = pShots.filter(s => s.quality === 'high').length;
-                const qL = pShots.filter(s => s.quality === 'low').length;
-                const pm = pmAll[p] || pmAll[String(p)] || { plus:0, minus:0 };
-
-                if (pShots.length > 0 || pm.plus > 0 || pm.minus > 0) {
-                    const bal = (pm.plus || 0) - (pm.minus || 0);
-                    const name = roster[p] || roster[String(p)] || '';
-                    const eff = pShots.length > 0 ? `${Math.round((goals/pShots.length)*100)}%` : '—';
-                    body.push([`#${p} ${name}`, pShots.length, goals, qH, qL, eff, `${bal > 0 ? '+' : ''}${bal}`]);
-                }
-            });
-
-            doc.autoTable({
-                startY: startY,
-                head: head,
-                body: body,
-                theme: 'grid',
-                headStyles: { fillColor: [41, 52, 72], textColor: 255 },
-                styles: { font: 'helvetica' },
-                columnStyles: {
-                    0: { cellWidth: 50 },
-                }
-            });
-        }
-
-        window.addEventListener('DOMContentLoaded', startFirebaseApp);
-    </script>
-</body>
-</html>
 
