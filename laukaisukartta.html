@@ -27,6 +27,13 @@
             overflow-y: auto;
             overflow-x: hidden;
         }
+        #pdf-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9); display: none; z-index: 1000; }
+        #pdf-overlay.visible { display: grid; place-items: center; }
+        #pdf-overlay .panel { width: 96vw; height: 92vh; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); overflow: hidden; position: relative; }
+        #pdf-overlay header { position: absolute; inset: 0 0 auto 0; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #0f172a; color: #e2e8f0; }
+        #pdf-overlay header h3 { font-size: 14px; font-weight: 600; }
+        #pdf-overlay header button { background: #ef4444; color: white; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
+        #pdf-iframe { position: absolute; top: 48px; left: 0; width: 100%; height: calc(100% - 48px); border: 0; }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -90,7 +97,7 @@
                     <div id="sidebar-content" class="flex-grow"></div>
                     <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
                 </div>
-                <main class="flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
+                <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
                     <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
                 </main>
             </div>
@@ -103,6 +110,15 @@
     <div id="quality-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
     <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
     <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"></div>
+    <div id="pdf-overlay" role="dialog" aria-modal="true" aria-label="PDF-raportti">
+        <div class="panel">
+            <header>
+                <h3>PDF-raportti</h3>
+                <button id="close-pdf-overlay" type="button">Sulje</button>
+            </header>
+            <iframe id="pdf-iframe"></iframe>
+        </div>
+    </div>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -261,11 +277,6 @@
             outcomeModal.innerHTML = `<button data-outcome="goal" class="w-28 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-28 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-28 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-28 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button>`;
             qualityModal.innerHTML = `<button data-quality="high" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-red-700">Laadukas</button><button data-quality="low" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-blue-700">Heikko</button>`;
             editOutcomeModal.innerHTML = `<button data-outcome="goal" class="w-32 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-32 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-32 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-32 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button><div class="border-t my-1"></div> <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 rounded-md bg-slate-600">Poista</button>`;
-            const homePlayerList = document.getElementById('home-player-list');
-            if (!currentGame?.players?.length) { homePlayerList.innerHTML = `<div class="text-sm text-slate-400 col-span-3">Ei pelaajia.</div>`; return; }
-            currentGame.players.forEach(number => { const p = document.createElement('div'); p.className = 'player-number'; p.textContent = number; homePlayerList.appendChild(p); });
-            const awayPlayerList = document.getElementById('away-player-list');
-            const away = document.createElement('div'); away.className = 'player-number away-player'; away.textContent = 'V'; awayPlayerList.appendChild(away);
         }
         
         function showView(viewId) {
@@ -419,69 +430,74 @@
             buttonElement.textContent = 'Luodaan...';
             buttonElement.disabled = true;
 
-            const game = seasonData.games.find(g => g.id === gameId);
-            if (!game) {
-                buttonElement.textContent = 'Virhe!';
-                setTimeout(() => { buttonElement.textContent = originalButtonText; buttonElement.disabled = false; }, 2000);
-                return;
+            try {
+                const game = seasonData.games.find(g => g.id === gameId);
+                if (!game) throw new Error('Ottelua ei löytynyt.');
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+                let yPos = margin;
+
+                doc.setFont("helvetica");
+                doc.setFontSize(18);
+                doc.text(`Otteluraportti: ${game.opponent}`, pageW / 2, yPos, { align: 'center' });
+                yPos += 8;
+                doc.setFontSize(12);
+                doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW / 2, yPos, { align: 'center' });
+                yPos += 15;
+
+                for (const period of [1, 2, 3, 'summary']) {
+                    const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
+                    const stats = getStatsForPeriod(game, period);
+                    const mapContainer = createShotmapElement(game, period);
+                    document.body.appendChild(mapContainer);
+                    await new Promise(r => requestAnimationFrame(() => r()));
+                    const canvas = await html2canvas(mapContainer, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+                    document.body.removeChild(mapContainer);
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = 80, imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    if (yPos + imgHeight > pageH - margin) { doc.addPage(); yPos = margin; }
+                    doc.setFontSize(14); doc.text(title, margin, yPos); yPos += 6;
+                    doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+                    const tableX = margin + imgWidth + 10;
+                    doc.autoTable({
+                        startY: yPos, theme: 'grid', margin: { left: tableX },
+                        head: [['Tapahtuma', 'Koti', 'Vieras']],
+                        body: [
+                            ['Maalit', stats.home.goals, stats.away.goals],
+                            ['Laukaukset', stats.home.shots, stats.away.shots],
+                            ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
+                            ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
+                            ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
+                            ['Torjunnat', stats.home.saves, stats.away.saves],
+                            ['Blokit', stats.home.blocks, stats.away.blocks],
+                        ],
+                        styles: { font: 'helvetica', fontSize: 10 },
+                        headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                        columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 15, halign: 'right' }, 2: { cellWidth: 15, halign: 'right' } }
+                    });
+                    yPos += imgHeight + 10;
+                }
+                
+                doc.addPage();
+                yPos = margin;
+                doc.setFontSize(16);
+                doc.text('Pelaajakohtaiset tilastot', pageW / 2, yPos, { align: 'center' });
+                yPos += 10;
+                
+                generatePlayerStatsForPdf(doc, game, yPos);
+
+                const blob = doc.output('blob');
+                const url = URL.createObjectURL(blob);
+                window.location.assign(url);
+
+            } catch (err) {
+                 alert(`Raportin luonti epäonnistui: ${err?.message || err}`);
+            } finally {
+                buttonElement.textContent = originalButtonText;
+                buttonElement.disabled = false;
             }
-
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
-            let yPos = margin;
-
-            doc.setFont("helvetica");
-            doc.setFontSize(18);
-            doc.text(`Otteluraportti: ${game.opponent}`, pageW / 2, yPos, { align: 'center' });
-            yPos += 8;
-            doc.setFontSize(12);
-            doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW / 2, yPos, { align: 'center' });
-            yPos += 15;
-
-            for (const period of [1, 2, 3, 'summary']) {
-                const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
-                const stats = getStatsForPeriod(game, period);
-                const mapContainer = createShotmapElement(game, period);
-                document.body.appendChild(mapContainer);
-                const canvas = await html2canvas(mapContainer, { scale: 2, backgroundColor: null });
-                document.body.removeChild(mapContainer);
-                const imgData = canvas.toDataURL('image/png');
-                const imgWidth = 80, imgHeight = (canvas.height * imgWidth) / canvas.width;
-                if (yPos + imgHeight > pageH - margin) { doc.addPage(); yPos = margin; }
-                doc.setFontSize(14); doc.text(title, margin, yPos); yPos += 6;
-                doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
-                const tableX = margin + imgWidth + 10;
-                doc.autoTable({
-                    startY: yPos, theme: 'grid', startX: tableX,
-                    head: [['Tapahtuma', 'Koti', 'Vieras']],
-                    body: [
-                        ['Maalit', stats.home.goals, stats.away.goals],
-                        ['Laukaukset', stats.home.shots, stats.away.shots],
-                        ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
-                        ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
-                        ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
-                        ['Torjunnat', stats.home.saves, stats.away.saves],
-                        ['Blokit', stats.home.blocks, stats.away.blocks],
-                    ],
-                    styles: { font: 'helvetica', fontSize: 10 },
-                    headStyles: { fillColor: [41, 52, 72], textColor: 255 },
-                    columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 15, halign: 'right' }, 2: { cellWidth: 15, halign: 'right' } }
-                });
-                yPos += imgHeight + 10;
-            }
-            
-            doc.addPage();
-            yPos = margin;
-            doc.setFontSize(16);
-            doc.text('Pelaajakohtaiset tilastot', pageW / 2, yPos, { align: 'center' });
-            yPos += 10;
-            
-            generatePlayerStatsForPdf(doc, game, yPos);
-
-            window.open(doc.output('bloburl'));
-            buttonElement.textContent = originalButtonText;
-            buttonElement.disabled = false;
         }
 
         function createShotmapElement(game, period) {
