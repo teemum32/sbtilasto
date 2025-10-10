@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.autotable.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
+        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
@@ -261,7 +261,6 @@
             outcomeModal.innerHTML = `<button data-outcome="goal" class="w-28 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-28 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-28 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-28 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button>`;
             qualityModal.innerHTML = `<button data-quality="high" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-red-700">Laadukas</button><button data-quality="low" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-blue-700">Heikko</button>`;
             editOutcomeModal.innerHTML = `<button data-outcome="goal" class="w-32 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-32 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-32 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-32 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button><div class="border-t my-1"></div> <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 rounded-md bg-slate-600">Poista</button>`;
-            confirmModal.innerHTML = `<div class="bg-white rounded-lg shadow-xl p-6 max-w-sm text-center"><h3 id="confirm-title" class="text-xl font-bold text-slate-800 mb-4"></h3> <p id="confirm-text" class="text-slate-600 mb-6"></p><div class="flex justify-center gap-4"><button id="cancel-confirm-btn" class="px-6 py-2 rounded-lg bg-slate-200 text-slate-800">Peruuta</button><button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold"></button></div></div>`;
             const homePlayerList = document.getElementById('home-player-list');
             if (!currentGame?.players?.length) { homePlayerList.innerHTML = `<div class="text-sm text-slate-400 col-span-3">Ei pelaajia.</div>`; return; }
             currentGame.players.forEach(number => { const p = document.createElement('div'); p.className = 'player-number'; p.textContent = number; homePlayerList.appendChild(p); });
@@ -281,19 +280,25 @@
         
         function addEventListeners() {
             document.getElementById('save-game-button').addEventListener('click', () => { if (currentGame.isReadOnly) return; showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun? Tallennuksen jälkeen nykyisen pelin merkinnät poistuvat näkyvistä. Ota tarvittavat ruutukaappaukset ennen tallennusta.', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore) });
-            document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
-            document.getElementById('home-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
-            document.getElementById('away-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
-            document.body.addEventListener('pointermove', onPointerMove, { passive: false });
-            document.body.addEventListener('pointerup', onPointerUp);
             outcomeModal.addEventListener('click', onOutcomeSelect);
             qualityModal.addEventListener('click', onQualitySelect);
             editOutcomeModal.addEventListener('click', onEditOutcomeSelect);
-            document.getElementById('shots-layer').addEventListener('click', onShotMarkerClick);
             periodTabs.addEventListener('click', (e) => { const btn = e.target.closest('button.period-tab'); if (btn) showView(btn.dataset.period); });
             plusMinusView.addEventListener('click', onPlusMinusClick);
-            const fieldContainer = document.getElementById('field-container');
-            if(fieldContainer) fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
+
+            const sidebar = document.getElementById('sidebar-content');
+            if (sidebar) {
+                 sidebar.addEventListener('pointerdown', onPointerDown, { passive: false });
+            }
+            const field = document.getElementById('field-area');
+            if (field) {
+                 const fieldContainer = field.querySelector('#field-container');
+                 if(fieldContainer) fieldContainer.addEventListener('contextmenu', e => e.preventDefault());
+                 const shotsLayer = field.querySelector('#shots-layer');
+                 if(shotsLayer) shotsLayer.addEventListener('click', onShotMarkerClick);
+            }
+            document.body.addEventListener('pointermove', onPointerMove, { passive: false });
+            document.body.addEventListener('pointerup', onPointerUp);
         }
         
         function onPointerDown(e) { const target = e.target.closest('.player-number'); if (!target || !currentGame.id || currentGame.isReadOnly) return; draggedElement = target; ghostElement = target.cloneNode(true); ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement); updateGhostPosition(e.pageX, e.pageY); }
