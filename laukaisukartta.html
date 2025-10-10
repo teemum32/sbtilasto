@@ -7,7 +7,6 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <!-- PALAUTETUT KIRJASTOT PDF-LUONTIA VARTEN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -23,6 +22,10 @@
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
         .period-tab.active { background-color: #4f46e5; }
+        #main-app > .bg-slate-900 {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -276,7 +279,7 @@
         }
         
         function addEventListeners() {
-            document.getElementById('save-game-button').addEventListener('click', () => { if (currentGame.isReadOnly) return; showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun? Tallennuksen jälkeen nykyisen pelin merkinnät poistuvat näkyvistä. Ota tarvittavat ruutukaappaukset ennen tallennusta.', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore) });
+            document.getElementById('save-game-button').addEventListener('click', () => { if (currentGame.isReadOnly) return; showConfirmation('Tallenna ottelu?', 'Haluatko varmasti tallentaa ja päättää ottelun? Tallennuksen jälkeen et voi enää muokata merkintöjä.', 'Kyllä, tallenna', 'bg-blue-600', saveAndEndGameInFirestore) });
             document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden'));
             document.getElementById('home-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
             document.getElementById('away-player-list').addEventListener('pointerdown', onPointerDown, { passive: false });
@@ -335,7 +338,7 @@
                     safeGames.forEach(game => {
                         const s = getGameStats(game); const ts = safeDateValue(game);
                         const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString('fi-FI') : '—';
-                        gamesTable += `<details class="bg-slate-900 rounded-lg shadow mb-2"><summary class="flex justify-between items-center p-3 font-semibold"><div><p class="font-bold">${dateStr} vs ${game.opponent || ''}</p><p class="text-sm text-slate-300">Tulos: ${s.home.goals} - ${s.away.goals}</p></div></summary><div class="p-4 border-t border-slate-700">${generateGameDetailsHTML(game)}<div class="flex gap-2 mt-4"><button data-game-id="${game.id}" class="share-game-btn bg-emerald-600 text-sm flex-1 font-semibold py-2 px-4 rounded-lg">Jaa ottelu</button><button data-game-id="${game.id}" class="delete-game-btn bg-red-600 text-sm flex-1 font-semibold py-2 px-4 rounded-lg">Poista ottelu</button></div></div></details>`;
+                        gamesTable += `<details class="bg-slate-900 rounded-lg shadow mb-2"><summary class="flex justify-between items-center p-3 font-semibold"><div><p class="font-bold">${dateStr} vs ${game.opponent || ''}</p><p class="text-sm text-slate-300">Tulos: ${s.home.goals} - ${s.away.goals}</p></div></summary><div class="p-4 border-t border-slate-700">${generateGameDetailsHTML(game)}<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4"><button data-game-id="${game.id}" class="generate-pdf-btn bg-purple-600 text-sm font-semibold py-2 px-4 rounded-lg">Luo PDF-raportti</button><button data-game-id="${game.id}" class="share-game-btn bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa data</button><button data-game-id="${game.id}" class="delete-game-btn bg-red-600 text-sm font-semibold py-2 px-4 rounded-lg">Poista ottelu</button></div></div></details>`;
                     });
                 } else { gamesTable += `<p class="text-center text-slate-400">Ei tallennettuja otteluita.</p>`; }
                 
@@ -346,11 +349,13 @@
                     const sharePlayersBtn = e.target.closest('#share-players-btn');
                     const shareGameBtn = e.target.closest('.share-game-btn');
                     const deleteGameBtn = e.target.closest('.delete-game-btn');
+                    const pdfBtn = e.target.closest('.generate-pdf-btn');
 
                     if (newGameBtn) { showMainView('setup'); prefillRosterInput(); } 
                     else if (sharePlayersBtn) { shareDataByEmail('players'); } 
                     else if (shareGameBtn) { shareDataByEmail('game', shareGameBtn.dataset.gameId); } 
                     else if (deleteGameBtn) { e.preventDefault(); showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)); }
+                    else if (pdfBtn) { e.preventDefault(); generatePdfReport(pdfBtn.dataset.gameId, pdfBtn); }
                 });
 
             } catch (err) {
@@ -407,6 +412,79 @@
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
+        // --- PDF-funktiot ---
+        async function generatePdfReport(gameId, buttonElement) {
+            const originalButtonText = buttonElement.textContent;
+            buttonElement.textContent = 'Luodaan...';
+            buttonElement.disabled = true;
+
+            const game = seasonData.games.find(g => g.id === gameId);
+            if (!game) {
+                buttonElement.textContent = 'Virhe!';
+                setTimeout(() => { buttonElement.textContent = originalButtonText; buttonElement.disabled = false; }, 2000);
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+            let yPos = margin;
+
+            doc.setFontSize(18); doc.text(`Otteluraportti: ${game.opponent}`, pageW / 2, yPos, { align: 'center' }); yPos += 8;
+            doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW / 2, yPos, { align: 'center' }); yPos += 15;
+
+            for (const period of [1, 2, 3, 'summary']) {
+                const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
+                const stats = getStatsForPeriod(game, period);
+                const mapContainer = createShotmapElement(game, period);
+                document.body.appendChild(mapContainer);
+                const canvas = await html2canvas(mapContainer, { scale: 2, backgroundColor: null });
+                document.body.removeChild(mapContainer);
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 80, imgHeight = (canvas.height * imgWidth) / canvas.width;
+                if (yPos + imgHeight > pageH - margin) { doc.addPage(); yPos = margin; }
+                doc.setFontSize(14); doc.text(title, margin, yPos); yPos += 6;
+                doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+                let textX = margin + imgWidth + 10, textY = yPos + 5;
+                doc.setFontSize(10);
+                doc.text(`Maalit: ${stats.home.goals} - ${stats.away.goals}`, textX, textY); textY += 5;
+                doc.text(`Laukaukset: ${stats.home.shots} - ${stats.away.shots}`, textX, textY); textY += 5;
+                doc.text(`xG: ${stats.home.xg.toFixed(2)} - ${stats.away.xg.toFixed(2)}`, textX, textY); textY += 5;
+                doc.text(`Laadukkaat (L+): ${stats.home.qualityHigh} - ${stats.away.qualityHigh}`, textX, textY); textY += 5;
+                doc.text(`Heikot (H-): ${stats.home.qualityLow} - ${stats.away.qualityLow}`, textX, textY); textY += 5;
+                doc.text(`Torjunnat: ${stats.home.saves} - ${stats.away.saves}`, textX, textY); textY += 5;
+                doc.text(`Blokit: ${stats.home.blocks} - ${stats.away.blocks}`, textX, textY);
+                yPos += imgHeight + 10;
+            }
+            doc.save(`Raportti_${game.opponent}_${new Date(game.date).toLocaleDateString('fi-FI').replace(/\./g, '-')}.pdf`);
+            buttonElement.textContent = originalButtonText;
+            buttonElement.disabled = false;
+        }
+
+        function createShotmapElement(game, period) {
+            const container = document.createElement('div');
+            container.style.width = '400px'; container.style.height = '200px'; container.style.position = 'absolute'; container.style.left = '-9999px';
+            container.innerHTML = `<div class="relative w-full h-full aspect-[2/1] bg-white rounded-lg border-2 border-slate-800"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg><div class="absolute inset-0"></div></div>`;
+            const shotsLayer = container.querySelector('.absolute.inset-0');
+            const shotsToRender = (game.shots || []).filter(s => period === 'summary' || s.period === period);
+            shotsToRender.forEach(shot => { shotsLayer.appendChild(createShotMarker(shot)); });
+            return container;
+        }
+
+        function getStatsForPeriod(game, period) {
+            const stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }};
+            const shots = (game.shots || []).filter(s => period === 'summary' || s.period === period);
+            shots.forEach(shot => {
+                const teamKey = (shot.team === 'away') ? 'away' : 'home';
+                const oppKey = (teamKey === 'home') ? 'away' : 'home';
+                const shooter = stats[teamKey], opponent = stats[oppKey];
+                shooter.shots++; shooter.xg += Number(shot.xG) || 0;
+                if (shot.quality === 'high') shooter.qualityHigh++; if (shot.quality === 'low') shooter.qualityLow++;
+                if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++;
+            });
+            return stats;
+        }
+
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
     </script>
 </body>
