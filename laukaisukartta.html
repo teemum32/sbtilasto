@@ -11,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.autotable.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: hidden; }
+        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
@@ -90,7 +90,7 @@
                     <div id="sidebar-content" class="flex-grow"></div>
                     <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
                 </div>
-                <main class="flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0 order-first md:order-last">
+                <main class="flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
                     <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
                 </main>
             </div>
@@ -479,7 +479,7 @@
             
             generatePlayerStatsForPdf(doc, game, yPos);
 
-            doc.save(`Raportti_${game.opponent}_${new Date(game.date).toLocaleDateString('fi-FI').replace(/\./g, '-')}.pdf`);
+            window.open(doc.output('bloburl'));
             buttonElement.textContent = originalButtonText;
             buttonElement.disabled = false;
         }
