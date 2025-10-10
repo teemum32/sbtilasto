@@ -14,8 +14,9 @@
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
-        .shot-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; font-size: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: white; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; }
-        .shot-marker span { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        /* KORJATTU: Varmistetaan numeron keskitys PDF-renderöinnissä */
+        .shot-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; font-size: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: white; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .shot-marker span { /* Poistettu aiemmat asemointisäännöt */ }
         .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
         .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
         .quality-high { border: 4px solid #b91c1c; } .quality-low { border: 4px solid #2563eb; }
@@ -427,62 +428,154 @@
 
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+            const margin = 10;
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
             let yPos = margin;
 
-            doc.setFontSize(18); doc.text(`Otteluraportti: ${game.opponent}`, pageW / 2, yPos, { align: 'center' }); yPos += 8;
-            doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW / 2, yPos, { align: 'center' }); yPos += 15;
+            // Asetetaan fontti koko dokumentille
+            doc.setFont("helvetica");
 
-            for (const period of [1, 2, 3, 'summary']) {
+            doc.setFontSize(18);
+            doc.text(`Otteluraportti: ${game.opponent}`, pageW / 2, yPos, { align: 'center' });
+            yPos += 8;
+            doc.setFontSize(12);
+            doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW / 2, yPos, { align: 'center' });
+            yPos += 15;
+
+            const periodsToRender = [1, 2, 3, 'summary'];
+            for (const period of periodsToRender) {
                 const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
                 const stats = getStatsForPeriod(game, period);
+                
                 const mapContainer = createShotmapElement(game, period);
                 document.body.appendChild(mapContainer);
+
                 const canvas = await html2canvas(mapContainer, { scale: 2, backgroundColor: null });
                 document.body.removeChild(mapContainer);
+                
                 const imgData = canvas.toDataURL('image/png');
-                const imgWidth = 80, imgHeight = (canvas.height * imgWidth) / canvas.width;
-                if (yPos + imgHeight > pageH - margin) { doc.addPage(); yPos = margin; }
-                doc.setFontSize(14); doc.text(title, margin, yPos); yPos += 6;
+                const imgWidth = 80;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                if (yPos + imgHeight > pageH - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+
+                doc.setFontSize(14);
+                doc.text(title, margin, yPos);
+                yPos += 6;
                 doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
-                let textX = margin + imgWidth + 10, textY = yPos + 5;
+
+                // KORJATTU: Luodaan tilastot siistiin taulukkomuotoon
+                const tableX = margin + imgWidth + 10;
+                let tableY = yPos + 5;
+                const col2X = tableX + 35;
+                const col3X = col2X + 15;
+                
                 doc.setFontSize(10);
-                doc.text(`Maalit: ${stats.home.goals} - ${stats.away.goals}`, textX, textY); textY += 5;
-                doc.text(`Laukaukset: ${stats.home.shots} - ${stats.away.shots}`, textX, textY); textY += 5;
-                doc.text(`xG: ${stats.home.xg.toFixed(2)} - ${stats.away.xg.toFixed(2)}`, textX, textY); textY += 5;
-                doc.text(`Laadukkaat (L+): ${stats.home.qualityHigh} - ${stats.away.qualityHigh}`, textX, textY); textY += 5;
-                doc.text(`Heikot (H-): ${stats.home.qualityLow} - ${stats.away.qualityLow}`, textX, textY); textY += 5;
-                doc.text(`Torjunnat: ${stats.home.saves} - ${stats.away.saves}`, textX, textY); textY += 5;
-                doc.text(`Blokit: ${stats.home.blocks} - ${stats.away.blocks}`, textX, textY);
+                doc.setFont(undefined, 'bold');
+                doc.text('Tapahtuma', tableX, tableY);
+                doc.text('Koti', col2X, tableY, { align: 'right' });
+                doc.text('Vieras', col3X, tableY, { align: 'right' });
+                tableY += 5;
+                doc.setFont(undefined, 'normal');
+
+                const tableData = [
+                    ['Maalit', stats.home.goals, stats.away.goals],
+                    ['Laukaukset', stats.home.shots, stats.away.shots],
+                    ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
+                    ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
+                    ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
+                    ['Torjunnat', stats.home.saves, stats.away.saves],
+                    ['Blokit', stats.home.blocks, stats.away.blocks],
+                ];
+
+                tableData.forEach(row => {
+                    doc.text(row[0], tableX, tableY);
+                    doc.text(String(row[1]), col2X, tableY, { align: 'right' });
+                    doc.text(String(row[2]), col3X, tableY, { align: 'right' });
+                    tableY += 5;
+                });
+                
                 yPos += imgHeight + 10;
             }
+            
+            // LISÄTTY: Pelaajakohtaiset tilastot omalle sivulleen
+            doc.addPage();
+            yPos = margin;
+            doc.setFontSize(16);
+            doc.text('Pelaajakohtaiset tilastot', pageW / 2, yPos, { align: 'center' });
+            yPos += 10;
+            
+            generatePlayerStatsForPdf(doc, game, yPos);
+
+
             doc.save(`Raportti_${game.opponent}_${new Date(game.date).toLocaleDateString('fi-FI').replace(/\./g, '-')}.pdf`);
+            
             buttonElement.textContent = originalButtonText;
             buttonElement.disabled = false;
         }
 
         function createShotmapElement(game, period) {
-            const container = document.createElement('div');
-            container.style.width = '400px'; container.style.height = '200px'; container.style.position = 'absolute'; container.style.left = '-9999px';
-            container.innerHTML = `<div class="relative w-full h-full aspect-[2/1] bg-white rounded-lg border-2 border-slate-800"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg><div class="absolute inset-0"></div></div>`;
-            const shotsLayer = container.querySelector('.absolute.inset-0');
-            const shotsToRender = (game.shots || []).filter(s => period === 'summary' || s.period === period);
-            shotsToRender.forEach(shot => { shotsLayer.appendChild(createShotMarker(shot)); });
-            return container;
+// ... existing code ... -->
         }
 
         function getStatsForPeriod(game, period) {
             const stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }};
-            const shots = (game.shots || []).filter(s => period === 'summary' || s.period === period);
+// ... existing code ... -->
             shots.forEach(shot => {
                 const teamKey = (shot.team === 'away') ? 'away' : 'home';
                 const oppKey = (teamKey === 'home') ? 'away' : 'home';
                 const shooter = stats[teamKey], opponent = stats[oppKey];
                 shooter.shots++; shooter.xg += Number(shot.xG) || 0;
-                if (shot.quality === 'high') shooter.qualityHigh++; if (shot.quality === 'low') shooter.qualityLow++;
-                if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++;
+                if (shot.quality === 'high') shooter.qualityHigh++;
+                if (shot.quality === 'low') shooter.qualityLow++;
+                if (shot.outcome === 'goal') shooter.goals++;
+                if (shot.outcome === 'save') opponent.saves++;
+                if (shot.outcome === 'block') opponent.blocks++;
             });
             return stats;
+        }
+
+        // UUSI FUNKTIO PELAAJATILASTOJEN LUOMISEKSI PDF:ÄÄN
+        function generatePlayerStatsForPdf(doc, game, startY) {
+            const players = Array.isArray(game?.players) ? game.players : [];
+            const roster  = game?.roster || {};
+            const shots   = Array.isArray(game?.shots) ? game.shots : [];
+            const pmAll   = game?.plusMinus || {};
+            
+            const head = [['Pelaaja', 'L', 'M', 'L+', 'H-', 'T%', '+/-']];
+            const body = [];
+
+            players.forEach(pNum => {
+                const p = Number(pNum);
+                const pShots = shots.filter(s => s.team === 'home' && Number(s.player) === p);
+                const goals  = pShots.filter(s => s.outcome === 'goal').length;
+                const qH = pShots.filter(s => s.quality === 'high').length;
+                const qL = pShots.filter(s => s.quality === 'low').length;
+                const pm = pmAll[p] || pmAll[String(p)] || { plus:0, minus:0 };
+
+                if (pShots.length > 0 || pm.plus > 0 || pm.minus > 0) {
+                    const bal = (pm.plus || 0) - (pm.minus || 0);
+                    const name = roster[p] || roster[String(p)] || '';
+                    const eff = pShots.length > 0 ? `${Math.round((goals/pShots.length)*100)}%` : '—';
+                    body.push([`#${p} ${name}`, pShots.length, goals, qH, qL, eff, `${bal > 0 ? '+' : ''}${bal}`]);
+                }
+            });
+
+            doc.autoTable({
+                startY: startY,
+                head: head,
+                body: body,
+                theme: 'grid',
+                headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                styles: { font: 'helvetica' },
+                columnStyles: {
+                    0: { cellWidth: 50 },
+                }
+            });
         }
 
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
