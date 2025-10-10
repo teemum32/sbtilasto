@@ -2,15 +2,14 @@
 <html lang="fi" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https:; connect-src 'self' https: wss:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: data:; img-src 'self' data:; frame-src 'self' https:; frame-ancestors 'self' https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https:; connect-src 'self' https: wss:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: data:; img-src 'self' data:; frame-src 'self' blob: https:; frame-ancestors 'self' https:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <!-- KORJATTU: jsPDF-kirjastot oikeassa järjestyksessä -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
@@ -241,13 +240,13 @@
         
         function parseRosterTextarea(value) {
             const roster = {};
-            const matches = value.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
-            for (const match of matches) {
-                const num = Number(match[1]);
-                if (!isNaN(num)) roster[num] = (match[2] || '').trim();
+            const lines = value.split('\n').map(l => l.trim()).filter(Boolean);
+            for (const line of lines) {
+                const m = line.match(/^(\d{1,3})\s*(.*)$/);
+                if (!m) { setupError.textContent = 'Virheellinen syöte kokoonpanossa (rivi: ' + line + ')'; return; }
+                newRoster[Number(m[1])] = (m[2] || '').trim();
             }
-            if (Object.keys(roster).length === 0) throw new Error("Ei pelaajanumeroita.");
-            return roster;
+            return newRoster;
         }
 
         startButton.addEventListener('click', async () => {
@@ -255,7 +254,7 @@
             if (!opponentName) { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
             let newRoster = {};
             try { newRoster = parseRosterTextarea(playerRosterInput.value); } 
-            catch (err) { setupError.textContent = 'Virheellinen syöte kokoonpanossa (rivi: ' + err.line + ')'; return; }
+            catch (err) { setupError.textContent = err.message; return; }
             if (Object.keys(newRoster).length === 0) { setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
             await saveRosterToFirestore(newRoster);
             rosterData = newRoster; playerRosterInput.value = '';
@@ -361,14 +360,17 @@
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`; (currentGame.players || []).forEach(pNum => { const shots = (currentGame.shots || []).filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length, qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-7 text-center text-sm py-1 border-b border-slate-700 items-center"><span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span class="text-red-400 font-semibold">${qH}</span><span class="text-blue-400 font-semibold">${qL}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
         function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); (currentGame.players || []).forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; (currentGame.players || []).forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = (stats.plus || 0) - (stats.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus || 0}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus || 0}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
+        
         function renderSeasonStats() {
             try {
                 if (!Array.isArray(seasonData.games)) seasonData.games = [];
                 const { playerStats, fullRoster, allPlayers } = calculateSeasonStats();
                 let playerTable = `<div class="flex justify-between items-center"><h3 class="text-xl font-bold text-slate-100 mb-3">Pelaajatilastot</h3><button id="share-players-btn" class="bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa</button></div><div class="grid grid-cols-8 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>O</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`;
                 allPlayers.forEach(pNum => { const stats = playerStats[pNum] || { games:0, shots:0, goals:0, plus:0, minus:0, qualityHigh:0, qualityLow:0 }; const bal = (stats.plus || 0) - (stats.minus || 0); const name = fullRoster[pNum] || ''; playerTable += `<div class="grid grid-cols-8 text-center text-sm py-1.5 border-b border-slate-700 items-center"><span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span><span>${stats.games}</span><span>${stats.shots}</span><span>${stats.goals}</span><span class="text-red-400 font-semibold">${stats.qualityHigh || 0}</span><span class="text-blue-400 font-semibold">${stats.qualityLow || 0}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; });
+                
                 const safeGames = Array.isArray(seasonData.games) ? [...seasonData.games] : [];
                 safeGames.sort((a, b) => safeDateValue(b) - safeDateValue(a));
+                
                 let gamesTable = `<h3 class="text-xl font-bold text-slate-100 my-4">Tallennetut ottelut</h3>`;
                 if (safeGames.length > 0) {
                     safeGames.forEach(game => {
@@ -377,7 +379,9 @@
                         gamesTable += `<details class="bg-slate-900 rounded-lg shadow mb-2"><summary class="flex justify-between items-center p-3 font-semibold"><div><p class="font-bold">${dateStr} vs ${game.opponent || ''}</p><p class="text-sm text-slate-300">Tulos: ${s.home.goals} - ${s.away.goals}</p></div></summary><div class="p-4 border-t border-slate-700">${generateGameDetailsHTML(game)}<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4"><button data-game-id="${game.id}" class="generate-pdf-btn bg-purple-600 text-sm font-semibold py-2 px-4 rounded-lg">Luo PDF-raportti</button><button data-game-id="${game.id}" class="share-game-btn bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa data</button><button data-game-id="${game.id}" class="delete-game-btn bg-red-600 text-sm font-semibold py-2 px-4 rounded-lg">Poista ottelu</button></div></div></details>`;
                     });
                 } else { gamesTable += `<p class="text-center text-slate-400">Ei tallennettuja otteluita.</p>`; }
+                
                 seasonView.innerHTML = `<div class="w-full max-w-4xl mx-auto"><button id="new-game-from-season-btn" class="w-full bg-indigo-600 font-bold py-3 rounded-lg mb-6">Aloita uusi ottelu</button><div class="bg-slate-800 p-6 rounded-lg">${playerTable}</div><div class="mt-6 bg-slate-800 p-6 rounded-lg">${gamesTable}</div></div>`;
+                
                 seasonView.addEventListener('click', (e) => {
                     const newGameBtn = e.target.closest('#new-game-from-season-btn');
                     const sharePlayersBtn = e.target.closest('#share-players-btn');
@@ -391,11 +395,14 @@
                     else if (deleteGameBtn) { e.preventDefault(); showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)); }
                     else if (pdfBtn) { e.preventDefault(); generatePdfReport(pdfBtn.dataset.gameId, pdfBtn); }
                 });
+
             } catch (err) {
                 seasonView.innerHTML = `<div class="w-full max-w-2xl mx-auto bg-red-900/30 border border-red-700 text-red-200 p-4 rounded"><p class="font-bold mb-2">Kausidatan renderöinti epäonnistui.</p><p class="text-sm opacity-80">Virhe: ${err?.message || err}</p></div>`;
             }
         }
+
         function safeDateValue(game) { if (game?.date) { const d = new Date(game.date); if (!isNaN(+d)) return +d; } const asNum = Number(game?.id); return Number.isFinite(asNum) ? asNum : NaN; }
+        
         function getGameStats(game) {
             const s = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 } };
             const shots = Array.isArray(game?.shots) ? game.shots : [];
@@ -408,6 +415,7 @@
             });
             return s;
         }
+
         function generateGameDetailsHTML(game) {
             const gameStats = getGameStats(game); const players = Array.isArray(game?.players) ? game.players : [];
             const roster  = game?.roster || {}; const shots   = Array.isArray(game?.shots) ? game.shots : []; const pmAll   = game?.plusMinus || {}; let html = '';
@@ -421,6 +429,7 @@
             });
             return `<div class="space-y-3"><div><p class="font-semibold text-sm">Joukkueet</p><div class="text-xs text-slate-400 mt-1"><p><b>Koti:</b> L ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, T ${gameStats.home.saves}, B ${gameStats.home.blocks}</p><p><b>Vieras:</b> L ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, T ${gameStats.away.saves}, B ${gameStats.away.blocks}</p></div></div><div><p class="font-semibold text-sm mt-3">Pelaajat</p><div class="grid grid-cols-8 text-center font-bold text-xs text-slate-400 mt-2 px-1"><span class="col-span-2">Nimi</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>T%</span><span>+/-</span></div>${html || `<div class="text-center text-slate-400 py-2">Ei pelaajakohtaisia tilastoja.</div>`}</div></div>`;
         }
+
         function ensureConfirmModalContent() { if (!document.getElementById('confirm-btn')) { confirmModal.innerHTML = `<div class="bg-white rounded-lg shadow-xl p-6 max-w-sm text-center"><h3 id="confirm-title" class="text-xl font-bold text-slate-800 mb-4"></h3><p id="confirm-text" class="text-slate-600 mb-6"></p><div class="flex justify-center gap-4"><button id="cancel-confirm-btn" class="px-6 py-2 rounded-lg bg-slate-200 text-slate-800">Peruuta</button><button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold"></button></div></div>`; document.getElementById('cancel-confirm-btn').addEventListener('click', () => confirmModal.classList.add('hidden')); } }
         function showConfirmation(title, text, btnText, btnClass, callback) { ensureConfirmModalContent(); const confirmTitle = document.getElementById('confirm-title'); const confirmText  = document.getElementById('confirm-text'); const btn          = document.getElementById('confirm-btn'); confirmTitle.textContent = title; confirmText.textContent  = text; btn.textContent          = btnText; btn.className            = `px-6 py-2 rounded-lg text-white font-semibold ${btnClass}`; const newBtn = btn.cloneNode(true); btn.parentNode.replaceChild(newBtn, btn); newBtn.addEventListener('click', () => { try { callback(); } finally { confirmModal.classList.add('hidden'); } }); confirmModal.classList.remove('hidden'); }
         function shareDataByEmail(type, gameId = null) {
@@ -445,7 +454,6 @@
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
-        // --- PDF-funktiot ---
         async function generatePdfReport(gameId, buttonElement) {
             const originalText = buttonElement.textContent;
             buttonElement.textContent = 'Luodaan…';
@@ -468,8 +476,7 @@
                 doc.text(`Otteluraportti: ${game.opponent || ''}`, pageW / 2, yPos, { align: 'center' });
                 yPos += 8;
                 doc.setFontSize(12);
-                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
-                doc.text(dateStr, pageW / 2, yPos, { align: 'center' });
+                doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW / 2, yPos, { align: 'center' });
                 yPos += 15;
 
                 for (const period of [1, 2, 3, 'summary']) {
@@ -500,7 +507,7 @@
                     doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
 
                     const tableLeft = margin + imgWidth + 10;
-                    callAutoTable(doc, {
+                    doc.autoTable({
                         startY: yPos,
                         margin: { left: tableLeft },
                         theme: 'grid',
@@ -542,55 +549,29 @@
             }
         }
         
-        const callAutoTable = (doc, opts) => {
-            if (window.jspdfAutoTable) return window.jspdfAutoTable(doc, opts);
-            if (doc.autoTable) return doc.autoTable(opts);
-            throw new Error('AutoTable-plugin ei ole ladattu');
-        };
-
-        const REPORT_CANVAS_W = 900, REPORT_CANVAS_H = 450;
-        const COLORS = { goal:'#10B981', miss:'#3B82F6', block:'#FACC15', save:'#EF4444' };
-
-        function createShotmapElement(game, period) {
-            const c = document.createElement('canvas');
-            c.width = REPORT_CANVAS_W; c.height = REPORT_CANVAS_H;
-            const ctx = c.getContext('2d');
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,c.width,c.height);
-            ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 3; ctx.strokeRect(20,20,c.width-40,c.height-40);
-            ctx.beginPath(); ctx.moveTo(c.width/2,20); ctx.lineTo(c.width/2,c.height-20);
-            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.stroke();
-            const gbw=60, gbh=80;
-            ctx.strokeRect(40, c.height/2-gbh/2, gbw, gbh);
-            ctx.strokeRect(c.width-40-gbw, c.height/2-gbh/2, gbw, gbh);
-            const shotsToRender = (game.shots || []).filter(s => period === 'summary' || s.period === period);
-            shotsToRender.forEach(s => {
-                const x = 20 + (s.x / 100) * (c.width - 40);
-                const y = 20 + (s.y / 100) * (c.height - 40);
-                ctx.fillStyle = COLORS[s.outcome] || '#111827';
-                ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Inter, system-ui, sans-serif';
-                const label = String(s.player); const tw = ctx.measureText(label).width;
-                ctx.fillText(label, x - tw/2, y + 5);
-            });
-            return c;
-        }
-
-        function getScopedStats(game, scope) {
-            const shots = (game.shots || []).filter(s => scope === 'summary' ? true : s.period === scope);
-            const agg = { home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qH:0,qL:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qH:0,qL:0} };
+        function getStatsForPeriod(game, period) {
+            const shots = (game?.shots || []).filter(s =>
+                period === 'summary' ? true : s.period === period
+            );
+            const agg = {
+                home: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 },
+                away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 }
+            };
             shots.forEach(shot => {
-                const t = shot.team === 'away' ? 'away' : 'home';
-                const o = t === 'home' ? 'away' : 'home';
-                agg[t].shots++; agg[t].xg += Number(shot.xG) || 0;
-                if (shot.outcome === 'goal') agg[t].goals++;
-                if (shot.outcome === 'save') agg[o].saves++;
-                if (shot.outcome === 'block') agg[o].blocks++;
-                if (shot.quality === 'high') agg[t].qH++;
-                if (shot.quality === 'low')  agg[t].qL++;
+                const team = shot.team === 'away' ? 'away' : 'home';
+                const opp  = team === 'home' ? 'away' : 'home';
+
+                agg[team].shots++;
+                agg[team].xg += Number(shot.xG) || 0;
+                if (shot.outcome === 'goal') agg[team].goals++;
+                if (shot.outcome === 'save') agg[opp].saves++;
+                if (shot.outcome === 'block') agg[opp].blocks++;
+                if (shot.quality === 'high') agg[team].qualityHigh++;
+                if (shot.quality === 'low')  agg[team].qualityLow++;
             });
-            return { shots, agg };
+            return agg;
         }
-        
+
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
     </script>
 </body>
