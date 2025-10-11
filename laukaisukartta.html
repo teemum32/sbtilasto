@@ -14,7 +14,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Floorball Shotmap</title>
 
-  <!-- OpenGraph / sharing -->
+  <!-- Social -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Floorball Shotmap">
   <meta property="og:description" content="Ottelukohtaiset laukaisukartat ja xG-raportit — PDF yhdellä napilla.">
@@ -29,7 +29,6 @@
 
   <style>
     body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Arial,sans-serif;overflow:hidden;touch-action:pan-y;-webkit-user-select:none;user-select:none;background:#0f172a;color:#e2e8f0}
-    /* Pelaaja- ja laukauspallot: numero 100% keskelle myös iPad Safarissa */
     .player-number{
       cursor:grab;width:40px;height:40px;border-radius:9999px;position:relative;font-weight:700;font-size:1rem;line-height:40px;border:2px solid #fff;background:#020617;color:#fff;box-shadow:0 2px 4px rgba(0,0,0,.1);touch-action:none;-webkit-text-size-adjust:100%
     }
@@ -48,7 +47,7 @@
 </head>
 <body class="h-full">
 
-  <!-- Kirjautuminen -->
+  <!-- LOGIN -->
   <div id="login-view" class="h-full w-full flex items-center justify-center p-4">
     <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-2xl font-bold">Kirjaudu</h1>
@@ -66,7 +65,7 @@
     </div>
   </div>
 
-  <!-- Landing + joukkuelista -->
+  <!-- LANDING -->
   <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-3xl font-bold">Floorball Shotmap</h1>
@@ -85,7 +84,7 @@
     </div>
   </div>
 
-  <!-- Uusi ottelu / rosterin muokkaus -->
+  <!-- SETUP -->
   <div id="setup-view" class="h-full w-full hidden items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-3xl font-bold mb-4">Uusi ottelu</h1>
@@ -106,7 +105,7 @@
     </div>
   </div>
 
-  <!-- Sovellus -->
+  <!-- APP -->
   <div id="app-container" class="h-full w-full hidden flex-col">
     <div id="period-tabs" class="bg-slate-800 p-2 flex justify-center gap-1 md:gap-2 shrink-0 flex-wrap">
       <button data-period="1" class="period-tab active">Erä 1</button>
@@ -151,7 +150,7 @@
     </div>
   </div>
 
-  <!-- Modaalit -->
+  <!-- Modals -->
   <div id="outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
   <div id="quality-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
   <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
@@ -165,7 +164,7 @@
       onSnapshot, collection, query, writeBatch, getDocs, enableIndexedDbPersistence
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // ---- CONFIG ----
+    // --- CONFIG
     const FIREBASE_CONFIG = {
       apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0",
       authDomain: "sbtilastot.firebaseapp.com",
@@ -176,7 +175,7 @@
     };
     const ALLOWED_EMAIL_DOMAIN = "topteamsalibandy.net";
 
-    // ---- Views ----
+    // --- Views
     const V = {
       login:   document.getElementById('login-view'),
       landing: document.getElementById('landing-view'),
@@ -188,17 +187,16 @@
       V[name].classList.remove('hidden'); V[name].classList.add('flex');
     }
 
-    // ---- Global state ----
+    // --- State
     let db, auth, userId;
     let seasonData = { games: [] };
-    // rosterMap: { [teamName]: { players: { num: "Name", ... } } }
     let rosterMap = {};
-    let currentTeamName = null; // valittu joukkue
+    let currentTeamName = null;
     let currentGame = {};
     let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
     let gamesUnsubscribe = () => {};
 
-    // ---- Firebase init ----
+    // --- Firebase
     async function startFirebase(){
       const app = initializeApp(FIREBASE_CONFIG);
       db = getFirestore(app);
@@ -211,7 +209,6 @@
           await loadRostersFromFirestore();
           listenForGames();
           populateTeamDropdown();
-          // Valitse viimeksi käytetty tiimi jos löytyy
           const last = localStorage.getItem('lastTeamName');
           if (last && rosterMap[last]) { selectTeam(last); if (teamSelect.value !== last) teamSelect.value = last; }
           showOnly('landing');
@@ -223,15 +220,13 @@
       });
     }
 
-    // ---- Auth helpers ----
+    // --- Auth
     const emailInput = document.getElementById('email-input');
     const passwordInput = document.getElementById('password-input');
     const loginBtn = document.getElementById('login-btn');
     const loginError = document.getElementById('login-error');
 
-    function isAllowedEmail(email){
-      return new RegExp(`@${ALLOWED_EMAIL_DOMAIN}$`, 'i').test(email || '');
-    }
+    function isAllowedEmail(email){ return new RegExp(`@${ALLOWED_EMAIL_DOMAIN}$`, 'i').test(email || ''); }
     async function handleLogin(){
       loginError.textContent = '';
       const email = (emailInput.value || '').trim();
@@ -243,44 +238,62 @@
           await signOut(auth);
           throw new Error(`Vain @${ALLOWED_EMAIL_DOMAIN} -osoitteet sallittu.`);
         }
-      } catch (e) {
-        loginError.textContent = e.message || 'Kirjautuminen epäonnistui.';
-      }
+      } catch (e) { loginError.textContent = e.message || 'Kirjautuminen epäonnistui.'; }
     }
     loginBtn.addEventListener('click', handleLogin);
     passwordInput.addEventListener('keypress', e => e.key==='Enter' && handleLogin());
     emailInput.addEventListener('keypress', e => e.key==='Enter' && handleLogin());
     document.getElementById('logout-btn').addEventListener('click', ()=>signOut(auth));
 
-    // ---- Firestore paths ---- (pidetään entinen polku)
-    const userBase = () => doc(db, 'artifacts', 'default-app-id', 'users', userId);
-    const gamesCol = () => collection(userBase(), 'games');
-    const rostersCol = () => collection(userBase(), 'roster'); // roster/<TEAM_NAME> : { players: {...} }
+    // --- Firestore helpers
+    const userBase  = () => doc(db, 'artifacts', 'default-app-id', 'users', userId);
+    const gamesCol  = () => collection(userBase(), 'games');
+    const rostersCol= () => collection(userBase(), 'roster');
 
     async function saveRosterToFirestore(teamName, playersObj){
       if (!userId || !teamName) return;
       await setDoc(doc(rostersCol(), teamName), { players: playersObj }, { merge:true });
     }
 
-    // *** Uudistettu: lataa sekä subcollectionin rosterit että mahdollisen vanhan 'roster/main' dokumentin ***
+    // LUE rosterit; jos tyhjää -> nosta viimeisimmästä pelistä
     async function loadRostersFromFirestore() {
       rosterMap = {};
       if (!userId) return;
 
       try {
-        // Uusi rakenne: subcollection 'roster' -> jokainen dokumentti = joukkue
+        // 1) varsinaiset roster-dokumentit
         const subSnap = await getDocs(rostersCol());
         subSnap.forEach(d => {
           const data = d.data() || {};
           if (data.players) rosterMap[d.id] = { players: data.players };
         });
 
-        // Yhteensopivuus: vanha rakenne 'roster/main' dokumenttina
+        // 2) vanha 'roster/main'
         const mainSnap = await getDoc(doc(userBase(), 'roster', 'main'));
         if (mainSnap.exists()) {
           const data = mainSnap.data() || {};
           if (data.players && !rosterMap['main']) {
             rosterMap['main'] = { players: data.players };
+          }
+        }
+
+        // 3) jos edelleen tyhjää -> nosta uusin peli
+        if (!Object.keys(rosterMap).length) {
+          const gSnap = await getDocs(gamesCol());
+          const games = [];
+          gSnap.forEach(d => games.push({ id: d.id, ...d.data() }));
+          if (games.length) {
+            games.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            const latest = games[0];
+
+            let playersObj = latest.roster || null;
+            if (!playersObj && Array.isArray(latest.players)) {
+              playersObj = {};
+              latest.players.forEach(n => { playersObj[n] = ''; });
+            }
+            if (playersObj && Object.keys(playersObj).length) {
+              rosterMap['main'] = { players: playersObj };
+            }
           }
         }
 
@@ -303,13 +316,12 @@
     async function addGameToFirestore(game){ const toSave = { ...game }; delete toSave.id; await addDoc(gamesCol(), toSave); }
     async function deleteGameFromFirestore(id){ await deleteDoc(doc(gamesCol(), id)); }
 
-    // ---- Team dropdown ----
+    // --- Team dropdown
     const teamSelect = document.getElementById('team-select');
 
     function populateTeamDropdown() {
       teamSelect.innerHTML = '';
 
-      // "Luo uusi joukkue…" ensimmäiseksi
       const createOpt = document.createElement('option');
       createOpt.value = '__new__';
       createOpt.textContent = '➕ Luo uusi joukkue…';
@@ -323,14 +335,10 @@
         teamSelect.appendChild(opt);
       });
 
-      // Jos ei joukkueita -> jätetään vain luontivaihtoehto
       if (!names.length) return;
-
-      // Aseta viimeksi käytetty tai ensimmäinen
       const last = localStorage.getItem('lastTeamName');
       const sel = (last && rosterMap[last]) ? last : names[0];
-      selectTeam(sel);
-      teamSelect.value = sel;
+      selectTeam(sel); teamSelect.value = sel;
     }
 
     function selectTeam(name){
@@ -349,11 +357,10 @@
       selectTeam(teamSelect.value);
     });
 
-    // ---- UI nav ----
+    // --- Nav
     document.getElementById('start-new-game-btn').addEventListener('click', ()=>{
       const selected = teamSelect.value;
       showOnly('setup');
-
       if (selected && selected !== '__new__' && rosterMap[selected]) {
         document.getElementById('team-name-input').value = selected;
         const players = rosterMap[selected].players || {};
@@ -368,7 +375,7 @@
     document.getElementById('view-season-data-btn').addEventListener('click', ()=>{ showOnly('app'); showView('season'); });
     document.getElementById('back-to-landing-btn').addEventListener('click', ()=> showOnly('landing'));
 
-    // ---- New game / save roster ----
+    // --- Start game
     document.getElementById('start-button').addEventListener('click', async ()=>{
       const setupError = document.getElementById('setup-error');
       setupError.textContent = '';
@@ -377,7 +384,7 @@
       const lines = document.getElementById('player-roster-input').value.split('\n').map(l=>l.trim()).filter(Boolean);
       if (!teamName){ setupError.textContent = 'Syötä joukkueen nimi.'; return; }
       if (!opponent){ setupError.textContent = 'Syötä vastustajan nimi.'; return; }
-      if (!lines.length){ setupError.textContent = 'Syötä vähintään yksi pelaaja (numero ja nimi).' ; return; }
+      if (!lines.length){ setupError.textContent = 'Syötä vähintään yksi pelaaja (numero ja nimi).'; return; }
 
       const playersObj = {};
       for (const line of lines){
@@ -429,7 +436,7 @@
       });
     }
 
-    // ---- Periods & shots ----
+    // --- Periods & shots
     function showView(viewId){
       document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));
       document.querySelector(`.period-tab[data-period="${viewId}"]`)?.classList.add('active');
@@ -533,17 +540,27 @@
       (currentGame.shots||[]).filter(s=> currentGame.currentPeriod==='summary' ? true : s.period===currentGame.currentPeriod).forEach(s=>layer.appendChild(createShotMarker(s)));
     }
 
+    // --- Joukkueen tulkinta (robusti)
+    function normalizeSideFromShot(sh) {
+      const t = String(sh.team || '').trim().toLowerCase();
+      if (t === 'away' || t === 'vieras') return 'away';
+      if (t === 'home' || t === 'koti')   return 'home';
+      if (String(sh.player).toUpperCase() === 'V') return 'away';
+      return 'home';
+    }
+
     function updateStats(){
       if(!currentGame?.shots) return;
-      let stats={ home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0 }};
+      let stats={ home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0 },
+                  away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0 }};
       const set=(currentGame.shots||[]).filter(s=> currentGame.currentPeriod==='summary' ? true : s.period===currentGame.currentPeriod);
       set.forEach(shot=>{
-        const side = String(shot.team || '').trim().toLowerCase() === 'away' ? 'away' : 'home';
-        const opp  = side === 'home' ? 'away' : 'home';
+        const side = normalizeSideFromShot(shot);
+        const opponent = side === 'home' ? 'away' : 'home';
         stats[side].shots++; stats[side].xg += Number(shot.xG)||0;
         if(shot.outcome==='goal') stats[side].goals++;
-        if(shot.outcome==='save') stats[opp].saves++;
-        if(shot.outcome==='block') stats[opp].blocks++;
+        if(shot.outcome==='save') stats[opponent].saves++;
+        if(shot.outcome==='block') stats[opponent].blocks++;
         if(shot.quality==='high') stats[side].qualityHigh++;
         if(shot.quality==='low')  stats[side].qualityLow++;
       });
@@ -572,7 +589,7 @@
       let html=`<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3>
       <div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`;
       (currentGame.players||[]).forEach(pNum=>{
-        const shots=(currentGame.shots||[]).filter(s=>String(s.team).toLowerCase()==='home'&&s.player==pNum);
+        const shots=(currentGame.shots||[]).filter(s=>normalizeSideFromShot(s)==='home'&&s.player==pNum);
         const goals=shots.filter(s=>s.outcome==='goal').length;
         const qH=shots.filter(s=>s.quality==='high').length;
         const qL=shots.filter(s=>s.quality==='low').length;
@@ -589,46 +606,36 @@
       }); box.innerHTML=html;
     }
 
-    /* ---------- xG: fysiikka-/matematiikkamalli ----------
-       - Koti hyökkää oikealle maaliin (x=100%), vieras vasemmalle (x=0%).
-       - Kulma = kahden tolpan välisen kulman suuruus laukaisupisteestä katsottuna.
-       - Etäisyys = euklidinen etäisyys kohti maalin keskikohtaa.
-    ------------------------------------------------------*/
+    // --- xG (fysiikka/matematiikka)
     function clamp01(v){ return Math.max(0, Math.min(1, v)); }
-
     function calculateXg(xPct, yPct, team, quality){
       const x = clamp01(xPct/100), y = clamp01(yPct/100);
       const goalYTop = 0.40, goalYBot = 0.60;
       const goalX = (String(team).toLowerCase()==='home') ? 1.0 : 0.0;
-
       const thetaTop = Math.atan2(goalYTop - y, goalX - x);
       const thetaBot = Math.atan2(goalYBot - y, goalX - x);
-      const angle = Math.abs(thetaTop - thetaBot); // 0..pi
-
+      const angle = Math.abs(thetaTop - thetaBot);
       const dx = goalX - x, dy = 0.5 - y;
-      const dist = Math.sqrt(dx*dx + dy*dy); // 0..~1.12
-
-      const proximity = 1 - clamp01(dist / 1.2);  // 1 = lähellä maalia
-      const angleNorm = clamp01(angle / Math.PI); // 1 = “näkee” koko maalin
-
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const proximity = 1 - clamp01(dist / 1.2);
+      const angleNorm = clamp01(angle / Math.PI);
       const z =  -1.6 + 3.8*proximity + 2.2*angleNorm;
       let xg = 1/(1+Math.exp(-z));
-
       if (quality === 'high') xg *= 1.15;
       if (quality === 'low')  xg *= 0.90;
-
       xg = Math.max(0.02, Math.min(0.85, xg));
       return Number(xg.toFixed(2));
     }
 
-    // ---- Season view ----
+    // --- Season view
     function safeDateValue(game){ if(game?.date){ const d=new Date(game.date); if(!isNaN(+d)) return +d; } return Date.now(); }
     function getGameStats(game){
-      const s={home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}};
+      const s={home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0},
+               away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}};
       (game.shots||[]).forEach(sh=>{
-        const side = String(sh.team || '').trim().toLowerCase() === 'away' ? 'away' : 'home';
+        const side = normalizeSideFromShot(sh);
         const opp  = side === 'home' ? 'away' : 'home';
-        s[side].shots++; s[side].xg+=Number(sh.xG)||0;
+        s[side].shots++; s[side].xg += Number(sh.xG)||0;
         if(sh.outcome==='goal') s[side].goals++;
         if(sh.outcome==='save') s[opp].saves++;
         if(sh.outcome==='block') s[opp].blocks++;
@@ -684,7 +691,7 @@
 
     async function saveAndEndGame(){ const g={...currentGame}; await addGameToFirestore(g); showView('season'); }
 
-    // ---- PDF helpers ----
+    // --- PDF helpers
     function callAutoTable(doc, opts){ if(window.jspdfAutoTable) return window.jspdfAutoTable(doc,opts); if(doc.autoTable) return doc.autoTable(opts); throw new Error('AutoTable-plugin ei ole ladattu'); }
 
     function getStatsForPeriod(game, period) {
@@ -693,15 +700,15 @@
       const out = { home: S(), away: S() };
 
       rows.forEach(sh => {
-        const side = String(sh.team || '').trim().toLowerCase() === 'away' ? 'away' : 'home';
+        const side = normalizeSideFromShot(sh);
         const opp  = side === 'home' ? 'away' : 'home';
 
-        out[side].shots  += 1;
-        out[side].xg     += Number(sh.xG) || 0;
+        out[side].shots += 1;
+        out[side].xg    += Number(sh.xG) || 0;
 
         if (sh.outcome === 'goal')  out[side].goals  += 1;
-        if (sh.outcome === 'save')  out[opp].saves  += 1;
-        if (sh.outcome === 'block') out[opp].blocks += 1;
+        if (sh.outcome === 'save')  out[opp].saves   += 1;
+        if (sh.outcome === 'block') out[opp].blocks  += 1;
 
         if (sh.quality === 'high') out[side].qualityHigh += 1;
         if (sh.quality === 'low')  out[side].qualityLow  += 1;
@@ -734,7 +741,6 @@
         dot.innerHTML = `<span>${s.player}</span>`;
         Object.assign(dot.style,{
           position:'absolute', width:'34px', height:'34px',
-          display:'block',
           textAlign:'center', fontWeight:'700', color:'#fff', borderRadius:'9999px', boxShadow:'0 3px 8px rgba(0,0,0,.3)',
           transform:'translate(-50%, -50%)', left:`${leftPx}px`, top:`${topPx}px`,
           background:COLORS[s.outcome]||'#111827'
@@ -751,7 +757,7 @@
     function generatePlayerStatsForPdf(doc, game, startY=20){
       const rows=[]; const players=(game.players||[]).slice().sort((a,b)=>a-b);
       players.forEach(pNum=>{
-        const shots=(game.shots||[]).filter(s=>String(s.team).toLowerCase()==='home'&&String(s.player)===String(pNum));
+        const shots=(game.shots||[]).filter(s=>normalizeSideFromShot(s)==='home'&&String(s.player)===String(pNum));
         const goals=shots.filter(s=>s.outcome==='goal').length;
         const qH=shots.filter(s=>s.quality==='high').length;
         const qL=shots.filter(s=>s.quality==='low').length;
@@ -811,7 +817,7 @@
       const blobUrl = doc.output('bloburl'); window.location.assign(blobUrl);
     }
 
-    // ---- Confirm ----
+    // --- Confirm
     function showConfirm(title,text,btnText,btnClass,cb){
       const m=document.getElementById('confirm-modal');
       m.innerHTML=`<div class="bg-white rounded-lg shadow-xl p-6 max-w-sm text-center">
@@ -826,7 +832,7 @@
       document.getElementById('confirm-btn').onclick=()=>{ m.classList.add('hidden'); cb(); };
     }
 
-    // ---- Start ----
+    // --- Go!
     startFirebase();
   </script>
 </body>
