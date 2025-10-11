@@ -563,13 +563,13 @@
             const shots = (game?.shots || []).filter(s => period === 'summary' ? true : s.period === period);
             const W = REPORT_CANVAS_W, H = REPORT_CANVAS_H;
             const wrap = document.createElement('div');
-            Object.assign(wrap.style, { position:'fixed', left:'-10000px', top:'0', width:`${W}px`, height:`${H}px`, background:'#fff', borderRadius:'12px', boxShadow:'0 10px 30px rgba(0,0,0,.2)', overflow:'hidden', zIndex:'-1' });
+            Object.assign(wrap.style, { position:'fixed', left:'-10000px', top:'0', width:`${W}px`, height:`${H}px`, background:'#fff', overflow:'hidden', zIndex:'-1' });
             const field = document.createElement('div');
             Object.assign(field.style, { position:'relative', width:'100%', height:'100%' });
             field.innerHTML = `
                 <svg width="${W}" height="${H}" viewBox="0 0 400 200" style="position:absolute;inset:0">
-                    <rect x="10" y="10" width="380" height="180" fill="#ffffff" stroke="#1f2937" stroke-width="3"/>
-                    <line x1="200" y1="10" x2="200" y2="190" stroke="#94a3b8" stroke-width="2"/>
+                    <rect x="0" y="0" width="400" height="200" fill="#ffffff" stroke="#1f2937" stroke-width="3"/>
+                    <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
                     <rect x="30"  y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
                     <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
                 </svg>`;
@@ -584,7 +584,8 @@
                     position:'absolute', width:'34px', height:'34px', lineHeight:'34px', textAlign:'center',
                     fontWeight:'700', color:'#fff', borderRadius:'9999px',
                     boxShadow:'0 3px 8px rgba(0,0,0,.3)', transform:'translate(-50%,-50%)',
-                    left: `${10 + (s.x/100)*380}px`, top: `${10 + (s.y/100)*180}px`,
+                    left: `${(s.x / 100) * W}px`,
+                    top: `${(s.y / 100) * H}px`,
                     background: COLORS[s.outcome] || '#111827'
                 });
                 if (s.quality === 'high') dot.style.outline = '4px solid #b91c1c';
@@ -620,13 +621,26 @@
             const rows = [];
             const players = (game.players || []).slice().sort((a,b)=>a-b);
             players.forEach(pNum => {
-                const p = Number(pNum); const pShots = (game.shots || []).filter(s => s.team === 'home' && Number(s.player) === p);
-                const goals  = pShots.filter(s => s.outcome === 'goal').length; const qH = pShots.filter(s => s.quality === 'high').length; const qL = pShots.filter(s => s.quality === 'low').length; const pm = (game.plusMinus && game.plusMinus[p]) ? game.plusMinus[p] : { plus:0, minus:0 };
-                if (pShots.length > 0 || pm.plus > 0 || pm.minus > 0) {
-                    const bal = (pm.plus || 0) - (pm.minus || 0); const name = (game.roster?.[p] || '').trim();
-                    const display = name ? `#${p} ${name}` : `#${p}`;
-                    rows.push([display, pShots.length, goals, qH, qL, pShots.length > 0 ? `${Math.round((goals/pShots.length)*100)}%` : '—', `${bal > 0 ? '+' : ''}${bal}`]);
-                }
+                const p = Number(pNum); 
+                const pShots = (game.shots || []).filter(s => s.team === 'home' && Number(s.player) === p);
+                const goals  = pShots.filter(s => s.outcome === 'goal').length; 
+                const qH = pShots.filter(s => s.quality === 'high').length; 
+                const qL = pShots.filter(s => s.quality === 'low').length; 
+                const pm = (game.plusMinus && game.plusMinus[p]) ? game.plusMinus[p] : { plus:0, minus:0 };
+                
+                const bal = (pm.plus || 0) - (pm.minus || 0); 
+                const name = (game.roster?.[p] || '').trim();
+                const display = name ? `#${p} ${name}` : `#${p}`;
+                
+                rows.push([
+                    display, 
+                    pShots.length, 
+                    goals, 
+                    qH, 
+                    qL, 
+                    pShots.length > 0 ? `${Math.round((goals/pShots.length)*100)}%` : '—', 
+                    `${bal > 0 ? '+' : ''}${bal}`
+                ]);
             });
             callAutoTable(doc, {
                 startY,
@@ -650,3 +664,4 @@
     </script>
 </body>
 </html>
+
