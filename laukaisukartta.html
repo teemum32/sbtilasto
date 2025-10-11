@@ -492,23 +492,25 @@
                     document.body.removeChild(mapContainer);
 
                     const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = 80;
+                    const imgWidth = 140;
                     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-                    if (yPos + imgHeight > pageH - margin) {
+                    const sectionHeight = imgHeight + 70; // Arvioi osion korkeus
+                    if (yPos + sectionHeight > pageH - margin && period !== 1) {
                         doc.addPage();
                         yPos = margin;
                     }
 
                     doc.setFontSize(14);
                     doc.text(title, margin, yPos);
-                    yPos += 6;
+                    yPos += 8;
+                    
                     doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+                    yPos += imgHeight + 5;
 
-                    const tableLeft = margin + imgWidth + 10;
                     callAutoTable(doc, {
                         startY: yPos,
-                        margin: { left: tableLeft },
+                        margin: { left: margin },
                         theme: 'grid',
                         head: [['Tapahtuma', 'Koti', 'Vieras']],
                         body: [
@@ -522,10 +524,10 @@
                         ],
                         styles: { font: 'helvetica', fontSize: 10 },
                         headStyles: { fillColor: [41, 52, 72], textColor: 255 },
-                        columnStyles: { 0:{cellWidth:35}, 1:{cellWidth:15, halign:'right'}, 2:{cellWidth:15, halign:'right'} }
+                        columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:20, halign:'right'}, 2:{cellWidth:20, halign:'right'} }
                     });
-
-                    yPos += imgHeight + 10;
+                    
+                    yPos = doc.lastAutoTable.finalY + 15;
                 }
 
                 doc.addPage();
@@ -648,4 +650,3 @@
     </script>
 </body>
 </html>
-
