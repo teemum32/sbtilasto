@@ -696,7 +696,8 @@
                 const dot = document.createElement('div');
                 dot.textContent = s.player;
                 Object.assign(dot.style, {
-                    position:'absolute', width:'34px', height:'34px', lineHeight:'34px', textAlign:'center',
+                    position:'absolute', width:'34px', height:'34px', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight:'700', color:'#fff', borderRadius:'9999px',
                     boxShadow:'0 3px 8px rgba(0,0,0,.3)', transform:'translate(-50%,-50%)',
                     left: `${(s.x / 100) * W}px`,
