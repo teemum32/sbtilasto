@@ -584,8 +584,9 @@
                 generatePlayerStatsForPdf(doc, game, yPos);
 
                 const blob = doc.output('blob');
-                const url = URL.createObjectURL(blob);
-                window.location.assign(url);
+                const blobUrl = URL.createObjectURL(blob);
+                // sama välilehti (ei uutta tabia iOS Safarissa)
+                window.location.href = blobUrl;
 
             } catch (err) {
                 console.error('PDF-raportin luonti epäonnistui:', err);
@@ -697,8 +698,9 @@
                 }
 
                 const blob = doc.output('blob');
-                const url = URL.createObjectURL(blob);
-                window.location.assign(url);
+                const blobUrl = URL.createObjectURL(blob);
+                // sama välilehti (ei uutta tabia iOS Safarissa)
+                window.location.href = blobUrl;
 
             } catch (err) {
                 console.error('Pelaajaraportin luonti epäonnistui:', err);
@@ -715,82 +717,85 @@
             throw new Error('AutoTable-plugin ei ole ladattu');
         };
 
-        const COLORS = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
-        const REPORT_CANVAS_W = 900, REPORT_CANVAS_H = 450;
-
         function createShotmapElement(game, period) {
             const shots = (game?.shots || []).filter(s => period === 'summary' ? true : s.period === period);
-            const W = REPORT_CANVAS_W, H = REPORT_CANVAS_H;
+
+            const W = 900, H = 450;    // kuvapinta PDF:ää varten (2:1)
             const wrap = document.createElement('div');
-            Object.assign(wrap.style, { position:'fixed', left:'-10000px', top:'0', width:`${W}px`, height:`${H}px`, background:'#fff', overflow:'hidden', zIndex:'-1' });
-            const field = document.createElement('div');
-            Object.assign(field.style, { position:'relative', width:'100%', height:'100%' });
-            field.innerHTML = `
-                <svg width="${W}" height="${H}" viewBox="0 0 400 200" style="position:absolute;inset:0">
+            Object.assign(wrap.style, {
+                position: 'fixed', left: '-10000px', top: '0',
+                width: `${W}px`, height: `${H}px`,
+                background: '#ffffff', borderRadius: '12px',
+                boxShadow: '0 10px 30px rgba(0,0,0,.2)', overflow: 'hidden', zIndex: '-1'
+            });
+
+            // taustakenttä
+            wrap.innerHTML = `
+                <svg id="pdfField" width="${W}" height="${H}" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
                     <rect x="0" y="0" width="400" height="200" fill="#ffffff" stroke="#1f2937" stroke-width="3"/>
                     <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/>
                     <rect x="30"  y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
                     <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/>
-                </svg>`;
-            wrap.appendChild(field);
-            const layer = document.createElement('div');
-            Object.assign(layer.style, { position:'absolute', inset:'0' });
-            field.appendChild(layer);
-            
+                    <!-- Piirretään pisteet tähän ryhmään -->
+                    <g id="marks"></g>
+                </svg>
+            `;
+            const svg = wrap.querySelector('#pdfField');
+            const gMarks = wrap.querySelector('#marks');
+
+            const fillFor = o =>
+                o === 'goal' ? '#10B981' :
+                o === 'miss' ? '#3B82F6' :
+                o === 'block' ? '#FACC15' : '#EF4444';
+
+            const ringFor = q =>
+                q === 'high' ? '#b91c1c' :
+                q === 'low'  ? '#2563eb' : null;
+
+            const ns = 'http://www.w3.org/2000/svg';
+
             shots.forEach(s => {
-                const leftPx = Math.max(0, Math.min(W, (s.x / 100) * W));
-                const topPx  = Math.max(0, Math.min(H, (s.y / 100) * H));
+                // PDF-SVG koordinaatit (viewBox 400x200)
+                const cx = Math.max(0, Math.min(400, (s.x/100)*400));
+                const cy = Math.max(0, Math.min(200, (s.y/100)*200));
 
-                // pallon täyttöväri lopputuloksen mukaan
-                const fill =
-                    s.outcome === 'goal' ? '#10B981' :
-                    s.outcome === 'miss' ? '#3B82F6' :
-                    s.outcome === 'block' ? '#FACC15' : '#EF4444';
+                const fill = fillFor(s.outcome);
+                const ring = ringFor(s.quality);
+                const textColor = (s.outcome === 'block') ? '#111827' : '#ffffff';
+                const label = (String(s.player).toUpperCase() === 'V' || s.team === 'away') ? 'V' : s.player;
 
-                // L+/H- kehän väri
-                const ring =
-                    s.quality === 'high' ? '#b91c1c' :
-                    s.quality === 'low'  ? '#2563eb' : null;
+                // peruspallo
+                const circle = document.createElementNS(ns,'circle');
+                circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
+                circle.setAttribute('r', 8.5); // ~34px @ 900x450
+                circle.setAttribute('fill', fill);
+                circle.setAttribute('stroke', '#ffffff');
+                circle.setAttribute('stroke-width', '1.6');
+                gMarks.appendChild(circle);
 
-                const dot = document.createElement('div');
-
-                // perusvarjostus + lisätään "keinoreuna" box-shadowilla, koska outline ei aina piirry PDF:ään
-                let shadow = '0 3px 8px rgba(0,0,0,.30)';      // pehmeä varjo
-                if (ring) shadow += `, 0 0 0 4px ${ring}`;        // laadun kehä
-                // valkoinen ohut reunus
-                const border = '2px solid #ffffff';
-
-                Object.assign(dot.style, {
-                    position: 'absolute',
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '50%',
-                    backgroundColor: fill,
-                    color: s.outcome === 'block' ? '#111827' : '#ffffff',
-                    left: `${leftPx}px`,
-                    top: `${topPx}px`,
-                    transform: 'translate(-50%, -50%)',    // koordinaatti = pallon keskipiste
-                    boxShadow: shadow,
-                    border: border
-                });
+                // laadun kehä
+                if (ring) {
+                    const ringC = document.createElementNS(ns,'circle');
+                    ringC.setAttribute('cx', cx); ringC.setAttribute('cy', cy);
+                    ringC.setAttribute('r', 10.5);
+                    ringC.setAttribute('fill', 'none');
+                    ringC.setAttribute('stroke', ring);
+                    ringC.setAttribute('stroke-width', '3.2');
+                    gMarks.appendChild(ringC);
+                }
 
                 // numero / "V" täsmälleen keskelle
-                const label = document.createElement('span');
-                label.textContent = (String(s.player).toUpperCase() === 'V' || s.team === 'away') ? 'V' : s.player;
-                Object.assign(label.style, {
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    lineHeight: '1',
-                    fontWeight: '700',
-                    fontSize: '14px',
-                    pointerEvents: 'none'
-                });
-                dot.appendChild(label);
-
-                layer.appendChild(dot);
+                const t = document.createElementNS(ns,'text');
+                t.textContent = label;
+                t.setAttribute('x', cx); t.setAttribute('y', cy);
+                t.setAttribute('font-size', '6.2');       // skaalautuu viewBoxiin
+                t.setAttribute('font-weight', '700');
+                t.setAttribute('fill', textColor);
+                t.setAttribute('text-anchor', 'middle');
+                t.setAttribute('dominant-baseline', 'middle'); // 👈 pystykeskitys
+                gMarks.appendChild(t);
             });
+
             return wrap;
         }
 
