@@ -12,8 +12,8 @@
                  frame-src 'self' https:;
                  frame-ancestors 'self' https:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Floorball Shotmap</title>
 
+  <title>Floorball Shotmap</title>
   <!-- Linkkijako / esikatselu -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Floorball Shotmap">
@@ -36,10 +36,26 @@
 
   <style>
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Arial, sans-serif; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
-    .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 9999px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem; border:2px solid #fff; background:#020617; color:#fff; box-shadow:0 2px 4px rgba(0,0,0,.1); touch-action:none; }
-    .away-player { font-size: 1.5rem; }
+    /* Pelaaja- ja laukauspallot: numero 100% keskelle myös iPad Safarissa */
+    .player-number {
+      cursor: grab; width: 40px; height: 40px; border-radius: 9999px;
+      position: relative; font-weight: 700; font-size: 1rem; line-height: 40px;
+      border: 2px solid #fff; background: #020617; color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,.1); touch-action: none;
+      -webkit-text-size-adjust: 100%;
+    }
+    .player-number > span, .shot-marker > span {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      display: block; line-height: 1; pointer-events: none;
+    }
+    .away-player { font-size: 1.2rem; }
     .dragging { position:absolute; pointer-events:none; opacity:.7; z-index:1000; }
-    .shot-marker { position:absolute; width:40px; height:40px; border-radius:9999px; font-weight:700; font-size:1rem; box-shadow:0 1px 3px rgba(0,0,0,.4); color:#fff; transform:translate(-50%,-50%); transition:opacity .2s; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .shot-marker {
+      position:absolute; width:40px; height:40px; border-radius:9999px;
+      font-weight:700; font-size:1rem; box-shadow:0 1px 3px rgba(0,0,0,.4);
+      color:#fff; transform:translate(-50%,-50%); transition:opacity .2s; cursor:pointer;
+    }
     .goal{ background:#10B981 } .miss{ background:#3B82F6 } .block{ background:#FACC15; color:#111827 } .save{ background:#EF4444 }
     .quality-high{ outline:4px solid #b91c1c } .quality-low{ outline:4px solid #2563eb }
     .action-modal{ position:absolute; transform:translate(-50%, -50%); z-index:50; display:flex; flex-direction:column; }
@@ -49,7 +65,7 @@
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
 
-  <!-- Kirjautuminen: Email + Password (vain topteamsalibandy.net) -->
+  <!-- Kirjautuminen -->
   <div id="login-view" class="h-full w-full flex items-center justify-center p-4">
     <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-2xl font-bold">Kirjaudu</h1>
@@ -67,11 +83,18 @@
     </div>
   </div>
 
-  <!-- Landing -->
+  <!-- Landing + joukkuelista -->
   <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-3xl font-bold">Floorball Shotmap</h1>
-      <div class="space-y-4 mt-8">
+
+      <div class="mt-6 text-left">
+        <label class="block text-sm text-slate-300 mb-1" for="team-select">Valitse joukkue</label>
+        <select id="team-select" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm"></select>
+        <div class="text-xs text-slate-400 mt-1">Muistaa valinnan (localStorage).</div>
+      </div>
+
+      <div class="space-y-4 mt-6">
         <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita uusi ottelu</button>
         <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg disabled:opacity-50">Tarkastele kausidataa</button>
         <button id="logout-btn" class="w-full bg-slate-700 hover:bg-slate-600 font-bold py-3 px-4 rounded-lg">Kirjaudu ulos</button>
@@ -79,14 +102,23 @@
     </div>
   </div>
 
-  <!-- Uusi ottelu -->
+  <!-- Uusi ottelu / rosterin muokkaus -->
   <div id="setup-view" class="h-full w-full hidden items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
       <h1 class="text-3xl font-bold mb-4">Uusi ottelu</h1>
-      <input id="opponent-name-input" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center mb-4" placeholder="Vastustajan nimi">
+
+      <div class="text-left">
+        <label class="block text-sm text-slate-300 mb-1" for="team-name-input">Joukkueen nimi</label>
+        <input id="team-name-input" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm" placeholder="Esim. Varta P19">
+        <div class="text-xs text-slate-400 mt-1">Voit valita Landingista joukkueen ja muokata sitä tässä, tai kirjoittaa uuden nimen luodaksesi uuden joukkueen.</div>
+      </div>
+
+      <input id="opponent-name-input" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center my-4" placeholder="Vastustajan nimi">
+
       <textarea id="player-roster-input" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm font-mono" placeholder="7 Matti Meikäläinen&#10;22 Maija Malli"></textarea>
+
       <p id="setup-error" class="text-red-500 text-sm mt-2 h-5"></p>
-      <button id="start-button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita merkintä</button>
+      <button id="start-button" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita merkintä</button>
       <button id="back-to-landing-btn" class="mt-2 w-full text-slate-400 hover:text-slate-200 font-semibold py-2">Takaisin</button>
     </div>
   </div>
@@ -109,7 +141,7 @@
 
           <h2 class="text-xl font-bold mb-4 text-center">Vieras</h2>
           <div id="away-player-list" class="flex justify-center mb-6">
-            <div class="player-number away-player">V</div>
+            <div class="player-number away-player"><span>V</span></div>
           </div>
 
           <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
@@ -159,7 +191,7 @@
       messagingSenderId: "1056099775207",
       appId: "1:1056099775207:web:6dc886fb56b71f708fe842"
     };
-    const ALLOWED_EMAIL_DOMAIN = "topteamsalibandy.net"; // tyhjä merkkijono = ei rajausta
+    const ALLOWED_EMAIL_DOMAIN = "topteamsalibandy.net";
 
     // ---- Views ----
     const V = {
@@ -175,7 +207,11 @@
 
     // ---- Global state ----
     let db, auth, userId;
-    let seasonData = { games: [] }, rosterData = {}, currentGame = {};
+    let seasonData = { games: [] };
+    // rosterMap: { [teamName]: { players: { num: "Name", ... } } }
+    let rosterMap = {};
+    let currentTeamName = null; // valittu joukkue
+    let currentGame = {};
     let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
     let gamesUnsubscribe = () => {};
 
@@ -189,8 +225,12 @@
       onAuthStateChanged(auth, async (user) => {
         if (user && isAllowedEmail(user.email)) {
           userId = user.uid;
-          await loadRosterFromFirestore();
+          await loadRostersFromFirestore();
           listenForGames();
+          populateTeamDropdown();
+          // Valitse viimeksi käytetty tiimi jos löytyy
+          const last = localStorage.getItem('lastTeamName');
+          if (last && rosterMap[last]) { selectTeam(last); }
           showOnly('landing');
         } else {
           userId = null;
@@ -207,7 +247,6 @@
     const loginError = document.getElementById('login-error');
 
     function isAllowedEmail(email){
-      if (!ALLOWED_EMAIL_DOMAIN) return true;
       return new RegExp(`@${ALLOWED_EMAIL_DOMAIN}$`, 'i').test(email || '');
     }
     async function handleLogin(){
@@ -230,18 +269,25 @@
     emailInput.addEventListener('keypress', e => e.key==='Enter' && handleLogin());
     document.getElementById('logout-btn').addEventListener('click', ()=>signOut(auth));
 
-    // ---- Firestore paths ----
+    // ---- Firestore paths ---- (pidetään entinen polku)
     const userBase = () => doc(db, 'artifacts', 'default-app-id', 'users', userId);
     const gamesCol = () => collection(userBase(), 'games');
-    const rosterDoc = () => doc(userBase(), 'roster', 'main');
+    const rostersCol = () => collection(userBase(), 'roster'); // roster/<TEAM_NAME> : { players: {...} }
 
-    async function saveRosterToFirestore(roster){ if (userId) await setDoc(rosterDoc(), { players: roster }, { merge:true }); }
-    async function loadRosterFromFirestore(){
+    async function saveRosterToFirestore(teamName, playersObj){
+      if (!userId || !teamName) return;
+      await setDoc(doc(rostersCol(), teamName), { players: playersObj }, { merge:true });
+    }
+    async function loadRostersFromFirestore(){
+      rosterMap = {};
       if (!userId) return;
       try {
-        const s = await getDoc(rosterDoc());
-        rosterData = s.exists() ? (s.data().players || {}) : {};
-      } catch { rosterData = {}; }
+        const snap = await getDocs(rostersCol());
+        snap.forEach(d => {
+          const data = d.data() || {};
+          rosterMap[d.id] = { players: data.players || {} };
+        });
+      } catch (_) {}
     }
     function listenForGames(){
       if (!userId) return;
@@ -256,53 +302,103 @@
     async function addGameToFirestore(game){ const toSave = { ...game }; delete toSave.id; await addDoc(gamesCol(), toSave); }
     async function deleteGameFromFirestore(id){ await deleteDoc(doc(gamesCol(), id)); }
 
+    // ---- Team dropdown ----
+    const teamSelect = document.getElementById('team-select');
+    function populateTeamDropdown(){
+      teamSelect.innerHTML = '';
+      const names = Object.keys(rosterMap).sort((a,b)=>a.localeCompare(b,'fi'));
+      if (!names.length){
+        const opt = document.createElement('option');
+        opt.value = ''; opt.textContent = '— (ei joukkueita) —';
+        teamSelect.appendChild(opt);
+        return;
+      }
+      names.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n; opt.textContent = n;
+        teamSelect.appendChild(opt);
+      });
+      // Jos ei valintaa, valitse ensimmäinen
+      if (!currentTeamName && names.length) selectTeam(names[0]);
+    }
+    function selectTeam(name){
+      currentTeamName = name;
+      localStorage.setItem('lastTeamName', name);
+      if (teamSelect.value !== name) teamSelect.value = name;
+    }
+    teamSelect.addEventListener('change', ()=> selectTeam(teamSelect.value));
+
     // ---- UI nav ----
-    document.getElementById('start-new-game-btn').addEventListener('click', ()=>{ showOnly('setup'); prefillRosterInput(); });
+    document.getElementById('start-new-game-btn').addEventListener('click', ()=>{
+      showOnly('setup');
+      // täytä asetukset valitun joukkueen mukaan
+      const players = (rosterMap[currentTeamName]?.players) || {};
+      document.getElementById('team-name-input').value = currentTeamName || '';
+      document.getElementById('player-roster-input').value =
+        Object.keys(players).map(Number).sort((a,b)=>a-b).map(n => `${n} ${players[n]||''}`).join('\n');
+    });
     document.getElementById('view-season-data-btn').addEventListener('click', ()=>{ showOnly('app'); showView('season'); });
     document.getElementById('back-to-landing-btn').addEventListener('click', ()=> showOnly('landing'));
 
-    function prefillRosterInput(){
-      const t = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(n=>`${n} ${rosterData[n]||''}`).join('\n');
-      document.getElementById('player-roster-input').value = t;
-    }
-
-    // ---- New game ----
+    // ---- New game / save roster ----
     document.getElementById('start-button').addEventListener('click', async ()=>{
       const setupError = document.getElementById('setup-error');
+      setupError.textContent = '';
+      const teamName = document.getElementById('team-name-input').value.trim();
       const opponent = document.getElementById('opponent-name-input').value.trim();
       const lines = document.getElementById('player-roster-input').value.split('\n').map(l=>l.trim()).filter(Boolean);
+      if (!teamName){ setupError.textContent = 'Syötä joukkueen nimi.'; return; }
       if (!opponent){ setupError.textContent = 'Syötä vastustajan nimi.'; return; }
-      if (!lines.length){ setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
-      const newRoster = {};
+      if (!lines.length){ setupError.textContent = 'Syötä vähintään yksi pelaaja (numero ja nimi).' ; return; }
+
+      const playersObj = {};
       for (const line of lines){
         const m = line.match(/^(\d{1,3})\s*(.*)$/);
         if (!m){ setupError.textContent = 'Virheellinen rivi: ' + line; return; }
-        newRoster[Number(m[1])] = (m[2]||'').trim();
+        playersObj[Number(m[1])] = (m[2]||'').trim();
       }
-      await saveRosterToFirestore(newRoster);
-      rosterData = newRoster;
-      startNewGame(newRoster, opponent);
+
+      // Tallenna rosteri valittuun / uuteen joukkueeseen
+      await saveRosterToFirestore(teamName, playersObj);
+      // Päivitä muistissa ja valinta
+      rosterMap[teamName] = { players: playersObj };
+      selectTeam(teamName);
+
+      startNewGame(teamName, playersObj, opponent);
       showOnly('app');
     });
 
-    function startNewGame(roster, opponent){
+    function startNewGame(teamName, playersObj, opponent){
       document.getElementById('shots-layer').innerHTML = '';
-      const players = Object.keys(roster).map(Number).sort((a,b)=>a-b);
-      currentGame = { date: new Date().toISOString(), opponent, players, roster, shots: [], plusMinus: {} };
+      const players = Object.keys(playersObj).map(Number).sort((a,b)=>a-b);
+      currentGame = {
+        date: new Date().toISOString(),
+        teamName,
+        opponent,
+        players,
+        roster: playersObj,
+        shots: [],
+        plusMinus: {}
+      };
       players.forEach(p => currentGame.plusMinus[p] = { plus:0, minus:0 });
-      initializePlayers();
+      initializePlayers(playersObj);
       bindGameListeners();
       showView(1);
     }
 
-    function initializePlayers(){
+    function initializePlayers(playersObj){
       const home = document.getElementById('home-player-list');
       const away = document.getElementById('away-player-list');
       home.innerHTML=''; away.innerHTML='';
-      const v = document.createElement('div'); v.className='player-number away-player'; v.textContent='V'; away.appendChild(v);
-      (currentGame.players||[]).forEach(num=>{
+      const v = document.createElement('div');
+      v.className='player-number away-player';
+      v.innerHTML = `<span>V</span>`;
+      away.appendChild(v);
+      (Object.keys(playersObj).map(Number).sort((a,b)=>a-b)).forEach(num=>{
         const el = document.createElement('div');
-        el.className='player-number'; el.textContent=num; el.title=currentGame.roster?.[num]||'';
+        el.className = 'player-number';
+        el.innerHTML = `<span>${num}</span>`;
+        el.title = playersObj[num] || '';
         home.appendChild(el);
       });
     }
@@ -346,7 +442,9 @@
       if(field && field.contains(drop)){
         const rect=document.getElementById('shots-layer').getBoundingClientRect();
         const x=((e.clientX-rect.left)/rect.width)*100, y=((e.clientY-rect.top)/rect.height)*100;
-        tempShotData={ player: draggedElement.textContent, team: draggedElement.classList.contains('away-player')?'away':'home', x, y, cx:e.clientX, cy:e.clientY };
+        const isAway = draggedElement.classList.contains('away-player');
+        const labelText = (draggedElement.textContent || draggedElement.innerText || 'V').trim();
+        tempShotData={ player: labelText, team: isAway ? 'away' : 'home', x, y, cx:e.clientX, cy:e.clientY };
         showOutcomeModal(e.clientX,e.clientY);
       }
       document.body.removeChild(ghostElement); ghostElement=null; draggedElement=null;
@@ -393,8 +491,15 @@
     }
 
     function createShotMarker(s){
-      const d=document.createElement('div'); d.className=`shot-marker ${s.outcome}`; if(s.quality==='high') d.classList.add('quality-high'); if(s.quality==='low') d.classList.add('quality-low');
-      d.dataset.shotId=s.id; d.style.left=`${s.x}%`; d.style.top=`${s.y}%`; d.textContent = s.player; return d;
+      const d = document.createElement('div');
+      d.className = `shot-marker ${s.outcome}`;
+      if(s.quality==='high') d.classList.add('quality-high');
+      if(s.quality==='low')  d.classList.add('quality-low');
+      d.dataset.shotId = s.id;
+      d.style.left = `${s.x}%`;
+      d.style.top  = `${s.y}%`;
+      d.innerHTML = `<span>${s.player}</span>`;
+      return d;
     }
     function renderShots(){
       const layer=document.getElementById('shots-layer');
@@ -407,13 +512,14 @@
       let stats={ home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0 }};
       const set=(currentGame.shots||[]).filter(s=> currentGame.currentPeriod==='summary' ? true : s.period===currentGame.currentPeriod);
       set.forEach(shot=>{
-        const t=shot.team==='away'?'away':'home', o=t==='home'?'away':'home';
-        stats[t].shots++; stats[t].xg += Number(shot.xG)||0;
-        if(shot.outcome==='goal') stats[t].goals++;
-        if(shot.outcome==='save') stats[o].saves++;
-        if(shot.outcome==='block') stats[o].blocks++;
-        if(shot.quality==='high') stats[t].qualityHigh++;
-        if(shot.quality==='low')  stats[t].qualityLow++;
+        const side = String(shot.team || '').trim().toLowerCase() === 'away' ? 'away' : 'home';
+        const opp  = side === 'home' ? 'away' : 'home';
+        stats[side].shots++; stats[side].xg += Number(shot.xG)||0;
+        if(shot.outcome==='goal') stats[side].goals++;
+        if(shot.outcome==='save') stats[opp].saves++;
+        if(shot.outcome==='block') stats[opp].blocks++;
+        if(shot.quality==='high') stats[side].qualityHigh++;
+        if(shot.quality==='low')  stats[side].qualityLow++;
       });
       document.getElementById('stats-container').innerHTML=`
         <h3 class="text-lg font-bold text-center mb-3">${currentGame.currentPeriod==='summary'?'Koko ottelu':`Erä ${currentGame.currentPeriod}`}</h3>
@@ -440,7 +546,7 @@
       let html=`<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3>
       <div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`;
       (currentGame.players||[]).forEach(pNum=>{
-        const shots=(currentGame.shots||[]).filter(s=>s.team==='home'&&s.player==pNum);
+        const shots=(currentGame.shots||[]).filter(s=>String(s.team).toLowerCase()==='home'&&s.player==pNum);
         const goals=shots.filter(s=>s.outcome==='goal').length;
         const qH=shots.filter(s=>s.quality==='high').length;
         const qL=shots.filter(s=>s.quality==='low').length;
@@ -457,68 +563,47 @@
       }); box.innerHTML=html;
     }
 
-    /* ---------- xG — KORJATTU MAPPING ----------
-
-       - along = etäisyys omaan hyökkäysmaaliin päin (0 = maaliviiva, 1 = keskiviiva)
-       - lateral = sivuttaisetäisyys keskiviivasta (0 = keskikaista, 1 = aivan laidat)
-       - Ruudukko (3x5) kuvaa "mahdollisuustasoa" along x lateral.
-    */
-    const XG_GRID = [
-      // lateral: 0 .. 1 (0=keskeltä, 1=laidoilta)
-      // along:   0 (lähellä maalia)  ->  1 (keskiviiva)
-      [0.45, 0.38, 0.30, 0.22, 0.15],  // keskikaista (lateral ~0)
-      [0.35, 0.28, 0.22, 0.16, 0.10],  // puoliväli
-      [0.25, 0.20, 0.16, 0.12, 0.08]   // aivan laita (lateral ~1)
-    ];
-    const GRID_ROWS = XG_GRID.length;      // 3 (lateral)
-    const GRID_COLS = XG_GRID[0].length;   // 5 (along)
-
+    /* ---------- xG: fysiikka-/matematiikkamalli ----------
+       - Koti hyökkää oikealle maaliin (x=100%), vieras vasemmalle (x=0%).
+       - Kulma = kahden tolpan välisen kulman suuruus laukaisupisteestä katsottuna.
+       - Etäisyys = euklidinen etäisyys kohti maalin keskikohtaa.
+    ------------------------------------------------------*/
+    function toRad(deg){ return deg*Math.PI/180; }
     function clamp01(v){ return Math.max(0, Math.min(1, v)); }
-    function bilerp(grid, uAlong, vLat){
-      // uAlong: 0..1 (0 = maalin lähellä, 1 = kaukana)
-      // vLat:   0..1 (0 = keskikaista, 1 = laita)
-      const x = uAlong * (GRID_COLS-1);
-      const y = vLat   * (GRID_ROWS-1);
-      const x0 = Math.floor(x), x1 = Math.min(x0+1, GRID_COLS-1);
-      const y0 = Math.floor(y), y1 = Math.min(y0+1, GRID_ROWS-1);
-      const q00 = grid[y0][x0], q01 = grid[y0][x1], q10 = grid[y1][x0], q11 = grid[y1][x1];
-      const tx = x - x0, ty = y - y0;
-      const a = q00*(1-tx) + q01*tx;
-      const b = q10*(1-tx) + q11*tx;
-      return a*(1-ty) + b*ty;
-    }
-
-    function mapToAlongAndLateral(xPct, yPct, team){
-      // xPct: 0..100 (vasen->oikea), yPct: 0..100 (ylös->alas)
-      // Koti hyökkää oikealla olevaan maaliin => along pienenee kohti oikeaa maalia
-      // Away hyökkää vasemmalla olevaan maaliin => along pienenee kohti vasenta maalia
-      const along = team === 'home'
-        ? clamp01((100 - xPct) / 50)  // 0..1 (0=maaliviiva oikealla, 1=keskiviiva)
-        : clamp01(xPct / 50);         // 0..1 (0=maaliviiva vasemmalla, 1=keskiviiva)
-
-      const lateral = clamp01(Math.abs(yPct - 50) / 50); // 0 keskikaista, 1 laita
-      return { along, lateral };
-    }
 
     function calculateXg(xPct, yPct, team, quality){
-      const { along, lateral } = mapToAlongAndLateral(xPct, yPct, team);
+      // Normalisoi 0..1
+      const x = clamp01(xPct/100), y = clamp01(yPct/100);
+      // Maalin sijainti (tolpat). Arvio: maalisuu pystysuunnassa 0.4..0.6, keskikohta y=0.5
+      const goalYTop = 0.40, goalYBot = 0.60;
+      const goalX = (String(team).toLowerCase()==='home') ? 1.0 : 0.0;
 
-      // Perus todennäköisyys ruudukosta (ei enää väärää suuntaa)
-      let val = bilerp(XG_GRID, along, lateral);
+      // Kulma tolppiin
+      const thetaTop = Math.atan2(goalYTop - y, goalX - x);
+      const thetaBot = Math.atan2(goalYBot - y, goalX - x);
+      const angle = Math.abs(thetaTop - thetaBot); // 0..pi
 
-      // Pieni kulma-/etäisyyden pehmennys:
-      const angleFactor    = 1 - 0.35 * lateral; // laidasta heikompi
-      const distanceFactor = 0.7 + 0.3 * (1 - along); // läheltä hiukan ylös
+      // Etäisyys maalin keskikohtaan
+      const dx = goalX - x, dy = 0.5 - y;
+      const dist = Math.sqrt(dx*dx + dy*dy); // 0..~1.12
 
-      val *= angleFactor * distanceFactor;
+      // Ominaisuuksien skaalaus: lähempänä ja isompi kulma => parempi xG
+      const proximity = 1 - clamp01(dist / 1.2);        // 0..1 (1 lähellä)
+      const angleNorm = clamp01(angle / Math.PI);       // 0..1
 
-      // Laatu (L+/H-) vaikuttaa hieman
-      if (quality === 'high') val *= 1.15;
-      if (quality === 'low')  val *= 0.90;
+      // Logistinen yhdistelmä; kalibroitu lattapallo-areenalle
+      const z =  -1.6            // perus-taso
+                 + 3.8*proximity // etäisyys
+                 + 2.2*angleNorm; // kulma
+      let xg = 1/(1+Math.exp(-z)); // 0..1
 
-      // Rajat ja pyöristys
-      val = Math.max(0.02, Math.min(0.85, val));
-      return Number(val.toFixed(2));
+      // Laatu: L+ vahvistaa, H- heikentää hieman
+      if (quality === 'high') xg *= 1.15;
+      if (quality === 'low')  xg *= 0.90;
+
+      // Rajat
+      xg = Math.max(0.02, Math.min(0.85, xg));
+      return Number(xg.toFixed(2));
     }
 
     // ---- Season view ----
@@ -526,13 +611,14 @@
     function getGameStats(game){
       const s={home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}, away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0}};
       (game.shots||[]).forEach(sh=>{
-        const t=sh.team==='away'?'away':'home', o=t==='home'?'away':'home';
-        s[t].shots++; s[t].xg+=Number(sh.xG)||0;
-        if(sh.outcome==='goal') s[t].goals++;
-        if(sh.outcome==='save') s[o].saves++;
-        if(sh.outcome==='block') s[o].blocks++;
-        if(sh.quality==='high') s[t].qualityHigh++;
-        if(sh.quality==='low') s[t].qualityLow++;
+        const side = String(sh.team || '').trim().toLowerCase() === 'away' ? 'away' : 'home';
+        const opp  = side === 'home' ? 'away' : 'home';
+        s[side].shots++; s[side].xg+=Number(sh.xG)||0;
+        if(sh.outcome==='goal') s[side].goals++;
+        if(sh.outcome==='save') s[opp].saves++;
+        if(sh.outcome==='block') s[opp].blocks++;
+        if(sh.quality==='high') s[side].qualityHigh++;
+        if(sh.quality==='low')  s[side].qualityLow++;
       });
       return s;
     }
@@ -549,7 +635,7 @@
           html+=`<details class="bg-white rounded-lg shadow mb-3">
             <summary class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between p-3 font-semibold text-slate-800">
               <div>
-                <p class="font-bold">${d} vs ${g.opponent||''}</p>
+                <p class="font-bold">${d} • ${g.teamName ? g.teamName+' ' : ''}vs ${g.opponent||''}</p>
                 <p class="text-sm text-slate-600">Tulos: ${s.home.goals} - ${s.away.goals}</p>
                 ${rosterList ? `<p class="text-xs text-slate-500">Roster: ${rosterList}</p>` : ``}
               </div>
@@ -592,18 +678,18 @@
       const out = { home: S(), away: S() };
 
       rows.forEach(sh => {
-        const t = (sh.team === 'away') ? 'away' : 'home';
-        const o = (t === 'home') ? 'away' : 'home';
+        const side = String(sh.team || '').trim().toLowerCase() === 'away' ? 'away' : 'home';
+        const opp  = side === 'home' ? 'away' : 'home';
 
-        out[t].shots  += 1;
-        out[t].xg     += Number(sh.xG) || 0;
+        out[side].shots  += 1;
+        out[side].xg     += Number(sh.xG) || 0;
 
-        if (sh.outcome === 'goal')  out[t].goals  += 1;
-        if (sh.outcome === 'save')  out[o].saves  += 1;
-        if (sh.outcome === 'block') out[o].blocks += 1;
+        if (sh.outcome === 'goal')  out[side].goals  += 1;
+        if (sh.outcome === 'save')  out[opp].saves  += 1;
+        if (sh.outcome === 'block') out[opp].blocks += 1;
 
-        if (sh.quality === 'high') out[t].qualityHigh += 1;
-        if (sh.quality === 'low')  out[t].qualityLow  += 1;
+        if (sh.quality === 'high') out[side].qualityHigh += 1;
+        if (sh.quality === 'low')  out[side].qualityLow  += 1;
       });
 
       ['home','away'].forEach(side => {
@@ -629,16 +715,20 @@
       shots.forEach(s=>{
         const leftPx=Math.max(0,Math.min(W,(s.x/100)*W));
         const topPx =Math.max(0,Math.min(H,(s.y/100)*H));
-        const dot=document.createElement('div'); dot.textContent=s.player;
+        const dot=document.createElement('div');
+        dot.innerHTML = `<span>${s.player}</span>`;
         Object.assign(dot.style,{
           position:'absolute', width:'34px', height:'34px',
-          display:'flex', alignItems:'center', justifyContent:'center',
+          display:'block',
           textAlign:'center', fontWeight:'700', color:'#fff', borderRadius:'9999px', boxShadow:'0 3px 8px rgba(0,0,0,.3)',
-          transform:'translate(-50%,-50%)', left:`${leftPx}px`, top:`${topPx}px`,
+          transform:'translate(-50%, -50%)', left:`${leftPx}px`, top:`${topPx}px`,
           background:COLORS[s.outcome]||'#111827'
         });
         if(s.quality==='high') dot.style.outline='4px solid #b91c1c';
         if(s.quality==='low')  dot.style.outline='4px solid #2563eb';
+        // Center text in dot
+        const span = dot.querySelector('span');
+        Object.assign(span.style, { position:'absolute', left:'50%', top:'50%', transform:'translate(-50%,-50%)', lineHeight:'1', pointerEvents:'none' });
         layer.appendChild(dot);
       });
       return wrap;
@@ -647,7 +737,7 @@
     function generatePlayerStatsForPdf(doc, game, startY=20){
       const rows=[]; const players=(game.players||[]).slice().sort((a,b)=>a-b);
       players.forEach(pNum=>{
-        const shots=(game.shots||[]).filter(s=>s.team==='home'&&String(s.player)===String(pNum));
+        const shots=(game.shots||[]).filter(s=>String(s.team).toLowerCase()==='home'&&String(s.player)===String(pNum));
         const goals=shots.filter(s=>s.outcome==='goal').length;
         const qH=shots.filter(s=>s.quality==='high').length;
         const qL=shots.filter(s=>s.quality==='low').length;
@@ -671,7 +761,7 @@
       const margin=10, pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight(); let yPos=margin;
 
       const dateStr=game.date?new Date(game.date).toLocaleDateString('fi-FI'):'';
-      doc.setFont('helvetica','normal'); doc.setFontSize(18); doc.text(`Otteluraportti: ${game.opponent||''}`, pageW/2, yPos, {align:'center'}); yPos+=8; doc.setFontSize(12); doc.text(dateStr, pageW/2, yPos, {align:'center'}); yPos+=15;
+      doc.setFont('helvetica','normal'); doc.setFontSize(18); doc.text(`Otteluraportti: ${game.teamName ? game.teamName+' ' : ''}vs ${game.opponent||''}`, pageW/2, yPos, {align:'center'}); yPos+=8; doc.setFontSize(12); doc.text(dateStr, pageW/2, yPos, {align:'center'}); yPos+=15;
 
       for (const period of [1,2,3,'summary']){
         const stats=getStatsForPeriod(game,period);
@@ -701,7 +791,7 @@
         yPos = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yPos) + 14;
       }
 
-      doc.addPage(); yPos=margin; doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot', pageW/2, yPos, {align:'center'}); yPos+=10;
+      doc.addPage(); yPos=margin; doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot (Koti)', pageW/2, yPos, {align:'center'}); yPos+=10;
       generatePlayerStatsForPdf(doc, game, yPos);
 
       const blobUrl = doc.output('bloburl'); window.location.assign(blobUrl);
@@ -715,7 +805,7 @@
         <p class="text-slate-600 mb-6">${text}</p>
         <div class="flex justify-center gap-4">
           <button id="cancel-confirm-btn" class="px-6 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 font-semibold">Peruuta</button>
-          <button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold ${btnText.includes('Poista')?'bg-red-600':btnClass}">${btnText}</button>
+          <button id="confirm-btn" class="px-6 py-2 rounded-lg text-white font-semibold ${btnClass}">${btnText}</button>
         </div></div>`;
       m.classList.remove('hidden');
       document.getElementById('cancel-confirm-btn').onclick=()=>m.classList.add('hidden');
