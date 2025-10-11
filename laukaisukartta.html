@@ -389,21 +389,43 @@
         }
         
         function showView(viewId) {
-            // Pysäytä ajanotto automaattisesti, kun näkymää vaihdetaan
+            // Pysäytä mahdolliset timerit ennen vaihtoja
             stopPossession();
 
             document.querySelectorAll('.period-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelector(`.period-tab[data-period="${viewId}"]`)?.classList.add('active');
-            mainAppView.classList.add('hidden'); plusMinusView.classList.add('hidden'); seasonView.classList.add('hidden');
+
+            mainAppView.classList.add('hidden'); 
+            plusMinusView.classList.add('hidden'); 
+            seasonView.classList.add('hidden');
+
+            // Määritä nykyinen periodi
+            currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId, 10);
+
+            // ⏱️ Näytä LEIJUVAT timer-napit vain erissä 1–3
+            const posControls = document.querySelector('.possession-controls');
+            const isPeriodView = [1,2,3].includes(currentGame.currentPeriod);
+            if (posControls) posControls.classList.toggle('hidden', !isPeriodView);
+
             if(viewId === 'home' || (viewId === 'season' && currentGame.isReadOnly)) { 
                 if (currentGame.isReadOnly) currentGame = {};
                 showMainView('landing'); 
                 return;
             }
-            if (viewId === 'plus-minus') { renderPlusMinusView(); plusMinusView.classList.remove('hidden'); } 
-            else if (viewId === 'season') { renderSeasonStats(); seasonView.classList.remove('hidden'); } 
-            else { mainAppView.classList.remove('hidden'); currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId); renderShots(); updateStats(); }
-            // jokaisen näkymävaihdon jälkeen päivitä pylväs
+
+            if (viewId === 'plus-minus') { 
+                renderPlusMinusView(); 
+                plusMinusView.classList.remove('hidden'); 
+            } else if (viewId === 'season') { 
+                renderSeasonStats(); 
+                seasonView.classList.remove('hidden'); 
+            } else { 
+                mainAppView.classList.remove('hidden'); 
+                renderShots(); 
+                updateStats(); 
+            }
+            
+            // jokaisen näkymävaihdon jälkeen päivitä pylväs, koska sekin voi näyttää summaa
             renderPossession();
         }
         
@@ -470,7 +492,58 @@
             return s;
         }
 
-        function updateStats() { if (!currentGame?.shots) return; let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }}; const shotsToConsider = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToConsider.forEach(shot => { const shooter = stats[shot.team], opponent = stats[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG || 0; if(shot.quality==='high') shooter.qualityHigh++; if(shot.quality==='low') shooter.qualityLow++; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); document.getElementById('stats-container').innerHTML = `<h3 class="text-lg font-bold text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod}`}</h3><div class="space-y-4"><div><div class="flex justify-between font-semibold"><span>Koti</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div><div class="flex justify-between text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span><span>L+: ${stats.home.qualityHigh} / H-: ${stats.home.qualityLow}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div></div><div><div class="flex justify-between font-semibold"><span>Vieras</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div><div class="flex justify-between text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span><span>L+: ${stats.away.qualityHigh} / H-: ${stats.away.qualityLow}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div></div></div>`; document.getElementById('player-stats-container').classList.toggle('hidden', currentGame.currentPeriod !== 'summary'); if(currentGame.currentPeriod === 'summary') updatePlayerStats(); }
+        function normalizeSideFromShot(shot) {
+            return shot.team === 'away' ? 'away' : 'home';
+        }
+
+        function updateStats() {
+            if (!currentGame?.shots) return;
+
+            const period = currentGame.currentPeriod;
+            const set = currentGame.shots.filter(s => period === 'summary' ? true : s.period === period);
+
+            let stats = { home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0},
+                          away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0} };
+
+            set.forEach(shot => {
+                const side = normalizeSideFromShot(shot);
+                const opp  = side === 'home' ? 'away' : 'home';
+                stats[side].shots++;
+                stats[side].xg += Number(shot.xG) || 0;
+                if (shot.outcome === 'goal')  stats[side].goals++;
+                if (shot.outcome === 'save')  stats[opp].saves++;
+                if (shot.outcome === 'block') stats[opp].blocks++;
+                if (shot.quality === 'high') stats[side].qualityHigh++;
+                if (shot.quality === 'low')  stats[side].qualityLow++;
+            });
+
+            // 🔢 Pallonhallinta %
+            const poss = getPossessionPctFor(currentGame, period);
+
+            document.getElementById('stats-container').innerHTML = `
+                <h3 class="text-lg font-bold text-center mb-3">${(period === 'summary') ? 'Koko ottelu' : `Erä ${period}`}</h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between font-semibold"><span>Koti</span></div>
+                        <div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div>
+                        <div class="flex justify-between text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span><span>L+: ${stats.home.qualityHigh} / H-: ${stats.home.qualityLow}</span></div>
+                        <div class="flex justify-between text-sm mt-1"><span>Pallonhallinta: ${poss.homePct}%</span><span></span></div>
+                        <div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between font-semibold"><span>Vieras</span></div>
+                        <div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div>
+                        <div class="flex justify-between text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span><span>L+: ${stats.away.qualityHigh} / H-: ${stats.away.qualityLow}</span></div>
+                        <div class="flex justify-between text-sm mt-1"><span>Pallonhallinta: ${poss.awayPct}%</span><span></span></div>
+                        <div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div>
+                    </div>
+                </div>`;
+
+            const playerStatsContainer = document.getElementById('player-stats-container');
+            playerStatsContainer.classList.toggle('hidden', period !== 'summary');
+            if (period === 'summary') updatePlayerStats();
+        }
+
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`; (currentGame.players || []).forEach(pNum => { const shots = (currentGame.shots || []).filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length, qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-7 text-center text-sm py-1 border-b border-slate-700 items-center"><span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span class="text-red-400 font-semibold">${qH}</span><span class="text-blue-400 font-semibold">${qL}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
         
         function resetPossessionUI() {
@@ -543,40 +616,15 @@
         // Renderöi pylvään ja prosentit nykyisen näkymän mukaan
         function renderPossession() {
             if (!currentGame || !currentGame.possession) return;
-
-            // Jos ollaan summary-näkymässä, lasketaan yhteen
-            let home = 0, away = 0;
-
-            if (currentGame.currentPeriod === 'summary') {
-                home = (currentGame.possession[1]?.home || 0) + (currentGame.possession[2]?.home || 0) + (currentGame.possession[3]?.home || 0);
-                away = (currentGame.possession[1]?.away || 0) + (currentGame.possession[2]?.away || 0) + (currentGame.possession[3]?.away || 0);
-            } else if ([1,2,3].includes(currentGame.currentPeriod)) {
-                const key = currentGame.currentPeriod;
-                home = currentGame.possession[key]?.home || 0;
-                away = currentGame.possession[key]?.away || 0;
-            } else {
-                // muissa näkymissä (plus-minus/kausi) näytetään summat
-                home = (currentGame.possession[1]?.home || 0) + (currentGame.possession[2]?.home || 0) + (currentGame.possession[3]?.home || 0);
-                away = (currentGame.possession[1]?.away || 0) + (currentGame.possession[2]?.away || 0) + (currentGame.possession[3]?.away || 0);
-            }
-
-            // Lisää käynnissä olevan jakson ms tähän näyttöön (ei tallenneta vielä)
-            if (posActiveTeam && posLastSwitch != null && [1,2,3].includes(currentGame.currentPeriod)) {
-                const delta = performance.now() - posLastSwitch;
-                if (posActiveTeam === 'home') home += delta; else away += delta;
-            }
-
-            const total = home + away;
-            const hp = total ? (home / total * 100) : 50;
-            const ap = 100 - hp;
-
+            const poss = getPossessionPctFor(currentGame, currentGame.currentPeriod);
+            
             // palkit
-            if (elPosHomeBar()) elPosHomeBar().style.width = `${hp}%`;
-            if (elPosAwayBar()) elPosAwayBar().style.width = `${ap}%`;
+            if (elPosHomeBar()) elPosHomeBar().style.width = `${poss.homePct}%`;
+            if (elPosAwayBar()) elPosAwayBar().style.width = `${100 - poss.homePct}%`;
 
             // tekstit
-            if (elPosHomeLabel()) elPosHomeLabel().textContent = `Koti ${hp.toFixed(1)}%`;
-            if (elPosAwayLabel()) elPosAwayLabel().textContent = `Vieras ${ap.toFixed(1)}%`;
+            if (elPosHomeLabel()) elPosHomeLabel().textContent = `Koti ${poss.homePct}%`;
+            if (elPosAwayLabel()) elPosAwayLabel().textContent = `Vieras ${poss.awayPct}%`;
         }
 
         function updatePosClock() {
@@ -590,6 +638,42 @@
             document.getElementById('pos-away-btn')?.classList.remove('ring-4', 'ring-blue-400');
         }
         
+        function getPossessionPctFor(game, period) {
+            // Palauttaa { homeMs, awayMs, homePct, awayPct }
+            const pos = game.possession || {};
+            let homeMs = 0, awayMs = 0;
+
+            if (period === 'summary') {
+                [1,2,3].forEach(p => {
+                    if (pos[p]) { homeMs += pos[p].home || 0; awayMs += pos[p].away || 0; }
+                });
+            } else if ([1,2,3].includes(period)) {
+                homeMs = (pos[period]?.home || 0);
+                awayMs = (pos[period]?.away || 0);
+
+                // Jos kyseessä on NYKYINEN erä ja timer käy, lasketaan käynnissä oleva segmentti mukaan näyttöön
+                if (game === currentGame && currentGame.currentPeriod === period && typeof performance !== 'undefined' && posActiveTeam && posLastSwitch != null) {
+                    const delta = performance.now() - posLastSwitch;
+                    if (posActiveTeam === 'home') homeMs += delta; else awayMs += delta;
+                }
+            } else {
+                // Muissa näkymissä näytetään summat
+                [1,2,3].forEach(p => {
+                    if (pos[p]) { homeMs += pos[p].home || 0; awayMs += pos[p].away || 0; }
+                });
+            }
+
+            const total = homeMs + awayMs;
+            const homePct = total ? ((homeMs / total) * 100) : 50;
+            const awayPct = total ? 100 - homePct : 50;
+
+            return {
+                homeMs, awayMs,
+                homePct: Number(homePct.toFixed(1)),
+                awayPct: Number(awayPct.toFixed(1))
+            };
+        }
+
         function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); (currentGame.players || []).forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; (currentGame.players || []).forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = (stats.plus || 0) - (stats.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus || 0}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus || 0}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
         
@@ -604,9 +688,12 @@
                 let gamesTable = `<h3 class="text-xl font-bold text-slate-100 my-4">Tallennetut ottelut</h3>`;
                 if (safeGames.length > 0) {
                     safeGames.forEach(game => {
-                        const s = getGameStats(game); const ts = safeDateValue(game);
+                        const s = getGameStats(game);
+                        const possG = getPossessionPctFor(game, 'summary');
+                        const ts = safeDateValue(game);
                         const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString('fi-FI') : '—';
-                        gamesTable += `<details class="bg-slate-900 rounded-lg shadow mb-2"><summary class="flex justify-between items-center p-3 font-semibold"><div><p class="font-bold">${dateStr} vs ${game.opponent || ''}</p><p class="text-sm text-slate-300">Tulos: ${s.home.goals} - ${s.away.goals}</p></div></summary><div class="p-4 border-t border-slate-700">${generateGameDetailsHTML(game)}<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4"><button data-game-id="${game.id}" class="generate-pdf-btn bg-purple-600 text-sm font-semibold py-2 px-4 rounded-lg">Luo PDF-raportti</button><button data-game-id="${game.id}" class="share-game-btn bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa data</button><button data-game-id="${game.id}" class="delete-game-btn bg-red-600 text-sm font-semibold py-2 px-4 rounded-lg">Poista ottelu</button></div></div></details>`;
+                        const possRowHtml = `<p class="text-sm text-slate-400 mt-1">Pallonhallinta: ${possG.homePct}% - ${possG.awayPct}%</p>`;
+                        gamesTable += `<details class="bg-slate-900 rounded-lg shadow mb-2"><summary class="flex justify-between items-center p-3 font-semibold"><div><p class="font-bold">${dateStr} vs ${game.opponent || ''}</p><p class="text-sm text-slate-300">Tulos: ${s.home.goals} - ${s.away.goals}</p>${possRowHtml}</div></summary><div class="p-4 border-t border-slate-700">${generateGameDetailsHTML(game)}<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4"><button data-game-id="${game.id}" class="generate-pdf-btn bg-purple-600 text-sm font-semibold py-2 px-4 rounded-lg">Luo PDF-raportti</button><button data-game-id="${game.id}" class="share-game-btn bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa data</button><button data-game-id="${game.id}" class="delete-game-btn bg-red-600 text-sm font-semibold py-2 px-4 rounded-lg">Poista ottelu</button></div></div></details>`;
                     });
                 } else { gamesTable += `<p class="text-center text-slate-400">Ei tallennettuja otteluita.</p>`; }
                 seasonView.innerHTML = `<div class="w-full max-w-4xl mx-auto"><button id="new-game-from-season-btn" class="w-full bg-indigo-600 font-bold py-3 rounded-lg mb-6">Aloita uusi ottelu</button><div class="bg-slate-800 p-6 rounded-lg">${playerTable}</div><div class="mt-6 bg-slate-800 p-6 rounded-lg">${gamesTable}</div></div>`;
@@ -689,7 +776,7 @@
         function generateShareableText_Players(playerStats, fullRoster, allPlayers) { let text = "Pelaajatilastot:\n\nPelaaja\tOtt.\tLauk.\tMaalit\tL+\tH-\tT%\t+/-\n" + "-".repeat(60) + "\n"; allPlayers.forEach(pNum => { const stats = playerStats[pNum], eff = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—', bal = stats.plus - stats.minus; text += `#${pNum} ${fullRoster[pNum] || ''}\t${stats.games}\t${stats.shots}\t${stats.goals}\t${stats.qualityHigh || 0}\t${stats.qualityLow || 0}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; }); return text; }
         function generateShareableText_Game(game) { const gameStats = getGameStats(game); let text = `Ottelukooste: ${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}\nLopputulos: ${gameStats.home.goals} - ${gameStats.away.goals}\n\nJoukkueiden tilastot:\nKoti:\tLauk. ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, Torj. ${gameStats.home.saves}, Blok. ${gameStats.home.blocks}\nVieras:\tLauk. ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, Torj. ${gameStats.away.saves}, B ${gameStats.away.blocks}\n\nPelaajakohtaiset tilastot:\nPelaaja`.padEnd(20) + "L\tM\tL+\tH-\tT%\t+/-\n" + "-".repeat(60) + "\n"; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum); const goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length; const qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); const playerName = `#${pNum} ${game.roster[pNum] || ''}`; text += `${playerName.padEnd(20)}\t${shots.length}\t${goals}\t${qH}\t${qL}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; } }); return text; }
         function generateAndDownloadXLSX_Players(playerStats, fullRoster, allPlayers, filename) { const data = [["Pelaaja", "Ottelut", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; allPlayers.forEach(pNum => { const stats = playerStats[pNum]; data.push([`#${pNum} ${fullRoster[pNum] || ''}`, stats.games, stats.shots, stats.goals, stats.qualityHigh || 0, stats.qualityLow || 0, stats.shots > 0 ? (stats.goals / stats.shots) : 0, stats.plus - stats.minus]); }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:8}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`G${i}`]) { ws[`G${i}`].t = 'n'; ws[`G${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Pelaajatilastot"); downloadXLSX(wb, filename); }
-        function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length; const qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
+        function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
         async function generatePdfReport(gameId, buttonElement) {
@@ -721,6 +808,7 @@
                 for (const period of [1, 2, 3, 'summary']) {
                     const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
                     const stats = getStatsForPeriod(game, period);
+                    const poss = getPossessionPctFor(game, period);
                     const mapContainer = createShotmapElement(game, period);
                     document.body.appendChild(mapContainer);
                     await new Promise(r => requestAnimationFrame(() => r()));
@@ -761,6 +849,7 @@
                             ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
                             ['Torjunnat', stats.home.saves, stats.away.saves],
                             ['Blokit', stats.home.blocks, stats.away.blocks],
+                            ['Pallonhallinta %', `${poss.homePct}%`, `${poss.awayPct}%`],
                         ],
                         styles: { font: 'helvetica', fontSize: 10 },
                         headStyles: { fillColor: [41, 52, 72], textColor: 255 },
