@@ -186,32 +186,71 @@
     </div>
     
     <script type="module">
-        // --- BLOB-SUOJUS: estä uuden tabin avaus ja ohjaa samaan välilehteen ---
-        (function(){
-            const origOpen = window.open;
-            window.open = function(url, name, specs){
+        // ===== BLOB GUARD – estä "blob:"-välilehti käynnistyksessä =====
+        (function () {
+            // 1) Jos ollaan jo blob: -osoitteessa (esim. session restore), palataan appiin.
+            const APP_ENTRY = location.origin + location.pathname.split('?')[0].split('#')[0];
+            if (location.protocol === 'blob:') {
+                location.replace(APP_ENTRY);
+                return;
+            }
+
+            // 2) Allow-list: blob-navigointi sallitaan vain tuoreesta käyttäjän eleestä
+            let lastUserGestureAt = 0;
+            const markGesture = () => (lastUserGestureAt = Date.now());
+            ['click','pointerdown','touchstart','keydown'].forEach(ev =>
+                window.addEventListener(ev, markGesture, { capture: true, passive: true })
+            );
+            const gestureFresh = () => Date.now() - lastUserGestureAt < 1500; // 1.5 s ikkuna
+
+            // 3) Estä window.open(blob:...) ilman käyttäjän elettä
+            const _open = window.open;
+            window.open = function (url, name, specs) {
                 try {
-                    // Jos joku yrittää avata blob-URL:n uuteen välilehteen, ohjataan samaan:
-                    if (url && String(url).startsWith('blob:')) {
-                        window.location.href = url;
+                    if (url && String(url).startsWith('blob:') && !gestureFresh()) {
+                        console.warn('[BlobGuard] Blocked window.open to blob without user gesture:', url);
                         return null;
                     }
                 } catch (e) {}
-                // Muut kuin blob-URL:t edelleen sallitaan tarvittaessa:
-                return origOpen.apply(window, arguments);
+                return _open.apply(this, arguments);
+            };
+
+            // 4) (Diagnoosi) Loggaa kaikki createObjectURL-kutsut – jotta näet mikä luo blobin
+            const _create = URL.createObjectURL;
+            URL.createObjectURL = function (obj) {
+                const u = _create.call(URL, obj);
+                // Jos blob luodaan ilman tuoretta elettä heti käynnistyksessä, tämä on epäilty
+                if (!gestureFresh()) {
+                    console.warn('[BlobGuard] createObjectURL (no gesture yet):', u, obj);
+                }
+                return u;
+            };
+
+            // 5) (Varmistus) Jos joku yrittää ohjata locationiin blob: ilman elettä, jätetään tekemättä
+            const navToBlob = (nextUrl) => {
+                if (String(nextUrl).startsWith('blob:') && !gestureFresh()) {
+                    console.warn('[BlobGuard] Blocked location change to blob without user gesture:', nextUrl);
+                    return true; // handled
+                }
+                return false;
+            };
+            const _assign = History.prototype.pushState;
+            History.prototype.pushState = function (s, t, u) {
+                if (u && navToBlob(u)) return;
+                return _assign.apply(this, arguments);
+            };
+            const _replace = History.prototype.replaceState;
+            History.prototype.replaceState = function (s, t, u) {
+                if (u && navToBlob(u)) return;
+                return _replace.apply(this, arguments);
+            };
+
+            // 6) Turvallinen apu PDF-nappiin: kutsu ennen generatePdfReport()
+            window.__allowBlobNavFor = function (ms = 2000) {
+                lastUserGestureAt = Date.now();
+                setTimeout(() => (lastUserGestureAt = 0), ms);
             };
         })();
-
-        // Jos jostain syystä saavumme blob:-osoitteeseen, palauta appiin
-        if (window.location.href.startsWith('blob:')) {
-            const returnUrl = sessionStorage.getItem('returnUrl');
-            if (returnUrl) {
-                window.location.replace(returnUrl);
-            } else {
-                // Fallback to origin if session storage is missing
-                window.location.replace(window.location.origin);
-            }
-        }
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -736,8 +775,16 @@
                     else if (sharePlayersBtn) { shareDataByEmail('players'); } 
                     else if (shareGameBtn) { shareDataByEmail('game', shareGameBtn.dataset.gameId); } 
                     else if (deleteGameBtn) { e.preventDefault(); showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)); }
-                    else if (pdfBtn) { e.preventDefault(); generatePdfReport(pdfBtn.dataset.gameId, pdfBtn); }
-                    else if (playerReportBtn) { e.preventDefault(); generatePlayerPdfReport(playerReportBtn.dataset.gameId, playerReportBtn.dataset.playerNum, playerReportBtn); }
+                    else if (pdfBtn) { 
+                        e.preventDefault(); 
+                        window.__allowBlobNavFor();
+                        generatePdfReport(pdfBtn.dataset.gameId, pdfBtn); 
+                    }
+                    else if (playerReportBtn) { 
+                        e.preventDefault(); 
+                        window.__allowBlobNavFor();
+                        generatePlayerPdfReport(playerReportBtn.dataset.gameId, playerReportBtn.dataset.playerNum, playerReportBtn); 
+                    }
                 });
             } catch (err) {
                 seasonView.innerHTML = `<div class="w-full max-w-2xl mx-auto bg-red-900/30 border border-red-700 text-red-200 p-4 rounded"><p class="font-bold mb-2">Kausidatan renderöinti epäonnistui.</p><p class="text-sm opacity-80">Virhe: ${err?.message || err}</p></div>`;
