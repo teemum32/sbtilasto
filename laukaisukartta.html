@@ -186,6 +186,33 @@
     </div>
     
     <script type="module">
+        // --- BLOB-SUOJUS: estä uuden tabin avaus ja ohjaa samaan välilehteen ---
+        (function(){
+            const origOpen = window.open;
+            window.open = function(url, name, specs){
+                try {
+                    // Jos joku yrittää avata blob-URL:n uuteen välilehteen, ohjataan samaan:
+                    if (url && String(url).startsWith('blob:')) {
+                        window.location.href = url;
+                        return null;
+                    }
+                } catch (e) {}
+                // Muut kuin blob-URL:t edelleen sallitaan tarvittaessa:
+                return origOpen.apply(window, arguments);
+            };
+        })();
+
+        // Jos jostain syystä saavumme blob:-osoitteeseen, palauta appiin
+        if (window.location.href.startsWith('blob:')) {
+            const returnUrl = sessionStorage.getItem('returnUrl');
+            if (returnUrl) {
+                window.location.replace(returnUrl);
+            } else {
+                // Fallback to origin if session storage is missing
+                window.location.replace(window.location.origin);
+            }
+        }
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -776,7 +803,7 @@
         function generateShareableText_Players(playerStats, fullRoster, allPlayers) { let text = "Pelaajatilastot:\n\nPelaaja\tOtt.\tLauk.\tMaalit\tL+\tH-\tT%\t+/-\n" + "-".repeat(60) + "\n"; allPlayers.forEach(pNum => { const stats = playerStats[pNum], eff = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—', bal = stats.plus - stats.minus; text += `#${pNum} ${fullRoster[pNum] || ''}\t${stats.games}\t${stats.shots}\t${stats.goals}\t${stats.qualityHigh || 0}\t${stats.qualityLow || 0}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; }); return text; }
         function generateShareableText_Game(game) { const gameStats = getGameStats(game); let text = `Ottelukooste: ${new Date(game.date).toLocaleDateString('fi-FI')} vs ${game.opponent}\nLopputulos: ${gameStats.home.goals} - ${gameStats.away.goals}\n\nJoukkueiden tilastot:\nKoti:\tLauk. ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, Torj. ${gameStats.home.saves}, Blok. ${gameStats.home.blocks}\nVieras:\tLauk. ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, Torj. ${gameStats.away.saves}, B ${gameStats.away.blocks}\n\nPelaajakohtaiset tilastot:\nPelaaja`.padEnd(20) + "L\tM\tL+\tH-\tT%\t+/-\n" + "-".repeat(60) + "\n"; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum); const goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length; const qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || (pm && (pm.plus > 0 || pm.minus > 0))) { const eff = shots.length > 0 ? `${Math.round((goals / shots.length) * 100)}%` : '—'; const bal = (pm?.plus || 0) - (pm?.minus || 0); const playerName = `#${pNum} ${game.roster[pNum] || ''}`; text += `${playerName.padEnd(20)}\t${shots.length}\t${goals}\t${qH}\t${qL}\t${eff}\t${bal > 0 ? '+' : ''}${bal}\n`; } }); return text; }
         function generateAndDownloadXLSX_Players(playerStats, fullRoster, allPlayers, filename) { const data = [["Pelaaja", "Ottelut", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; allPlayers.forEach(pNum => { const stats = playerStats[pNum]; data.push([`#${pNum} ${fullRoster[pNum] || ''}`, stats.games, stats.shots, stats.goals, stats.qualityHigh || 0, stats.qualityLow || 0, stats.shots > 0 ? (stats.goals / stats.shots) : 0, stats.plus - stats.minus]); }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:8}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`G${i}`]) { ws[`G${i}`].t = 'n'; ws[`G${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Pelaajatilastot"); downloadXLSX(wb, filename); }
-        function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
+        function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length; const qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
         async function generatePdfReport(gameId, buttonElement) {
@@ -866,10 +893,17 @@
                 yPos += 10;
                 generatePlayerStatsForPdf(doc, game, yPos);
 
-                const blob = doc.output('blob');
-                const blobUrl = URL.createObjectURL(blob);
-                // sama välilehti (ei uutta tabia iOS Safarissa)
-                window.location.href = blobUrl;
+                const pdfBlob = doc.output('blob');
+                const pdfUrl  = URL.createObjectURL(pdfBlob);
+
+                // Tallenna paluuosoite ennen siirtymistä
+                sessionStorage.setItem('returnUrl', window.location.href);
+                
+                // Avaa aina samassa välilehdessä (ei uutta tabia)
+                window.location.href = pdfUrl;
+
+                // (siivous pienen viiveen jälkeen)
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 30000);
 
             } catch (err) {
                 console.error('PDF-raportin luonti epäonnistui:', err);
@@ -980,10 +1014,17 @@
                     yPos = doc.lastAutoTable.finalY + 15;
                 }
 
-                const blob = doc.output('blob');
-                const blobUrl = URL.createObjectURL(blob);
-                // sama välilehti (ei uutta tabia iOS Safarissa)
-                window.location.href = blobUrl;
+                const pdfBlob = doc.output('blob');
+                const pdfUrl  = URL.createObjectURL(pdfBlob);
+
+                // Tallenna paluuosoite ennen siirtymistä
+                sessionStorage.setItem('returnUrl', window.location.href);
+
+                // Avaa aina samassa välilehdessä (ei uutta tabia)
+                window.location.href = pdfUrl;
+
+                // (siivous pienen viiveen jälkeen)
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 30000);
 
             } catch (err) {
                 console.error('Pelaajaraportin luonti epäonnistui:', err);
