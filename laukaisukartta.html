@@ -12,22 +12,15 @@
                  frame-src 'self' https:;
                  frame-ancestors 'self' https:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-
   <title>Floorball Shotmap</title>
-  <!-- Linkkijako / esikatselu -->
+
+  <!-- OpenGraph / sharing -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Floorball Shotmap">
   <meta property="og:description" content="Ottelukohtaiset laukaisukartat ja xG-raportit — PDF yhdellä napilla.">
   <meta property="og:image" content="/icon-1200x630.png">
   <meta property="og:url" content="/">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Floorball Shotmap">
-  <meta name="twitter:description" content="Ottelukohtaiset laukaisukartat ja xG-raportit — PDF yhdellä napilla.">
-  <meta name="twitter:image" content="/icon-1200x630.png">
-  <link rel="icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/icon-180.png">
-  <meta name="apple-mobile-web-app-title" content="Floorball Shotmap">
-  <meta name="theme-color" content="#0f172a">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -35,35 +28,25 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 
   <style>
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Arial, sans-serif; overflow: hidden; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Arial,sans-serif;overflow:hidden;touch-action:pan-y;-webkit-user-select:none;user-select:none;background:#0f172a;color:#e2e8f0}
     /* Pelaaja- ja laukauspallot: numero 100% keskelle myös iPad Safarissa */
-    .player-number {
-      cursor: grab; width: 40px; height: 40px; border-radius: 9999px;
-      position: relative; font-weight: 700; font-size: 1rem; line-height: 40px;
-      border: 2px solid #fff; background: #020617; color: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,.1); touch-action: none;
-      -webkit-text-size-adjust: 100%;
+    .player-number{
+      cursor:grab;width:40px;height:40px;border-radius:9999px;position:relative;font-weight:700;font-size:1rem;line-height:40px;border:2px solid #fff;background:#020617;color:#fff;box-shadow:0 2px 4px rgba(0,0,0,.1);touch-action:none;-webkit-text-size-adjust:100%
     }
-    .player-number > span, .shot-marker > span {
-      position: absolute; left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      display: block; line-height: 1; pointer-events: none;
+    .player-number>span,.shot-marker>span{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block;line-height:1;pointer-events:none
     }
-    .away-player { font-size: 1.2rem; }
-    .dragging { position:absolute; pointer-events:none; opacity:.7; z-index:1000; }
-    .shot-marker {
-      position:absolute; width:40px; height:40px; border-radius:9999px;
-      font-weight:700; font-size:1rem; box-shadow:0 1px 3px rgba(0,0,0,.4);
-      color:#fff; transform:translate(-50%,-50%); transition:opacity .2s; cursor:pointer;
-    }
-    .goal{ background:#10B981 } .miss{ background:#3B82F6 } .block{ background:#FACC15; color:#111827 } .save{ background:#EF4444 }
-    .quality-high{ outline:4px solid #b91c1c } .quality-low{ outline:4px solid #2563eb }
-    .action-modal{ position:absolute; transform:translate(-50%, -50%); z-index:50; display:flex; flex-direction:column; }
-    .period-tab{ padding:8px 16px; border-radius:6px; font-weight:600; transition:background-color .2s; }
-    .period-tab.active{ background:#4f46e5 }
+    .away-player{font-size:1.2rem}
+    .dragging{position:absolute;pointer-events:none;opacity:.7;z-index:1000}
+    .shot-marker{position:absolute;width:40px;height:40px;border-radius:9999px;font-weight:700;font-size:1rem;box-shadow:0 1px 3px rgba(0,0,0,.4);color:#fff;transform:translate(-50%,-50%);transition:opacity .2s;cursor:pointer}
+    .goal{background:#10B981}.miss{background:#3B82F6}.block{background:#FACC15;color:#111827}.save{background:#EF4444}
+    .quality-high{outline:4px solid #b91c1c}.quality-low{outline:4px solid #2563eb}
+    .action-modal{position:absolute;transform:translate(-50%,-50%);z-index:50;display:flex;flex-direction:column}
+    .period-tab{padding:8px 16px;border-radius:6px;font-weight:600;transition:background-color .2s}
+    .period-tab.active{background:#4f46e5}
   </style>
 </head>
-<body class="bg-slate-900 h-full text-slate-200">
+<body class="h-full">
 
   <!-- Kirjautuminen -->
   <div id="login-view" class="h-full w-full flex items-center justify-center p-4">
@@ -230,7 +213,7 @@
           populateTeamDropdown();
           // Valitse viimeksi käytetty tiimi jos löytyy
           const last = localStorage.getItem('lastTeamName');
-          if (last && rosterMap[last]) { selectTeam(last); }
+          if (last && rosterMap[last]) { selectTeam(last); if (teamSelect.value !== last) teamSelect.value = last; }
           showOnly('landing');
         } else {
           userId = null;
@@ -278,17 +261,35 @@
       if (!userId || !teamName) return;
       await setDoc(doc(rostersCol(), teamName), { players: playersObj }, { merge:true });
     }
-    async function loadRostersFromFirestore(){
+
+    // *** Uudistettu: lataa sekä subcollectionin rosterit että mahdollisen vanhan 'roster/main' dokumentin ***
+    async function loadRostersFromFirestore() {
       rosterMap = {};
       if (!userId) return;
+
       try {
-        const snap = await getDocs(rostersCol());
-        snap.forEach(d => {
+        // Uusi rakenne: subcollection 'roster' -> jokainen dokumentti = joukkue
+        const subSnap = await getDocs(rostersCol());
+        subSnap.forEach(d => {
           const data = d.data() || {};
-          rosterMap[d.id] = { players: data.players || {} };
+          if (data.players) rosterMap[d.id] = { players: data.players };
         });
-      } catch (_) {}
+
+        // Yhteensopivuus: vanha rakenne 'roster/main' dokumenttina
+        const mainSnap = await getDoc(doc(userBase(), 'roster', 'main'));
+        if (mainSnap.exists()) {
+          const data = mainSnap.data() || {};
+          if (data.players && !rosterMap['main']) {
+            rosterMap['main'] = { players: data.players };
+          }
+        }
+
+        console.log('Rosterit ladattu:', Object.keys(rosterMap));
+      } catch (err) {
+        console.error('Rosterin lataus epäonnistui:', err);
+      }
     }
+
     function listenForGames(){
       if (!userId) return;
       gamesUnsubscribe();
@@ -304,39 +305,66 @@
 
     // ---- Team dropdown ----
     const teamSelect = document.getElementById('team-select');
-    function populateTeamDropdown(){
+
+    function populateTeamDropdown() {
       teamSelect.innerHTML = '';
+
+      // "Luo uusi joukkue…" ensimmäiseksi
+      const createOpt = document.createElement('option');
+      createOpt.value = '__new__';
+      createOpt.textContent = '➕ Luo uusi joukkue…';
+      teamSelect.appendChild(createOpt);
+
       const names = Object.keys(rosterMap).sort((a,b)=>a.localeCompare(b,'fi'));
-      if (!names.length){
-        const opt = document.createElement('option');
-        opt.value = ''; opt.textContent = '— (ei joukkueita) —';
-        teamSelect.appendChild(opt);
-        return;
-      }
       names.forEach(n => {
         const opt = document.createElement('option');
-        opt.value = n; opt.textContent = n;
+        opt.value = n;
+        opt.textContent = n;
         teamSelect.appendChild(opt);
       });
-      // Jos ei valintaa, valitse ensimmäinen
-      if (!currentTeamName && names.length) selectTeam(names[0]);
+
+      // Jos ei joukkueita -> jätetään vain luontivaihtoehto
+      if (!names.length) return;
+
+      // Aseta viimeksi käytetty tai ensimmäinen
+      const last = localStorage.getItem('lastTeamName');
+      const sel = (last && rosterMap[last]) ? last : names[0];
+      selectTeam(sel);
+      teamSelect.value = sel;
     }
+
     function selectTeam(name){
+      if (!name || name === '__new__') return;
       currentTeamName = name;
       localStorage.setItem('lastTeamName', name);
-      if (teamSelect.value !== name) teamSelect.value = name;
     }
-    teamSelect.addEventListener('change', ()=> selectTeam(teamSelect.value));
+
+    teamSelect.addEventListener('change', () => {
+      if (teamSelect.value === '__new__') {
+        showOnly('setup');
+        document.getElementById('team-name-input').value = '';
+        document.getElementById('player-roster-input').value = '';
+        return;
+      }
+      selectTeam(teamSelect.value);
+    });
 
     // ---- UI nav ----
     document.getElementById('start-new-game-btn').addEventListener('click', ()=>{
+      const selected = teamSelect.value;
       showOnly('setup');
-      // täytä asetukset valitun joukkueen mukaan
-      const players = (rosterMap[currentTeamName]?.players) || {};
-      document.getElementById('team-name-input').value = currentTeamName || '';
-      document.getElementById('player-roster-input').value =
-        Object.keys(players).map(Number).sort((a,b)=>a-b).map(n => `${n} ${players[n]||''}`).join('\n');
+
+      if (selected && selected !== '__new__' && rosterMap[selected]) {
+        document.getElementById('team-name-input').value = selected;
+        const players = rosterMap[selected].players || {};
+        document.getElementById('player-roster-input').value =
+          Object.keys(players).map(Number).sort((a,b)=>a-b).map(n => `${n} ${players[n]||''}`).join('\n');
+      } else {
+        document.getElementById('team-name-input').value = '';
+        document.getElementById('player-roster-input').value = '';
+      }
     });
+
     document.getElementById('view-season-data-btn').addEventListener('click', ()=>{ showOnly('app'); showView('season'); });
     document.getElementById('back-to-landing-btn').addEventListener('click', ()=> showOnly('landing'));
 
@@ -358,9 +386,7 @@
         playersObj[Number(m[1])] = (m[2]||'').trim();
       }
 
-      // Tallenna rosteri valittuun / uuteen joukkueeseen
       await saveRosterToFirestore(teamName, playersObj);
-      // Päivitä muistissa ja valinta
       rosterMap[teamName] = { players: playersObj };
       selectTeam(teamName);
 
@@ -568,40 +594,29 @@
        - Kulma = kahden tolpan välisen kulman suuruus laukaisupisteestä katsottuna.
        - Etäisyys = euklidinen etäisyys kohti maalin keskikohtaa.
     ------------------------------------------------------*/
-    function toRad(deg){ return deg*Math.PI/180; }
     function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 
     function calculateXg(xPct, yPct, team, quality){
-      // Normalisoi 0..1
       const x = clamp01(xPct/100), y = clamp01(yPct/100);
-      // Maalin sijainti (tolpat). Arvio: maalisuu pystysuunnassa 0.4..0.6, keskikohta y=0.5
       const goalYTop = 0.40, goalYBot = 0.60;
       const goalX = (String(team).toLowerCase()==='home') ? 1.0 : 0.0;
 
-      // Kulma tolppiin
       const thetaTop = Math.atan2(goalYTop - y, goalX - x);
       const thetaBot = Math.atan2(goalYBot - y, goalX - x);
       const angle = Math.abs(thetaTop - thetaBot); // 0..pi
 
-      // Etäisyys maalin keskikohtaan
       const dx = goalX - x, dy = 0.5 - y;
       const dist = Math.sqrt(dx*dx + dy*dy); // 0..~1.12
 
-      // Ominaisuuksien skaalaus: lähempänä ja isompi kulma => parempi xG
-      const proximity = 1 - clamp01(dist / 1.2);        // 0..1 (1 lähellä)
-      const angleNorm = clamp01(angle / Math.PI);       // 0..1
+      const proximity = 1 - clamp01(dist / 1.2);  // 1 = lähellä maalia
+      const angleNorm = clamp01(angle / Math.PI); // 1 = “näkee” koko maalin
 
-      // Logistinen yhdistelmä; kalibroitu lattapallo-areenalle
-      const z =  -1.6            // perus-taso
-                 + 3.8*proximity // etäisyys
-                 + 2.2*angleNorm; // kulma
-      let xg = 1/(1+Math.exp(-z)); // 0..1
+      const z =  -1.6 + 3.8*proximity + 2.2*angleNorm;
+      let xg = 1/(1+Math.exp(-z));
 
-      // Laatu: L+ vahvistaa, H- heikentää hieman
       if (quality === 'high') xg *= 1.15;
       if (quality === 'low')  xg *= 0.90;
 
-      // Rajat
       xg = Math.max(0.02, Math.min(0.85, xg));
       return Number(xg.toFixed(2));
     }
@@ -726,7 +741,6 @@
         });
         if(s.quality==='high') dot.style.outline='4px solid #b91c1c';
         if(s.quality==='low')  dot.style.outline='4px solid #2563eb';
-        // Center text in dot
         const span = dot.querySelector('span');
         Object.assign(span.style, { position:'absolute', left:'50%', top:'50%', transform:'translate(-50%,-50%)', lineHeight:'1', pointerEvents:'none' });
         layer.appendChild(dot);
