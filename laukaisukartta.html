@@ -56,6 +56,22 @@
         #pdf-overlay header h3 { font-size: 14px; font-weight: 600; }
         #pdf-overlay header button { background: #ef4444; color: white; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
         #pdf-iframe { position: absolute; top: 48px; left: 0; width: 100%; height: calc(100% - 48px); border: 0; }
+
+        /* Pallonhallintapalkki */
+        .possession-wrap { width:100%; max-width:980px; margin:0 auto 12px auto; }
+        .possession-bar { position:relative; height:18px; background:#e2e8f0; border-radius:10px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.15); }
+        .possession-home, .possession-away { height:100%; }
+        .possession-home { background:#10b981; }  /* Koti */
+        .possession-away { background:#3b82f6; }  /* Vieras */
+        .possession-labels { position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; font-size:.80rem; font-weight:700; color:#0f172a; padding:0 8px; mix-blend-mode:multiply; }
+
+        /* Nappirivi kentän alle */
+        .possession-controls { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; }
+        .possession-controls button { padding:.65rem .9rem; border-radius:.6rem; font-weight:700; }
+        .pos-btn-home { background:#10b981; color:white; }
+        .pos-btn-away { background:#3b82f6; color:white; }
+        .pos-btn-stop { background:#ef4444; color:white; }
+        .pos-clock { min-width:4.5rem; text-align:center; font-variant-numeric:tabular-nums; color:#94a3b8; font-weight:700; }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -119,9 +135,25 @@
                     <div id="sidebar-content" class="flex-grow"></div>
                     <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
                 </div>
+                <div class="possession-wrap px-4">
+                    <div class="possession-bar">
+                        <div id="pos-home" class="possession-home" style="width:50%"></div>
+                        <div id="pos-away" class="possession-away" style="width:50%"></div>
+                        <div class="possession-labels">
+                            <span id="pos-home-label">Koti 50%</span>
+                            <span id="pos-away-label">Vieras 50%</span>
+                        </div>
+                    </div>
+                </div>
                 <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
                     <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
                 </main>
+                <div class="possession-controls my-3">
+                    <button id="pos-home-btn" class="pos-btn-home">Koti hallussa</button>
+                    <button id="pos-away-btn" class="pos-btn-away">Vieras hallussa</button>
+                    <button id="pos-stop-btn" class="pos-btn-stop">Pysäytä</button>
+                    <div id="pos-clock" class="pos-clock">0:00</div>
+                </div>
             </div>
             <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
             <div id="season-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
@@ -162,6 +194,18 @@
         let seasonData = { games: [] }, rosterData = {}, currentGame = {};
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
+        
+        // Pallonhallinta (possession) – tilamuuttujat
+        let posActiveTeam = null;         // 'home' | 'away' | null
+        let posLastSwitch = null;         // ms (performance.now)
+        let posTick = null;               // setInterval id
+        let posClockMs = 0;               // näytettävä kellonaika (juokseva segmentti)
+
+        const elPosHomeBar   = () => document.getElementById('pos-home');
+        const elPosAwayBar   = () => document.getElementById('pos-away');
+        const elPosHomeLabel = () => document.getElementById('pos-home-label');
+        const elPosAwayLabel = () => document.getElementById('pos-away-label');
+        const elPosClock     = () => document.getElementById('pos-clock');
 
         function showMainView(viewName) {
             Object.values(allViews).forEach(v => v.classList.add('hidden'));
@@ -287,10 +331,21 @@
             const players = Object.keys(roster).map(n => +n).sort((a,b)=>a-b);
             if (players.length === 0) { setupError.textContent = 'Kokoonpano tyhjä.'; showMainView('setup'); return; }
             currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opponentName, players, roster, shots: [], plusMinus: {}, teamId: currentTeamId, teamName: teamNameHeader.textContent };
+            
+            // ALUSTA PALLONHALLINTA ERITTÄIN YKSINKERTAISESTI PER ERÄ + summary
+            currentGame.possession = {
+                1: { home:0, away:0 }, 2: { home:0, away:0 }, 3: { home:0, away:0 },
+                summary: { home:0, away:0 }
+            };
+
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
             sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame));
+            
             initializeGameUI(); 
-            initializePlayers();
+            // Nollaa ajanoton UI
+            resetPossessionUI();
+
+            initializePlayers(); 
             addEventListeners(); 
             showView(1);
         }
@@ -334,6 +389,8 @@
             if (viewId === 'plus-minus') { renderPlusMinusView(); plusMinusView.classList.remove('hidden'); } 
             else if (viewId === 'season') { renderSeasonStats(); seasonView.classList.remove('hidden'); } 
             else { mainAppView.classList.remove('hidden'); currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId); renderShots(); updateStats(); }
+            // jokaisen näkymävaihdon jälkeen päivitä pylväs
+            renderPossession();
         }
         
         function addEventListeners() {
@@ -356,6 +413,11 @@
             }
             document.body.addEventListener('pointermove', onPointerMove, { passive: false });
             document.body.addEventListener('pointerup', onPointerUp);
+
+            // Pallonhallinnan napit
+            document.getElementById('pos-home-btn')?.addEventListener('click', () => startPossession('home'));
+            document.getElementById('pos-away-btn')?.addEventListener('click', () => startPossession('away'));
+            document.getElementById('pos-stop-btn')?.addEventListener('click', stopPossession);
         }
         
         function onPointerDown(e) { const target = e.target.closest('.player-number'); if (!target || !currentGame.id || currentGame.isReadOnly) return; draggedElement = target; ghostElement = target.cloneNode(true); ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement); updateGhostPosition(e.pageX, e.pageY); }
@@ -396,6 +458,108 @@
 
         function updateStats() { if (!currentGame?.shots) return; let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }}; const shotsToConsider = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToConsider.forEach(shot => { const shooter = stats[shot.team], opponent = stats[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG || 0; if(shot.quality==='high') shooter.qualityHigh++; if(shot.quality==='low') shooter.qualityLow++; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); document.getElementById('stats-container').innerHTML = `<h3 class="text-lg font-bold text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod}`}</h3><div class="space-y-4"><div><div class="flex justify-between font-semibold"><span>Koti</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div><div class="flex justify-between text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span><span>L+: ${stats.home.qualityHigh} / H-: ${stats.home.qualityLow}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div></div><div><div class="flex justify-between font-semibold"><span>Vieras</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div><div class="flex justify-between text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span><span>L+: ${stats.away.qualityHigh} / H-: ${stats.away.qualityLow}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div></div></div>`; document.getElementById('player-stats-container').classList.toggle('hidden', currentGame.currentPeriod !== 'summary'); if(currentGame.currentPeriod === 'summary') updatePlayerStats(); }
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`; (currentGame.players || []).forEach(pNum => { const shots = (currentGame.shots || []).filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length, qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-7 text-center text-sm py-1 border-b border-slate-700 items-center"><span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span class="text-red-400 font-semibold">${qH}</span><span class="text-blue-400 font-semibold">${qL}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
+        
+        function resetPossessionUI() {
+            posActiveTeam = null;
+            posLastSwitch = null;
+            posClockMs = 0;
+            if (posTick) { clearInterval(posTick); posTick = null; }
+            renderPossession();
+            updatePosClock();
+        }
+
+        // Käynnistä hallinta valitulle joukkueelle
+        function startPossession(team) {
+            const now = performance.now();
+
+            // Kertymä edelliselle, jos vaihtuu
+            if (posActiveTeam && posLastSwitch != null) {
+                const delta = now - posLastSwitch;
+                addPossessionTime(posActiveTeam, delta);
+            }
+
+            posActiveTeam = team;         // 'home' | 'away'
+            posLastSwitch = now;
+            posClockMs = 0;
+
+            if (!posTick) {
+                posTick = setInterval(() => {
+                    posClockMs += 1000;
+                    updatePosClock();
+                    // Päivitetään pylväs myös käynnissä ollessa (smooth)
+                    renderPossession();
+                }, 1000);
+            }
+            renderPossession();
+        }
+
+        function stopPossession() {
+            const now = performance.now();
+            if (posActiveTeam && posLastSwitch != null) {
+                const delta = now - posLastSwitch;
+                addPossessionTime(posActiveTeam, delta);
+            }
+            posActiveTeam = null;
+            posLastSwitch = null;
+            posClockMs = 0;
+            if (posTick) { clearInterval(posTick); posTick = null; }
+            updatePosClock();
+            renderPossession();
+        }
+
+        // Kirjaa ms -> currentGame.possession[currentPeriod]
+        function addPossessionTime(team, ms) {
+            const p = currentGame.currentPeriod;
+            if (!['1','2','3',1,2,3].includes(String(p))) return; // vain erissä kerätään
+            const key = Number(p);
+            currentGame.possession[key][team] += ms;
+        }
+
+        // Renderöi pylvään ja prosentit nykyisen näkymän mukaan
+        function renderPossession() {
+            if (!currentGame || !currentGame.possession) return;
+
+            // Jos ollaan summary-näkymässä, lasketaan yhteen
+            let home = 0, away = 0;
+
+            if (currentGame.currentPeriod === 'summary') {
+                home = (currentGame.possession[1]?.home || 0) + (currentGame.possession[2]?.home || 0) + (currentGame.possession[3]?.home || 0);
+                away = (currentGame.possession[1]?.away || 0) + (currentGame.possession[2]?.away || 0) + (currentGame.possession[3]?.away || 0);
+            } else if ([1,2,3].includes(currentGame.currentPeriod)) {
+                const key = currentGame.currentPeriod;
+                home = currentGame.possession[key]?.home || 0;
+                away = currentGame.possession[key]?.away || 0;
+            } else {
+                // muissa näkymissä (plus-minus/kausi) näytetään summat
+                home = (currentGame.possession[1]?.home || 0) + (currentGame.possession[2]?.home || 0) + (currentGame.possession[3]?.home || 0);
+                away = (currentGame.possession[1]?.away || 0) + (currentGame.possession[2]?.away || 0) + (currentGame.possession[3]?.away || 0);
+            }
+
+            // Lisää käynnissä olevan jakson ms tähän näyttöön (ei tallenneta vielä)
+            if (posActiveTeam && posLastSwitch != null && [1,2,3].includes(currentGame.currentPeriod)) {
+                const delta = performance.now() - posLastSwitch;
+                if (posActiveTeam === 'home') home += delta; else away += delta;
+            }
+
+            const total = home + away;
+            const hp = total ? (home / total * 100) : 50;
+            const ap = 100 - hp;
+
+            // palkit
+            if (elPosHomeBar()) elPosHomeBar().style.width = `${hp}%`;
+            if (elPosAwayBar()) elPosAwayBar().style.width = `${ap}%`;
+
+            // tekstit
+            if (elPosHomeLabel()) elPosHomeLabel().textContent = `Koti ${hp.toFixed(1)}%`;
+            if (elPosAwayLabel()) elPosAwayLabel().textContent = `Vieras ${ap.toFixed(1)}%`;
+        }
+
+        function updatePosClock() {
+            const m = Math.floor(posClockMs / 60000);
+            const s = Math.floor((posClockMs % 60000) / 1000);
+            if (elPosClock()) elPosClock().textContent = `${m}:${String(s).padStart(2,'0')}`;
+        }
+        
         function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); (currentGame.players || []).forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; (currentGame.players || []).forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = (stats.plus || 0) - (stats.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus || 0}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus || 0}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
         
