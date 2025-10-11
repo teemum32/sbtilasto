@@ -15,7 +15,30 @@
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
-        .shot-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; font-weight: bold; font-size: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: white; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .shot-marker {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            color: white;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .shot-marker span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            pointer-events: none;
+        }
         .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
         .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
         .quality-high { border: 4px solid #b91c1c; } .quality-low { border: 4px solid #2563eb; }
@@ -359,16 +382,16 @@
         function prefillRosterInput() { playerRosterInput.value = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(num => `${num} ${rosterData[num]||''}`).join('\n'); }
         function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; const shotsToRender = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
         
-        function createShotMarker(shotData) { 
-            const s = document.createElement('div'); 
-            s.className = `shot-marker ${shotData.outcome}`; 
-            if (shotData.quality === 'high') s.classList.add('quality-high'); 
-            if (shotData.quality === 'low') s.classList.add('quality-low'); 
-            s.dataset.shotId = shotData.id; 
-            s.innerHTML = shotData.player; 
-            s.style.left = `${shotData.x}%`; 
-            s.style.top = `${shotData.y}%`; 
-            return s; 
+        function createShotMarker(shotData) {
+            const s = document.createElement('div');
+            s.className = `shot-marker ${shotData.outcome}`;
+            if (shotData.quality === 'high') s.classList.add('quality-high');
+            if (shotData.quality === 'low') s.classList.add('quality-low');
+            s.dataset.shotId = shotData.id;
+            s.innerHTML = `<span>${shotData.player}</span>`;
+            s.style.left = `${shotData.x}%`;
+            s.style.top = `${shotData.y}%`;
+            return s;
         }
 
         function updateStats() { if (!currentGame?.shots) return; let stats = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }}; const shotsToConsider = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToConsider.forEach(shot => { const shooter = stats[shot.team], opponent = stats[shot.team === 'home' ? 'away' : 'home']; shooter.shots++; shooter.xg += shot.xG || 0; if(shot.quality==='high') shooter.qualityHigh++; if(shot.quality==='low') shooter.qualityLow++; if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++; }); document.getElementById('stats-container').innerHTML = `<h3 class="text-lg font-bold text-center mb-3">${(currentGame.currentPeriod === 'summary') ? 'Koko ottelu' : `Erä ${currentGame.currentPeriod}`}</h3><div class="space-y-4"><div><div class="flex justify-between font-semibold"><span>Koti</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.home.goals}</span><span>Laukaukset: ${stats.home.shots}</span></div><div class="flex justify-between text-sm"><span>xG: ${stats.home.xg.toFixed(2)}</span><span>L+: ${stats.home.qualityHigh} / H-: ${stats.home.qualityLow}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.home.saves}</span><span>Blokit: ${stats.home.blocks}</span></div></div><div><div class="flex justify-between font-semibold"><span>Vieras</span></div><div class="flex justify-between text-sm mt-1"><span>Maalit: ${stats.away.goals}</span><span>Laukaukset: ${stats.away.shots}</span></div><div class="flex justify-between text-sm"><span>xG: ${stats.away.xg.toFixed(2)}</span><span>L+: ${stats.away.qualityHigh} / H-: ${stats.away.qualityLow}</span></div><div class="flex justify-between text-sm mt-1 border-t pt-1"><span>Torjunnat: ${stats.away.saves}</span><span>Blokit: ${stats.away.blocks}</span></div></div></div>`; document.getElementById('player-stats-container').classList.toggle('hidden', currentGame.currentPeriod !== 'summary'); if(currentGame.currentPeriod === 'summary') updatePlayerStats(); }
@@ -607,7 +630,17 @@
                     const isSummary = period === 'summary';
                     const title = isSummary ? 'Koko ottelu' : `Erä ${period}`;
                     
-                    const playerShots = (game.shots || []).filter(s => Number(s.player) === pNum && s.team === 'home');
+                    const playerShots = (game.shots || []).filter(s => {
+                        if (s.team === 'home') return Number(s.player) === pNum;
+                        // For away shots, check if the player was involved in a block
+                        if (s.outcome === 'block') {
+                           // This part is tricky as we don't store who blocked. 
+                           // For now, player reports only show their own team's shots.
+                           return false;
+                        }
+                        return false;
+                    });
+
                     const periodShots = isSummary ? playerShots : playerShots.filter(s => s.period === period);
 
                     if (!isSummary && periodShots.length === 0) {
@@ -703,30 +736,38 @@
             const layer = document.createElement('div');
             Object.assign(layer.style, { position:'absolute', inset:'0' });
             field.appendChild(layer);
+            
             shots.forEach(s => {
                 const dot = document.createElement('div');
-                dot.textContent = s.player;
+                const label = s.player;
                 const isBlock = s.outcome === 'block';
+
                 Object.assign(dot.style, {
-                    position:'absolute', 
-                    width:'34px', 
-                    height:'34px', 
-                    lineHeight: '34px',
-                    textAlign: 'center',
-                    display: 'flex', 
-                    alignItems: 'center', 
+                    position: 'absolute',
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '50%',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                    fontWeight: '700',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'center',
-                    fontWeight:'700', 
-                    color: isBlock ? '#000000' : '#ffffff', 
-                    borderRadius:'9999px',
-                    boxShadow:'0 3px 8px rgba(0,0,0,.3)', 
-                    transform:'translate(-50%,-50%)',
-                    left: `${(s.x / 100) * W}px`,
-                    top: `${(s.y / 100) * H}px`,
-                    background: COLORS[s.outcome] || '#111827'
+                    color: isBlock ? '#111827' : '#ffffff',
+                    backgroundColor: COLORS[s.outcome] || '#EF4444'
                 });
+
+                dot.textContent = label;
+                
                 if (s.quality === 'high') dot.style.outline = '4px solid #b91c1c';
-                if (s.quality === 'low')  dot.style.outline = '4px solid #2563eb';
+                if (s.quality === 'low') dot.style.outline = '4px solid #2563eb';
+                
+                const px = (s.x / 100) * W;
+                const py = (s.y / 100) * H;
+                dot.style.left = `${px}px`;
+                dot.style.top = `${py}px`;
+                dot.style.transform = 'translate(-50%, -50%)';
+
                 layer.appendChild(dot);
             });
             return wrap;
@@ -759,7 +800,7 @@
             const isSummary = period === 'summary';
             
             const shots = (game?.shots || []).filter(s => {
-                const correctPlayer = Number(s.player) === pNum && s.team === 'home';
+                const correctPlayer = (s.team === 'home' && Number(s.player) === pNum);
                 if (!correctPlayer) return false;
                 return isSummary ? true : s.period === period;
             });
