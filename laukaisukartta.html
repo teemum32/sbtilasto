@@ -66,12 +66,21 @@
         .possession-labels { position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; font-size:.80rem; font-weight:700; color:#0f172a; padding:0 8px; mix-blend-mode:multiply; }
 
         /* Nappirivi kentän alle */
-        .possession-controls { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; }
+        .possession-controls {
+            position: fixed;
+            left: 50%;
+            bottom: calc(12px + env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            display: flex; gap: .5rem; justify-content: center;
+            padding: .4rem .6rem; border-radius: .75rem;
+            background: rgba(15,23,42,.75); backdrop-filter: blur(6px);
+            box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 40;
+        }
         .possession-controls button { padding:.65rem .9rem; border-radius:.6rem; font-weight:700; }
         .pos-btn-home { background:#10b981; color:white; }
         .pos-btn-away { background:#3b82f6; color:white; }
         .pos-btn-stop { background:#ef4444; color:white; }
-        .pos-clock { min-width:4.5rem; text-align:center; font-variant-numeric:tabular-nums; color:#94a3b8; font-weight:700; }
+        .pos-clock { min-width:4.5rem; text-align:center; font-variant-numeric:tabular-nums; color:white; font-weight:700; }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -135,28 +144,30 @@
                     <div id="sidebar-content" class="flex-grow"></div>
                     <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
                 </div>
-                <div class="possession-wrap px-4">
-                    <div class="possession-bar">
-                        <div id="pos-home" class="possession-home" style="width:50%"></div>
-                        <div id="pos-away" class="possession-away" style="width:50%"></div>
-                        <div class="possession-labels">
-                            <span id="pos-home-label">Koti 50%</span>
-                            <span id="pos-away-label">Vieras 50%</span>
+                <div class="relative flex flex-col pt-8 bg-slate-200">
+                    <div class="possession-wrap px-4 absolute left-0 right-0 top-0 z-30">
+                        <div class="possession-bar">
+                            <div id="pos-home" class="possession-home" style="width:50%"></div>
+                            <div id="pos-away" class="possession-away" style="width:50%"></div>
+                            <div class="possession-labels">
+                                <span id="pos-home-label">Koti 50%</span>
+                                <span id="pos-away-label">Vieras 50%</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <main class="flex-1 flex items-center justify-center gap-4 p-4 bg-slate-200 min-w-0">
-                    <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
-                </main>
-                <div class="possession-controls my-3">
-                    <button id="pos-home-btn" class="pos-btn-home">Koti hallussa</button>
-                    <button id="pos-away-btn" class="pos-btn-away">Vieras hallussa</button>
-                    <button id="pos-stop-btn" class="pos-btn-stop">Pysäytä</button>
-                    <div id="pos-clock" class="pos-clock">0:00</div>
+                    <main class="flex-1 flex items-center justify-center gap-4 p-4 min-w-0">
+                        <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
+                    </main>
                 </div>
             </div>
             <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
             <div id="season-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
+            <div class="possession-controls">
+                <button id="pos-home-btn" class="pos-btn-home">Koti hallussa</button>
+                <button id="pos-away-btn" class="pos-btn-away">Vieras hallussa</button>
+                <button id="pos-stop-btn" class="pos-btn-stop">Pysäytä</button>
+                <div id="pos-clock" class="pos-clock">0:00</div>
+            </div>
         </div>
     </div>
     
