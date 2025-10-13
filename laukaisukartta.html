@@ -544,7 +544,7 @@
         function showEditOutcomeModal(x, y) { hideOutcomeModal(); hideQualityModal(false); editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`; editOutcomeModal.classList.remove('hidden'); }
         function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
         function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target || currentGame.isReadOnly) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
-        function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(xNorm, X_POWER) : Math.pow(1 - xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
+        function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
         async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId || !currentGame.id || currentGame.isReadOnly) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); sessionStorage.removeItem(`inProgressGame-${userId}`); const saveButton = document.getElementById('save-game-button'); saveButton.disabled = true; saveButton.textContent = 'Tallennettu'; saveButton.classList.remove('bg-blue-600'); saveButton.classList.add('bg-gray-500', 'cursor-not-allowed'); document.getElementById('sidebar-content').style.pointerEvents = 'none'; currentGame.isReadOnly = true; } catch (error) {} }
         function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
         async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
@@ -1033,10 +1033,10 @@
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
                 const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
-                doc.setProperties({
-                    title: `Otteluraportti ${game.opponent || ''} ${dateStr}`
-                });
                 const filename = `Otteluraportti ${game.opponent || ''} ${dateStr}.pdf`;
+                doc.setProperties({
+                    title: filename
+                });
 
 
                 const margin = 10;
