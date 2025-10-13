@@ -582,7 +582,7 @@
                 const side = normalizeSideFromShot(shot);
                 const opp  = side === 'home' ? 'away' : 'home';
                 stats[side].shots++;
-                stats[side].xg += Number(shot.xG) || 0;
+                stats[side].xg += calculateXg(shot.x, shot.y, shot.team);
                 if (shot.outcome === 'goal')  stats[side].goals++;
                 if (shot.outcome === 'save')  stats[opp].saves++;
                 if (shot.outcome === 'block') stats[opp].blocks++;
@@ -1032,6 +1032,13 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
+                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
+                doc.setProperties({
+                    title: `Otteluraportti ${game.opponent || ''} ${dateStr}`
+                });
+                const filename = `Otteluraportti ${game.opponent || ''} ${dateStr}.pdf`;
+
+
                 const margin = 10;
                 const pageW = doc.internal.pageSize.getWidth();
                 const pageH = doc.internal.pageSize.getHeight();
@@ -1042,7 +1049,6 @@
                 doc.text(`Otteluraportti: ${game.opponent || ''}`, pageW / 2, yPos, { align: 'center' });
                 yPos += 8;
                 doc.setFontSize(12);
-                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
                 doc.text(dateStr, pageW / 2, yPos, { align: 'center' });
                 yPos += 15;
 
@@ -1107,17 +1113,7 @@
                 yPos += 10;
                 generatePlayerStatsForPdf(doc, game, yPos);
 
-                const pdfBlob = doc.output('blob');
-                const pdfUrl  = URL.createObjectURL(pdfBlob);
-
-                // Tallenna paluuosoite ennen siirtymistä
-                sessionStorage.setItem('returnUrl', window.location.href);
-                
-                // Avaa aina samassa välilehdessä (ei uutta tabia)
-                window.location.href = pdfUrl;
-
-                // (siivous pienen viiveen jälkeen)
-                setTimeout(() => URL.revokeObjectURL(pdfUrl), 30000);
+                doc.save(filename);
 
             } catch (err) {
                 console.error('PDF-raportin luonti epäonnistui:', err);
@@ -1139,10 +1135,16 @@
                 
                 const pNum = Number(playerNum);
                 const playerName = (game.roster?.[pNum] || '').trim();
+                const playerLastName = playerName.split(' ').pop() || `Pelaaja ${pNum}`;
                 const playerDisplay = playerName ? `#${pNum} ${playerName}` : `#${pNum}`;
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
+                const filename = `Otteluraportti ${playerLastName} - ${game.opponent || ''} ${dateStr}.pdf`;
+                doc.setProperties({
+                    title: `Pelaajaraportti ${playerDisplay} vs ${game.opponent || ''}`
+                });
 
                 const margin = 10;
                 const pageW = doc.internal.pageSize.getWidth();
@@ -1154,7 +1156,6 @@
                 doc.text(`Pelaajaraportti: ${playerDisplay}`, pageW / 2, yPos, { align: 'center' });
                 yPos += 8;
                 doc.setFontSize(12);
-                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
                 doc.text(`Ottelu vs ${game.opponent || ''} - ${dateStr}`, pageW / 2, yPos, { align: 'center' });
                 yPos += 15;
 
@@ -1164,12 +1165,6 @@
                     
                     const playerShots = (game.shots || []).filter(s => {
                         if (s.team === 'home') return Number(s.player) === pNum;
-                        // For away shots, check if the player was involved in a block
-                        if (s.outcome === 'block') {
-                           // This part is tricky as we don't store who blocked. 
-                           // For now, player reports only show their own team's shots.
-                           return false;
-                        }
                         return false;
                     });
 
@@ -1228,17 +1223,7 @@
                     yPos = doc.lastAutoTable.finalY + 15;
                 }
 
-                const pdfBlob = doc.output('blob');
-                const pdfUrl  = URL.createObjectURL(pdfBlob);
-
-                // Tallenna paluuosoite ennen siirtymistä
-                sessionStorage.setItem('returnUrl', window.location.href);
-
-                // Avaa aina samassa välilehdessä (ei uutta tabia)
-                window.location.href = pdfUrl;
-
-                // (siivous pienen viiveen jälkeen)
-                setTimeout(() => URL.revokeObjectURL(pdfUrl), 30000);
+                doc.save(filename);
 
             } catch (err) {
                 console.error('Pelaajaraportin luonti epäonnistui:', err);
