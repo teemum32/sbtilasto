@@ -87,6 +87,24 @@
         .sortable:hover { color: #fff; }
         .sort-asc::after { content: ' ▲'; font-size: 0.7em; }
         .sort-desc::after { content: ' ▼'; font-size: 0.7em; }
+        
+        /* +/− valinnan korostukset */
+        .pm-select-plus  { outline: 3px solid #10b981; outline-offset: 2px; }
+        .pm-select-minus { outline: 3px solid #ef4444; outline-offset: 2px; }
+
+        /* tilakytkimen ulkoasu */
+        .pm-mode-btn { padding: .5rem .75rem; border-radius: .5rem; font-weight: 700; }
+        .pm-mode-plus  { background:#10b981; color:#fff; }
+        .pm-mode-minus { background:#ef4444; color:#fff; }
+        .pm-mode-off   { background:#475569; color:#e5e7eb; }
+
+        .pm-footer {
+          display:flex; gap:.5rem; justify-content:center; align-items:center;
+          margin-top: .75rem;
+        }
+        .pm-badge { font-weight:700; font-size:.9rem; padding:.25rem .5rem; border-radius:.5rem; background:#1f2937; color:#e5e7eb; }
+        .pm-confirm { background:#2563eb; color:#fff; padding:.5rem .9rem; border-radius:.5rem; font-weight:700; }
+        .pm-clear   { background:#64748b; color:#fff; padding:.5rem .9rem; border-radius:.5rem; font-weight:700; }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -278,6 +296,11 @@
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
         let sortState = {};
+        
+        // +/- -valintatila
+        let pmMode = null; // 'plus' | 'minus' | null
+        const pmSelectedPlus  = new Set(); // Set<number>
+        const pmSelectedMinus = new Set(); // Set<number>
         
         // Pallonhallinta (possession) – tilamuuttujat
         let posActiveTeam = null;         // 'home' | 'away' | null
@@ -508,7 +531,6 @@
             qualityModal.addEventListener('click', onQualitySelect);
             editOutcomeModal.addEventListener('click', onEditOutcomeSelect);
             periodTabs.addEventListener('click', (e) => { const btn = e.target.closest('button.period-tab'); if (btn) showView(btn.dataset.period); });
-            plusMinusView.addEventListener('click', onPlusMinusClick);
             ['home-player-list','away-player-list'].forEach(id => {
                 const list = document.getElementById(id);
                 if(list) list.addEventListener('pointerdown', onPointerDown, { passive: false });
@@ -577,7 +599,36 @@
         function hideQualityModal(clearData = true) { qualityModal.classList.add('hidden'); if (clearData) { tempShotData = {}; } }
         function showEditOutcomeModal(x, y) { hideOutcomeModal(); hideQualityModal(false); editOutcomeModal.style.left = `${x}px`; editOutcomeModal.style.top = `${y}px`; editOutcomeModal.classList.remove('hidden'); }
         function hideEditOutcomeModal() { editOutcomeModal.classList.add('hidden'); shotToEditId = null; }
-        function onPlusMinusClick(e) { const target = e.target.closest('[data-player]'); if (!target || currentGame.isReadOnly) return; const playerNum = target.dataset.player, type = target.dataset.type; if (!currentGame.plusMinus[playerNum]) return; switch (type) { case 'add-plus': currentGame.plusMinus[playerNum].plus++; break; case 'add-minus': currentGame.plusMinus[playerNum].minus++; break; case 'remove-plus': if (currentGame.plusMinus[playerNum].plus > 0) currentGame.plusMinus[playerNum].plus--; break; case 'remove-minus': if (currentGame.plusMinus[playerNum].minus > 0) currentGame.plusMinus[playerNum].minus--; break; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); if (type.startsWith('add')) { target.classList.add('animate-ping'); setTimeout(() => target.classList.remove('animate-ping'), 300); } renderPlusMinusSummary(); }
+        
+        function onPmPlayerClick(e) {
+            const btn = e.target.closest('.pm-player-btn');
+            if (!btn) return;
+
+            const num = Number(btn.dataset.player);
+            if (!pmMode) {
+                // Ei tilaa valittuna → pieni “tönäisy”: vaihda + ↔ − nopeasti
+                if (pmSelectedPlus.has(num))     { pmSelectedPlus.delete(num); pmSelectedMinus.add(num); }
+                else if (pmSelectedMinus.has(num)){ pmSelectedMinus.delete(num); pmSelectedPlus.add(num); }
+                else { pmSelectedPlus.add(num); }
+            } else if (pmMode === 'plus') {
+                // toggle plus
+                if (pmSelectedPlus.has(num)) pmSelectedPlus.delete(num);
+                else { pmSelectedPlus.add(num); pmSelectedMinus.delete(num); }
+            } else if (pmMode === 'minus') {
+                // toggle minus
+                if (pmSelectedMinus.has(num)) pmSelectedMinus.delete(num);
+                else { pmSelectedMinus.add(num); pmSelectedPlus.delete(num); }
+            }
+
+            // visuaalinen korostus
+            btn.classList.toggle('pm-select-plus',  pmSelectedPlus.has(num));
+            btn.classList.toggle('pm-select-minus', pmSelectedMinus.has(num));
+
+            // päivitä laskurit
+            const badge = document.querySelector('.pm-badge');
+            if (badge) badge.textContent = `Valittuja +: ${pmSelectedPlus.size} • −: ${pmSelectedMinus.size}`;
+        }
+
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
         async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId || !currentGame.id || currentGame.isReadOnly) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); sessionStorage.removeItem(`inProgressGame-${userId}`); const saveButton = document.getElementById('save-game-button'); saveButton.disabled = true; saveButton.textContent = 'Tallennettu'; saveButton.classList.remove('bg-blue-600'); saveButton.classList.add('bg-gray-500', 'cursor-not-allowed'); document.getElementById('sidebar-content').style.pointerEvents = 'none'; currentGame.isReadOnly = true; } catch (error) {} }
         function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
@@ -786,7 +837,81 @@
             };
         }
 
-        function renderPlusMinusView() { plusMinusView.innerHTML = `<div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg"><h2 class="text-2xl font-bold mb-6 text-center">+/- Merkintä</h2><div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-emerald-500 mb-4 text-center">Oma maali (+)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="plus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div><div><h3 class="text-xl font-semibold text-red-500 mb-4 text-center">Vastustajan maali (-)</h3><p class="text-center text-slate-400 mb-4 text-sm">Pelaajat kentällä.</p><div id="minus-players" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div></div></div><div id="plus-minus-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`; const plusContainer = document.getElementById('plus-players'), minusContainer = document.getElementById('minus-players'); (currentGame.players || []).forEach(num => { const plusBtn = document.createElement('button'); plusBtn.className = 'player-number pm-player-btn'; plusBtn.textContent = num; plusBtn.dataset.player = num; plusBtn.dataset.type = 'add-plus'; plusContainer.appendChild(plusBtn); const minusBtn = plusBtn.cloneNode(true); minusBtn.dataset.type = 'add-minus'; minusContainer.appendChild(minusBtn); }); renderPlusMinusSummary(); }
+        function renderPlusMinusView() {
+          plusMinusView.innerHTML = `
+            <div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg">
+              <h2 class="text-2xl font-bold mb-4 text-center">+ / − Merkintä</h2>
+
+              <!-- TILAKYTKIN -->
+              <div class="flex justify-center gap-2 mb-6">
+                <button id="pm-mode-plus"  class="pm-mode-btn ${pmMode==='plus' ? 'pm-mode-plus' : 'pm-mode-off'}">+ Oma maali</button>
+                <button id="pm-mode-minus" class="pm-mode-btn ${pmMode==='minus'? 'pm-mode-minus': 'pm-mode-off'}">− Vastustajan maali</button>
+                <button id="pm-mode-off"   class="pm-mode-btn pm-mode-off">Pois</button>
+              </div>
+
+              <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                  <h3 class="text-xl font-semibold text-emerald-500 mb-3 text-center">Koti – valitse kentällä olleet</h3>
+                  <div id="pm-home" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
+                </div>
+                <div>
+                  <h3 class="text-xl font-semibold text-red-400 mb-3 text-center">Vieras – valitse kentällä olleet</h3>
+                  <div id="pm-away" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
+                </div>
+              </div>
+
+              <div class="pm-footer">
+                <span class="pm-badge">Valittuja +: ${pmSelectedPlus.size} • −: ${pmSelectedMinus.size}</span>
+                <button id="pm-confirm" class="pm-confirm">Vahvista</button>
+                <button id="pm-clear"   class="pm-clear">Tyhjennä</button>
+              </div>
+
+              <div id="plus-minus-summary" class="mt-6 border-t border-slate-700 pt-4"></div>
+            </div>`;
+
+          // Pelaajapainikkeet (sama lista molemmille, mutta “V” vieraille)
+          const homeC = document.getElementById('pm-home');
+          const awayC = document.getElementById('pm-away');
+
+          (currentGame.players || []).forEach(num => {
+            const mk = (label, team) => {
+              const btn = document.createElement('button');
+              btn.className = 'player-number pm-player-btn';
+              btn.textContent = label;
+              btn.dataset.player = num;
+              btn.dataset.team = team;
+              // lisää valintakorostus jos on jo valittu
+              if (pmSelectedPlus.has(num))  btn.classList.add('pm-select-plus');
+              if (pmSelectedMinus.has(num)) btn.classList.add('pm-select-minus');
+              return btn;
+            };
+            homeC.appendChild(mk(num, 'home'));
+            awayC.appendChild(mk('V',  'away'));
+          });
+
+          // Kytkimet
+          document.getElementById('pm-mode-plus').onclick  = () => { pmMode = 'plus'; renderPlusMinusView(); };
+          document.getElementById('pm-mode-minus').onclick = () => { pmMode = 'minus'; renderPlusMinusView(); };
+          document.getElementById('pm-mode-off').onclick   = () => { pmMode = null;   renderPlusMinusView(); };
+
+          document.getElementById('pm-clear').onclick = () => { pmSelectedPlus.clear(); pmSelectedMinus.clear(); renderPlusMinusView(); };
+
+          document.getElementById('pm-confirm').onclick = () => {
+            // Kirjaa kootusti
+            pmSelectedPlus.forEach(num => { if(currentGame.plusMinus[num]) currentGame.plusMinus[num].plus++;  });
+            pmSelectedMinus.forEach(num => { if(currentGame.plusMinus[num]) currentGame.plusMinus[num].minus++; });
+            // Nollaa valinnat ja tila
+            pmSelectedPlus.clear(); pmSelectedMinus.clear(); pmMode = null;
+            renderPlusMinusView();
+            renderPlusMinusSummary();
+          };
+
+          // Pelaajapainikkeiden klikkilogiikka (valinta/poisto valinnasta)
+          homeC.addEventListener('click', onPmPlayerClick);
+          awayC.addEventListener('click', onPmPlayerClick);
+
+          renderPlusMinusSummary();
+        }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; (currentGame.players || []).forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = (stats.plus || 0) - (stats.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus || 0}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus || 0}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
         
         function renderSeasonStats(sortKey = 'name', sortDir = 'asc') {
@@ -1462,3 +1587,4 @@
     </script>
 </body>
 </html>
+
