@@ -102,7 +102,15 @@
           display:flex; gap:.5rem; justify-content:center; align-items:center;
           margin-top: .75rem;
         }
-        .pm-badge { font-weight:700; font-size:.9rem; padding:.25rem .5rem; border-radius:.5rem; background:#1f2937; color:#e5e7eb; }
+        /* Valittujen laskuri nyt saman kokoinen kuin Vahvista-painike */
+        .pm-badge {
+          font-weight: 700;
+          font-size: 1rem;
+          padding: 0.5rem 0.9rem;
+          border-radius: 0.5rem;
+          background: #1f2937;
+          color: #e5e7eb;
+        }
         .pm-confirm { background:#2563eb; color:#fff; padding:.5rem .9rem; border-radius:.5rem; font-weight:700; }
         .pm-clear   { background:#64748b; color:#fff; padding:.5rem .9rem; border-radius:.5rem; font-weight:700; }
     </style>
@@ -840,26 +848,19 @@
         function renderPlusMinusView() {
           plusMinusView.innerHTML = `
             <div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg">
-              <h2 class="text-2xl font-bold mb-4 text-center">+ / − Merkintä (vain kotipelaajat)</h2>
+              <h2 class="text-2xl font-bold mb-5 text-center">+ / − Merkintä</h2>
 
               <!-- TILAKYTKIN -->
-              <div class="flex justify-center gap-2 mb-3">
+              <div class="flex justify-center gap-2 mb-5">
                 <button id="pm-mode-plus"  class="pm-mode-btn ${pmMode==='plus' ? 'pm-mode-plus' : 'pm-mode-off'}">+ Oma maali</button>
                 <button id="pm-mode-minus" class="pm-mode-btn ${pmMode==='minus'? 'pm-mode-minus': 'pm-mode-off'}">− Vastustajan maali</button>
                 <button id="pm-mode-off"   class="pm-mode-btn pm-mode-off">Pois</button>
               </div>
 
-              <p class="text-center text-slate-300 text-sm mb-5">
-                Valitse <span class="text-emerald-400 font-semibold">vihreällä</span> ne kotipelaajat, jotka olivat kentällä kun teimme maalin (+).
-                Valitse <span class="text-red-400 font-semibold">punaisella</span> ne kotipelaajat, jotka olivat kentällä kun vastustaja teki maalin (−).
-                Vieraspelaajia ei tarvitse valita.
-              </p>
+              <!-- Pelaajapainikkeet -->
+              <div id="pm-home" class="grid grid-cols-4 lg:grid-cols-5 gap-4 mb-5"></div>
 
-              <div>
-                <h3 class="text-xl font-semibold text-emerald-500 mb-3 text-center">Kotipelaajat</h3>
-                <div id="pm-home" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
-              </div>
-
+              <!-- Alapalkki -->
               <div class="pm-footer">
                 <span class="pm-badge">Valittuja +: ${pmSelectedPlus.size} • −: ${pmSelectedMinus.size}</span>
                 <button id="pm-confirm" class="pm-confirm">Vahvista</button>
@@ -871,7 +872,7 @@
 
           // Luo vain KOTI-pelaajapainikkeet
           const homeC = document.getElementById('pm-home');
-          currentGame.players.forEach(num => {
+          (currentGame.players || []).forEach(num => {
             const btn = document.createElement('button');
             btn.className = 'player-number pm-player-btn';
             btn.textContent = num;
@@ -887,20 +888,23 @@
           document.getElementById('pm-mode-off').onclick   = () => { pmMode = null;   renderPlusMinusView(); };
 
           document.getElementById('pm-clear').onclick = () => {
-            pmSelectedPlus.clear(); pmSelectedMinus.clear();
+            pmSelectedPlus.clear();
+            pmSelectedMinus.clear();
             renderPlusMinusView();
           };
 
           document.getElementById('pm-confirm').onclick = () => {
             // Kirjaa kootusti: + lisätään plusiin, − lisätään minukseen
-            pmSelectedPlus.forEach(num  => { currentGame.plusMinus[num].plus++;  });
-            pmSelectedMinus.forEach(num => { currentGame.plusMinus[num].minus++; });
+            pmSelectedPlus.forEach(num  => { if(currentGame.plusMinus[num]) currentGame.plusMinus[num].plus++;  });
+            pmSelectedMinus.forEach(num => { if(currentGame.plusMinus[num]) currentGame.plusMinus[num].minus++; });
 
             // Nollaa valinnat ja tila
-            pmSelectedPlus.clear(); pmSelectedMinus.clear(); pmMode = null;
+            pmSelectedPlus.clear();
+            pmSelectedMinus.clear();
+            pmMode = null;
 
             renderPlusMinusView();
-            renderPlusMinusSummary(); // jos käytössä
+            renderPlusMinusSummary && renderPlusMinusSummary();
           };
 
           // Pelaajapainikkeiden klikkilogiikka (vain koti)
@@ -1583,5 +1587,4 @@
     </script>
 </body>
 </html>
-
 
