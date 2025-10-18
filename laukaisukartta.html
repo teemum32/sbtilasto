@@ -840,24 +840,24 @@
         function renderPlusMinusView() {
           plusMinusView.innerHTML = `
             <div class="w-full max-w-4xl mx-auto my-auto bg-slate-900 text-slate-200 p-6 rounded-lg">
-              <h2 class="text-2xl font-bold mb-4 text-center">+ / − Merkintä</h2>
+              <h2 class="text-2xl font-bold mb-4 text-center">+ / − Merkintä (vain kotipelaajat)</h2>
 
               <!-- TILAKYTKIN -->
-              <div class="flex justify-center gap-2 mb-6">
+              <div class="flex justify-center gap-2 mb-3">
                 <button id="pm-mode-plus"  class="pm-mode-btn ${pmMode==='plus' ? 'pm-mode-plus' : 'pm-mode-off'}">+ Oma maali</button>
                 <button id="pm-mode-minus" class="pm-mode-btn ${pmMode==='minus'? 'pm-mode-minus': 'pm-mode-off'}">− Vastustajan maali</button>
                 <button id="pm-mode-off"   class="pm-mode-btn pm-mode-off">Pois</button>
               </div>
 
-              <div class="grid md:grid-cols-2 gap-8">
-                <div>
-                  <h3 class="text-xl font-semibold text-emerald-500 mb-3 text-center">Koti – valitse kentällä olleet</h3>
-                  <div id="pm-home" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
-                </div>
-                <div>
-                  <h3 class="text-xl font-semibold text-red-400 mb-3 text-center">Vieras – valitse kentällä olleet</h3>
-                  <div id="pm-away" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
-                </div>
+              <p class="text-center text-slate-300 text-sm mb-5">
+                Valitse <span class="text-emerald-400 font-semibold">vihreällä</span> ne kotipelaajat, jotka olivat kentällä kun teimme maalin (+).
+                Valitse <span class="text-red-400 font-semibold">punaisella</span> ne kotipelaajat, jotka olivat kentällä kun vastustaja teki maalin (−).
+                Vieraspelaajia ei tarvitse valita.
+              </p>
+
+              <div>
+                <h3 class="text-xl font-semibold text-emerald-500 mb-3 text-center">Kotipelaajat</h3>
+                <div id="pm-home" class="grid grid-cols-4 lg:grid-cols-5 gap-4"></div>
               </div>
 
               <div class="pm-footer">
@@ -869,24 +869,16 @@
               <div id="plus-minus-summary" class="mt-6 border-t border-slate-700 pt-4"></div>
             </div>`;
 
-          // Pelaajapainikkeet (sama lista molemmille, mutta “V” vieraille)
+          // Luo vain KOTI-pelaajapainikkeet
           const homeC = document.getElementById('pm-home');
-          const awayC = document.getElementById('pm-away');
-
-          (currentGame.players || []).forEach(num => {
-            const mk = (label, team) => {
-              const btn = document.createElement('button');
-              btn.className = 'player-number pm-player-btn';
-              btn.textContent = label;
-              btn.dataset.player = num;
-              btn.dataset.team = team;
-              // lisää valintakorostus jos on jo valittu
-              if (pmSelectedPlus.has(num))  btn.classList.add('pm-select-plus');
-              if (pmSelectedMinus.has(num)) btn.classList.add('pm-select-minus');
-              return btn;
-            };
-            homeC.appendChild(mk(num, 'home'));
-            awayC.appendChild(mk('V',  'away'));
+          currentGame.players.forEach(num => {
+            const btn = document.createElement('button');
+            btn.className = 'player-number pm-player-btn';
+            btn.textContent = num;
+            btn.dataset.player = num;
+            if (pmSelectedPlus.has(num))  btn.classList.add('pm-select-plus');
+            if (pmSelectedMinus.has(num)) btn.classList.add('pm-select-minus');
+            homeC.appendChild(btn);
           });
 
           // Kytkimet
@@ -894,23 +886,27 @@
           document.getElementById('pm-mode-minus').onclick = () => { pmMode = 'minus'; renderPlusMinusView(); };
           document.getElementById('pm-mode-off').onclick   = () => { pmMode = null;   renderPlusMinusView(); };
 
-          document.getElementById('pm-clear').onclick = () => { pmSelectedPlus.clear(); pmSelectedMinus.clear(); renderPlusMinusView(); };
-
-          document.getElementById('pm-confirm').onclick = () => {
-            // Kirjaa kootusti
-            pmSelectedPlus.forEach(num => { if(currentGame.plusMinus[num]) currentGame.plusMinus[num].plus++;  });
-            pmSelectedMinus.forEach(num => { if(currentGame.plusMinus[num]) currentGame.plusMinus[num].minus++; });
-            // Nollaa valinnat ja tila
-            pmSelectedPlus.clear(); pmSelectedMinus.clear(); pmMode = null;
+          document.getElementById('pm-clear').onclick = () => {
+            pmSelectedPlus.clear(); pmSelectedMinus.clear();
             renderPlusMinusView();
-            renderPlusMinusSummary();
           };
 
-          // Pelaajapainikkeiden klikkilogiikka (valinta/poisto valinnasta)
-          homeC.addEventListener('click', onPmPlayerClick);
-          awayC.addEventListener('click', onPmPlayerClick);
+          document.getElementById('pm-confirm').onclick = () => {
+            // Kirjaa kootusti: + lisätään plusiin, − lisätään minukseen
+            pmSelectedPlus.forEach(num  => { currentGame.plusMinus[num].plus++;  });
+            pmSelectedMinus.forEach(num => { currentGame.plusMinus[num].minus++; });
 
-          renderPlusMinusSummary();
+            // Nollaa valinnat ja tila
+            pmSelectedPlus.clear(); pmSelectedMinus.clear(); pmMode = null;
+
+            renderPlusMinusView();
+            renderPlusMinusSummary(); // jos käytössä
+          };
+
+          // Pelaajapainikkeiden klikkilogiikka (vain koti)
+          homeC.addEventListener('click', onPmPlayerClick);
+
+          renderPlusMinusSummary && renderPlusMinusSummary();
         }
         function renderPlusMinusSummary() { const container = document.getElementById('plus-minus-summary'); if (!container) return; let html = `<h3 class="text-xl font-bold text-center mb-3">+/- Saldo</h3><div class="grid grid-cols-4 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span>Pelaaja</span><span>+</span><span>-</span><span>Yht.</span></div>`; (currentGame.players || []).forEach(pNum => { const stats = currentGame.plusMinus[pNum], bal = (stats.plus || 0) - (stats.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-4 text-center text-sm py-2 border-b border-slate-700 items-center"><span class="font-bold text-left truncate pr-2">#${pNum} ${name}</span><button data-player="${pNum}" data-type="remove-plus" class="font-mono text-lg text-emerald-500">${stats.plus || 0}</button><button data-player="${pNum}" data-type="remove-minus" class="font-mono text-lg text-red-500">${stats.minus || 0}</button><span class="font-semibold text-lg">${bal > 0 ? '+' : ''}${bal}</span></div>`; }); container.innerHTML = html; }
         
@@ -1587,4 +1583,5 @@
     </script>
 </body>
 </html>
+
 
