@@ -440,7 +440,7 @@
             document.getElementById('field-area').innerHTML = `<div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div><div id="field-container" class="relative w-full max-w-[1200px] aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>`;
             outcomeModal.innerHTML = `<button data-outcome="goal" class="w-28 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-28 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-28 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-28 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button>`;
             qualityModal.innerHTML = `<button data-quality="high" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-red-700">Laadukas</button><button data-quality="low" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-blue-700">Heikko</button>`;
-            editOutcomeModal.innerHTML = `<button data-outcome="goal" class="w-32 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-32 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-32 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-32 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button><div class="border-t my-1"></div> <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 rounded-md bg-slate-600">Poista</button>`;
+            editOutcomeModal.innerHTML = `<button data-outcome="goal" class="w-32 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-32 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-32 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-32 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button><div class="border-t my-1"></div> <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 rounded-md bg-slate-600">Poista</button><div class="border-t my-1"></div><div class="flex gap-2 justify-center"><button data-special="YV" class="w-20 text-white font-semibold py-2 rounded-md bg-purple-600 hover:bg-purple-700">YV</button><button data-special="AV" class="w-20 text-white font-semibold py-2 rounded-md bg-amber-600 hover:bg-amber-700">AV</button><button data-special="none" class="w-24 text-slate-800 font-semibold py-2 rounded-md bg-slate-300 hover:bg-slate-400">Poista</button></div>`;
         }
 
         function initializePlayers() {
@@ -534,9 +534,43 @@
         function onPointerUp(e) { if (!draggedElement || !ghostElement) return; ghostElement.style.display = 'none'; const dropTarget = document.elementFromPoint(e.clientX, e.clientY); ghostElement.style.display = ''; const fieldContainer = document.getElementById('field-container'); if (fieldContainer && fieldContainer.contains(dropTarget)) { const shotsLayer = document.getElementById('shots-layer'); const rect = shotsLayer.getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y, clientX: e.clientX, clientY: e.clientY }; showOutcomeModal(e.clientX, e.clientY); } document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null; }
         function updateGhostPosition(x, y) { if (ghostElement) { ghostElement.style.left = `${x - 25}px`; ghostElement.style.top = `${y - 25}px`; } }
         function onOutcomeSelect(e) { const target = e.target.closest('[data-outcome]'); if (!target) return; tempShotData.outcome = target.dataset.outcome; hideOutcomeModal(); showQualityModal(tempShotData.clientX, tempShotData.clientY); }
-        function onQualitySelect(e) { const target = e.target.closest('[data-quality]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, quality: target.dataset.quality, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; delete newShot.clientX; delete newShot.clientY; currentGame.shots.push(newShot); sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideQualityModal(); renderShots(); updateStats(); }
+        function onQualitySelect(e) { const target = e.target.closest('[data-quality]'); if (!target) return; const newShot = { id: Date.now() + Math.random(), ...tempShotData, quality: target.dataset.quality, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team), special: null }; delete newShot.clientX; delete newShot.clientY; currentGame.shots.push(newShot); sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideQualityModal(); renderShots(); updateStats(); }
         function onShotMarkerClick(e) { const target = e.target.closest('.shot-marker'); if (!target || draggedElement || currentGame.isReadOnly) { hideEditOutcomeModal(); return; } shotToEditId = Number(target.dataset.shotId); showEditOutcomeModal(e.clientX, e.clientY); }
-        function onEditOutcomeSelect(e) { const target = e.target; if (!shotToEditId) return; const shotIndex = currentGame.shots.findIndex(s => s.id === shotToEditId); if (shotIndex === -1) return; if (target.id === 'delete-shot-btn') { currentGame.shots.splice(shotIndex, 1); } else if (target.closest('[data-outcome]')) { currentGame.shots[shotIndex].outcome = target.dataset.outcome; delete currentGame.shots[shotIndex].quality; } sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); hideEditOutcomeModal(); renderShots(); updateStats(); }
+        
+        function onEditOutcomeSelect(e) {
+            if (!shotToEditId) return;
+            const target = e.target;
+            const idx = currentGame.shots.findIndex(s => s.id === shotToEditId);
+            if (idx === -1) return;
+
+            let changed = false;
+
+            // Poisto
+            if (target.id === 'delete-shot-btn') {
+                currentGame.shots.splice(idx, 1);
+                changed = true;
+            }
+            // Tuloksen muutos (goal/miss/block/save)
+            else if (target.closest('[data-outcome]')) {
+                currentGame.shots[idx].outcome = target.closest('[data-outcome]').dataset.outcome;
+                delete currentGame.shots[idx].quality; // Keep this logic
+                changed = true;
+            }
+            // YV/AV/Poista
+            else if (target.closest('[data-special]')) {
+                const val = target.closest('[data-special]').dataset.special;
+                currentGame.shots[idx].special = (val === 'none') ? null : val;
+                changed = true;
+            }
+
+            if (changed) {
+                sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame));
+                hideEditOutcomeModal();
+                renderShots();
+                updateStats();
+            }
+        }
+
         function showOutcomeModal(x, y) { hideEditOutcomeModal(); hideQualityModal(false); outcomeModal.style.left = `${x}px`; outcomeModal.style.top = `${y}px`; outcomeModal.classList.remove('hidden'); }
         function hideOutcomeModal() { outcomeModal.classList.add('hidden'); }
         function showQualityModal(x, y) { hideOutcomeModal(); qualityModal.style.left = `${x}px`; qualityModal.style.top = `${y}px`; qualityModal.classList.remove('hidden'); }
@@ -559,7 +593,8 @@
             if (shotData.quality === 'high') s.classList.add('quality-high');
             if (shotData.quality === 'low') s.classList.add('quality-low');
             s.dataset.shotId = shotData.id;
-            s.innerHTML = `<span>${shotData.player}</span>`;
+            s.innerHTML = `<span>${shotData.team === 'away' ? 'V' : shotData.player}</span>` +
+              (shotData.special ? `<small style="position:absolute;right:-4px;top:-4px;background:#111827;color:#fff;border-radius:6px;padding:0 4px;font-size:10px">${shotData.special}</small>` : '');
             s.style.left = `${shotData.x}%`;
             s.style.top = `${shotData.y}%`;
             return s;
@@ -575,15 +610,19 @@
             const period = currentGame.currentPeriod;
             const set = currentGame.shots.filter(s => period === 'summary' ? true : s.period === period);
 
-            let stats = { home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0},
-                          away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0} };
+            let stats = { home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0,ppGoals:0,shGoals:0},
+                          away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0,ppGoals:0,shGoals:0} };
 
             set.forEach(shot => {
                 const side = normalizeSideFromShot(shot);
                 const opp  = side === 'home' ? 'away' : 'home';
                 stats[side].shots++;
                 stats[side].xg += calculateXg(shot.x, shot.y, shot.team);
-                if (shot.outcome === 'goal')  stats[side].goals++;
+                if (shot.outcome === 'goal') {
+                    stats[side].goals++;
+                    if (shot.special === 'YV') stats[side].ppGoals++;
+                    if (shot.special === 'AV') stats[side].shGoals++;
+                }
                 if (shot.outcome === 'save')  stats[opp].saves++;
                 if (shot.outcome === 'block') stats[opp].blocks++;
                 if (shot.quality === 'high') stats[side].qualityHigh++;
@@ -863,7 +902,7 @@
         function safeDateValue(game) { if (game?.date) { const d = new Date(game.date); if (!isNaN(+d)) return +d; } const asNum = Number(game?.id); return Number.isFinite(asNum) ? asNum : NaN; }
         
         function getGameStats(game) {
-            const s = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 } };
+            const s = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0, ppGoals:0, shGoals:0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0, ppGoals:0, shGoals:0 } };
             const shots = Array.isArray(game?.shots) ? game.shots : [];
             shots.forEach(shot => {
                 const teamKey = (shot.team === 'away') ? 'away' : 'home'; const oppKey  = (teamKey === 'home') ? 'away' : 'home';
@@ -871,7 +910,12 @@
                 shooter.shots++; 
                 shooter.xg += calculateXg(shot.x, shot.y, shot.team); // Recalculate xG
                 if (shot.quality === 'high') shooter.qualityHigh++; if (shot.quality === 'low')  shooter.qualityLow++;
-                if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++;
+                if (shot.outcome === 'goal') {
+                    shooter.goals++;
+                    if (shot.special === 'YV') shooter.ppGoals++;
+                    if (shot.special === 'AV') shooter.shGoals++;
+                }
+                if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++;
             });
             return s;
         }
@@ -1090,6 +1134,8 @@
                         head: [['Tapahtuma', 'Koti', 'Vieras']],
                         body: [
                             ['Maalit', stats.home.goals, stats.away.goals],
+                            ['YV-maalit', stats.home.ppGoals || 0, stats.away.ppGoals || 0],
+                            ['AV-maalit', stats.home.shGoals || 0, stats.away.shGoals || 0],
                             ['Laukaukset', stats.home.shots, stats.away.shots],
                             ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
                             ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
@@ -1327,15 +1373,19 @@
                 period === 'summary' ? true : s.period === period
             );
             const agg = {
-                home: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 },
-                away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 }
+                home: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0, ppGoals: 0, shGoals: 0 },
+                away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0, ppGoals: 0, shGoals: 0 }
             };
             shots.forEach(shot => {
                 const team = shot.team === 'away' ? 'away' : 'home';
                 const opp  = team === 'home' ? 'away' : 'home';
                 agg[team].shots++;
                 agg[team].xg += calculateXg(shot.x, shot.y, shot.team); // Recalculate xG
-                if (shot.outcome === 'goal') agg[team].goals++;
+                if (shot.outcome === 'goal') {
+                    agg[team].goals++;
+                    if (shot.special === 'YV') agg[team].ppGoals++;
+                    if (shot.special === 'AV') agg[team].shGoals++;
+                }
                 if (shot.outcome === 'save') agg[opp].saves++;
                 if (shot.outcome === 'block') agg[opp].blocks++;
                 if (shot.quality === 'high') agg[team].qualityHigh++;
@@ -1412,4 +1462,3 @@
     </script>
 </body>
 </html>
-
