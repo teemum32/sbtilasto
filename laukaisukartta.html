@@ -385,7 +385,7 @@
         createTeamBtn.addEventListener('click', async () => {
             const teamName = newTeamNameInput.value.trim();
             if (teamName && userId) {
-                await addDoc(collection(db, 'users', userId, 'teams'), { name: teamName, createdAt: serverTimestamp() });
+                await addDoc(collection(db, 'artifacts', appId, 'users', userId, 'teams'), { name: teamName, createdAt: serverTimestamp() });
                 newTeamNameInput.value = '';
             }
         });
@@ -394,7 +394,7 @@
             if (!userId) return;
             if (teamsUnsubscribe) teamsUnsubscribe();
             
-            const q = query(collection(db, 'users', userId, 'teams'));
+            const q = query(collection(db, 'artifacts', appId, 'users', userId, 'teams'));
             
             teamsUnsubscribe = onSnapshot(q, 
                 (snap) => {
@@ -656,11 +656,11 @@
         }
 
         function calculateXg(x, y, team) { const [MAX_XG, X_POWER, Y_POWER] = [0.65, 3, 1.5], xNorm = x / 100, yNorm = Math.abs(y - 50) / 50; const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER); const yFactor = Math.pow(1 - yNorm, Y_POWER); return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2)); }
-        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId || !currentGame.id || currentGame.isReadOnly) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); sessionStorage.removeItem(`inProgressGame-${userId}`); const saveButton = document.getElementById('save-game-button'); saveButton.disabled = true; saveButton.textContent = 'Tallennettu'; saveButton.classList.remove('bg-blue-600'); saveButton.classList.add('bg-gray-500', 'cursor-not-allowed'); document.getElementById('sidebar-content').style.pointerEvents = 'none'; currentGame.isReadOnly = true; } catch (error) {} }
-        function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
-        async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
-        async function loadRosterFromFirestore() { if (!userId || !currentTeamId) return; try { const docSnap = await getDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = docSnap.exists() ? docSnap.data().players || {} : {}; } catch (error) {} }
-        async function deleteGameFromFirestore(gameId) { if (userId && currentTeamId) await deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', gameId)); }
+        async function saveAndEndGameInFirestore() { if (!userId || !currentTeamId || !currentGame.id || currentGame.isReadOnly) return; try { const gameToSave = { ...currentGame }; delete gameToSave.id; await addDoc(collection(db, 'artifacts', appId, 'users', userId, 'teams', currentTeamId, 'games'), gameToSave); sessionStorage.removeItem(`inProgressGame-${userId}`); const saveButton = document.getElementById('save-game-button'); saveButton.disabled = true; saveButton.textContent = 'Tallennettu'; saveButton.classList.remove('bg-blue-600'); saveButton.classList.add('bg-gray-500', 'cursor-not-allowed'); document.getElementById('sidebar-content').style.pointerEvents = 'none'; currentGame.isReadOnly = true; } catch (error) {} }
+        function listenForGames() { if (!userId || !currentTeamId) return; if(gamesUnsubscribe) gamesUnsubscribe(); const q = query(collection(db, 'artifacts', appId, 'users', userId, 'teams', currentTeamId, 'games')); gamesUnsubscribe = onSnapshot(q, (snap) => { seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('view-season-data-btn').disabled = seasonData.games.length === 0; if (!seasonView.classList.contains('hidden')) renderSeasonStats(); }); }
+        async function saveRosterToFirestore(roster) { if (userId && currentTeamId) await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster }); }
+        async function loadRosterFromFirestore() { if (!userId || !currentTeamId) return; try { const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', userId, 'teams', currentTeamId, 'roster', 'main')); rosterData = docSnap.exists() ? docSnap.data().players || {} : {}; } catch (error) {} }
+        async function deleteGameFromFirestore(gameId) { if (userId && currentTeamId) await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'teams', currentTeamId, 'games', gameId)); }
         function prefillRosterInput() { playerRosterInput.value = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(num => `${num} ${rosterData[num]||''}`).join('\n'); }
         function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; const shotsToRender = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
         
@@ -1605,6 +1605,7 @@
     </script>
 </body>
 </html>
+
 
 
 
