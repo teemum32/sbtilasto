@@ -297,7 +297,7 @@
         const teamNameHeader = document.getElementById('team-name-header'), changeTeamBtn = document.getElementById('change-team-btn');
 
         let db, auth, userId, currentTeamId;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
         let seasonData = { games: [] }, rosterData = {}, currentGame = {};
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
@@ -332,12 +332,12 @@
         async function startFirebaseApp() {
             try {
                 // 1. KÄYTÄ AINA YMPÄRISTÖN TARJOAMAA KONFIGURAATIOTA
-                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                if (typeof window.__firebase_config === 'undefined' || !window.__firebase_config) {
                     document.body.innerHTML = '<div class="p-8 text-center">Firebase-konfiguraatiota ( __firebase_config ) ei löytynyt. Sovellusta ei voi alustaa.</div>';
                     console.error("__firebase_config is missing.");
                     return;
                 }
-                const firebaseConfig = JSON.parse(__firebase_config); 
+                const firebaseConfig = JSON.parse(window.__firebase_config); 
                 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app); auth = getAuth(app);
@@ -393,8 +393,8 @@
              try {
                 if (auth.currentUser) return; // Jo kirjautunut
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+                if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
+                    await signInWithCustomToken(auth, window.__initial_auth_token);
                 } else {
                     console.warn("__initial_auth_token missing, signing in anonymously as fallback.");
                     await signInAnonymously(auth);
@@ -1652,6 +1652,7 @@
     </script>
 </body>
 </html>
+
 
 
 
