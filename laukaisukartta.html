@@ -395,9 +395,21 @@
         function listenForTeams() {
             if (!userId) return;
             if (teamsUnsubscribe) teamsUnsubscribe();
-            teamsUnsubscribe = onSnapshot(query(collection(db, 'users', userId, 'teams')), (snap) => {
-                renderTeamsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-            });
+            
+            const q = query(collection(db, 'users', userId, 'teams'));
+            
+            teamsUnsubscribe = onSnapshot(q, 
+                (snap) => {
+                    // Onnistunut haku
+                    const teams = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderTeamsList(teams);
+                },
+                (error) => {
+                    // Virhekäsittelijä
+                    console.error("Error listening for teams:", error);
+                    teamsList.innerHTML = `<p class="text-red-400">Virhe haettaessa joukkueita: ${error.message}</p>`;
+                }
+            );
         }
         
         function renderTeamsList(teams) {
@@ -1595,5 +1607,6 @@
     </script>
 </body>
 </html>
+
 
 
