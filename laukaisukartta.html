@@ -283,7 +283,7 @@
         })();
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp, writeBatch, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const allViews = { auth: document.getElementById('auth-view'), teams: document.getElementById('teams-view'), landing: document.getElementById('landing-view'), setup: document.getElementById('setup-view'), app: document.getElementById('app-container') };
@@ -331,14 +331,25 @@
 
         async function startFirebaseApp() {
             try {
-                const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
+                // 1. KÄYTÄ AINA YMPÄRISTÖN TARJOAMAA KONFIGURAATIOTA
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    document.body.innerHTML = '<div class="p-8 text-center">Firebase-konfiguraatiota ( __firebase_config ) ei löytynyt. Sovellusta ei voi alustaa.</div>';
+                    console.error("__firebase_config is missing.");
+                    return;
+                }
+                const firebaseConfig = JSON.parse(__firebase_config); 
+                
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app); auth = getAuth(app);
                 try { await enableIndexedDbPersistence(db); } catch (err) {}
+
+                // 2. Aseta listeneri ENNEN kirjautumista
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        userId = user.uid;
-                        userEmailDisplay.textContent = user.email;
+                        // Käyttäjä on kirjautunut (joko custom tokenilla tai anonyymisti)
+                        userId = user.uid; 
+                        userEmailDisplay.textContent = user.isAnonymous ? 'Anonyymi käyttäjä' : `Käyttäjä: ${user.uid.substring(0, 6)}...`;
+
                         const savedGameJSON = sessionStorage.getItem(`inProgressGame-${userId}`);
                         if (savedGameJSON) {
                             currentGame = JSON.parse(savedGameJSON);
@@ -351,24 +362,60 @@
                             addEventListeners();
                             showView(currentGame.currentPeriod || 1);
                         } else {
-                            listenForTeams();
+                            // TÄMÄ ON OIKEA PAIKKA KUTSUA listenForTeams
+                            listenForTeams(); 
                             showMainView('teams');
                         }
                     } else {
+                        // Käyttäjä on uloskirjautunut
                         userId = null; currentTeamId = null; currentGame = {};
                         sessionStorage.clear();
                         if (gamesUnsubscribe) gamesUnsubscribe();
                         if (teamsUnsubscribe) teamsUnsubscribe();
+                        // Ohjataan takaisin "kirjautumiseen"
                         showMainView('auth');
+                        authError.textContent = 'Istunto päättyi. Yritetään uudelleen...';
+                        // Yritä kirjautua automaattisesti uudelleen, jos sessio katkeaa
+                        setTimeout(performAutomaticSignIn, 1000);
                     }
                 });
-            } catch (error) { document.body.innerHTML = `<div class="p-8 text-center">Yhteys epäonnistui: ${error.message}</div>`; }
+                
+                // 3. SUORITA KIRJAUTUMINEN (tämä laukaisee onAuthStateChanged-listenerin)
+                await performAutomaticSignIn();
+
+            } catch (error) { 
+                console.error("startFirebaseApp error:", error);
+                document.body.innerHTML = `<div class="p-8 text-center">Yhteys epäonnistui: ${error.message}</div>`; 
+            }
+        }
+
+        async function performAutomaticSignIn() {
+             try {
+                if (auth.currentUser) return; // Jo kirjautunut
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    console.warn("__initial_auth_token missing, signing in anonymously as fallback.");
+                    await signInAnonymously(auth);
+                }
+            } catch (authError) {
+                console.error("Firebase auth failed (Custom Token or Anonymous):", authError);
+                document.body.innerHTML = `<div class="p-8 text-center">Autentikointi epäonnistui: ${authError.message}</div>`;
+            }
         }
         
+        // Sähköposti/salasana-kirjautuminen ei ole enää tuettu tässä ympäristössä.
+        // Pidetään se siltä varalta, että sitä tarvitaan muualla, mutta startFirebaseApp hoitaa nyt pääkirjautumisen.
         loginBtn.addEventListener('click', async () => {
             const email = emailInput.value; const password = passwordInput.value; authError.textContent = '';
             if (!email || !password) { authError.textContent = 'Sähköposti ja salasana vaaditaan.'; return; }
-            try { await signInWithEmailAndPassword(auth, email, password); } catch (error) { authError.textContent = 'Kirjautuminen epäonnistui.'; }
+            try { 
+                await signInWithEmailAndPassword(auth, email, password); 
+                // onAuthStateChanged hoitaa näkymän vaihdon
+            } catch (error) { 
+                authError.textContent = 'Kirjautuminen epäonnistui.'; 
+            }
         });
 
         [logoutBtn, logoutBtnTeams].forEach(btn => btn.addEventListener('click', () => { sessionStorage.removeItem(`inProgressGame-${userId}`); signOut(auth); }));
@@ -1605,6 +1652,7 @@
     </script>
 </body>
 </html>
+
 
 
 
