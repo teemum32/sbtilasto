@@ -431,15 +431,23 @@
         }
 
         startButton.addEventListener('click', async () => {
-            setupError.textContent = ''; const opponentName = opponentNameInput.value.trim();
-            if (!opponentName) { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
-            let newRoster = {};
-            try { newRoster = parseRosterTextarea(playerRosterInput.value); } 
-            catch (err) { setupError.textContent = err.message; return; }
-            if (Object.keys(newRoster).length === 0) { setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
-            await saveRosterToFirestore(newRoster);
-            rosterData = newRoster; playerRosterInput.value = '';
-            showMainView('app'); startNewGame(newRoster, opponentName);
+            try {
+                setupError.textContent = ''; const opponentName = opponentNameInput.value.trim();
+                if (!opponentName) { setupError.textContent = 'Syötä vastustajan nimi.'; return; }
+                let newRoster = {};
+                try { newRoster = parseRosterTextarea(playerRosterInput.value); } 
+                catch (err) { setupError.textContent = err.message; return; }
+                if (Object.keys(newRoster).length === 0) { setupError.textContent = 'Syötä vähintään yksi pelaaja.'; return; }
+                
+                await saveRosterToFirestore(newRoster);
+                
+                rosterData = newRoster; playerRosterInput.value = '';
+                showMainView('app'); 
+                startNewGame(newRoster, opponentName);
+            } catch (error) {
+                console.error("Error starting game:", error);
+                setupError.textContent = `Pelin aloitus epäonnistui: ${error.message}`;
+            }
         });
 
         function startNewGame(roster, opponentName) {
@@ -1587,4 +1595,5 @@
     </script>
 </body>
 </html>
+
 
