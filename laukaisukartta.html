@@ -1,169 +1,112 @@
 <!DOCTYPE html>
 <html lang="fi" class="h-full">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https:; connect-src 'self' https: wss:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: data:; img-src 'self' data:; frame-src 'self' blob: https:; frame-ancestors 'self' https:;">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Salibandyn Kausitilastot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
-        .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
-        .away-player { font-size: 1.5rem; }
-        .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
-        .shot-marker {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-weight: bold;
-            font-size: 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-            color: white;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.2s;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .shot-marker span {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            line-height: 1;
-            pointer-events: none;
-        }
-        .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
-        .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
-        .quality-high { border: 4px solid #b91c1c; } .quality-low { border: 4px solid #2563eb; }
-        .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
-        .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
-        .period-tab.active { background-color: #4f46e5; }
-        #main-app > .bg-slate-900 {
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-        #pdf-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9); display: none; z-index: 1000; }
-        #pdf-overlay.visible { display: grid; place-items: center; }
-        #pdf-overlay .panel { width: 96vw; height: 92vh; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); overflow: hidden; position: relative; }
-        #pdf-overlay header { position: absolute; inset: 0 0 auto 0; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #0f172a; color: #e2e8f0; }
-        #pdf-overlay header h3 { font-size: 14px; font-weight: 600; }
-        #pdf-overlay header button { background: #ef4444; color: white; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
-        #pdf-iframe { position: absolute; top: 48px; left: 0; width: 100%; height: calc(100% - 48px); border: 0; }
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https:; connect-src 'self' https: wss:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: data:; img-src 'self' data:; frame-src 'self' blob: https:; frame-ancestors 'self' https:;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Salibandyn Kausitilastot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
+        .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
+        .away-player { font-size: 1.5rem; }
+        .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
+        .shot-marker {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            color: white;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .shot-marker span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            pointer-events: none;
+        }
+        .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
+        .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
+        .quality-high { border: 4px solid #b91c1c; } .quality-low { border: 4px solid #2563eb; }
+        .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
+        .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
+        .period-tab.active { background-color: #4f46e5; }
+        #main-app > .bg-slate-900 {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        #pdf-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9); display: none; z-index: 1000; }
+        #pdf-overlay.visible { display: grid; place-items: center; }
+        #pdf-overlay .panel { width: 96vw; height: 92vh; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); overflow: hidden; position: relative; }
+        #pdf-overlay header { position: absolute; inset: 0 0 auto 0; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #0f172a; color: #e2e8f0; }
+        #pdf-overlay header h3 { font-size: 14px; font-weight: 600; }
+        #pdf-overlay header button { background: #ef4444; color: white; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
+        #pdf-iframe { position: absolute; top: 48px; left: 0; width: 100%; height: calc(100% - 48px); border: 0; }
 
-        /* Pallonhallintapalkki */
-        .possession-wrap { width:100%; max-width:980px; margin:0 auto 12px auto; }
-        .possession-bar { position:relative; height:18px; background:#e2e8f0; border-radius:10px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.15); }
-        .possession-home, .possession-away { height:100%; }
-        .possession-home { background:#10b981; }  /* Koti */
-        .possession-away { background:#3b82f6; }  /* Vieras */
-        .possession-labels { position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; font-size:.80rem; font-weight:700; color:#0f172a; padding:0 8px; mix-blend-mode:multiply; }
+        /* Pallonhallintapalkki */
+        .possession-wrap { width:100%; max-width:980px; margin:0 auto 12px auto; }
+        .possession-bar { position:relative; height:18px; background:#e2e8f0; border-radius:10px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.15); }
+        .possession-home, .possession-away { height:100%; }
+        .possession-home { background:#10b981; }  /* Koti */
+        .possession-away { background:#3b82f6; }  /* Vieras */
+        .possession-labels { position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; font-size:.80rem; font-weight:700; color:#0f172a; padding:0 8px; mix-blend-mode:multiply; }
 
-        /* Nappirivi kentän alle */
-        .possession-controls {
-            position: fixed;
-            left: 50%;
-            bottom: calc(12px + env(safe-area-inset-bottom));
-            transform: translateX(-50%);
-            display: flex; gap: .5rem; justify-content: center;
-            padding: .4rem .6rem; border-radius: .75rem;
-            background: rgba(15,23,42,.75); backdrop-filter: blur(6px);
-            box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 40;
-        }
-        .possession-controls button { padding:.65rem .9rem; border-radius:.6rem; font-weight:700; }
-        .pos-btn-home { background:#10b981; color:white; }
-        .pos-btn-away { background:#3b82f6; color:white; }
-        .pos-btn-stop { background:#ef4444; color:white; }
-        .pos-clock { min-width:4.5rem; text-align:center; font-variant-numeric:tabular-nums; color:white; font-weight:700; }
-        
-        /* Lajittelu */
-        .sortable { cursor: pointer; }
-        .sortable:hover { color: #fff; }
-        .sort-asc::after { content: ' ▲'; font-size: 0.7em; }
-        .sort-desc::after { content: ' ▼'; font-size: 0.7em; }
-    </style>
+        /* Nappirivi kentän alle */
+        .possession-controls {
+            position: fixed;
+            left: 50%;
+            bottom: calc(12px + env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            display: flex; gap: .5rem; justify-content: center;
+            padding: .4rem .6rem; border-radius: .75rem;
+            background: rgba(15,23,42,.75); backdrop-filter: blur(6px);
+            box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 40;
+        }
+        .possession-controls button { padding:.65rem .9rem; border-radius:.6rem; font-weight:700; }
+        .pos-btn-home { background:#10b981; color:white; }
+        .pos-btn-away { background:#3b82f6; color:white; }
+        .pos-btn-stop { background:#ef4444; color:white; }
+        .pos-clock { min-width:4.5rem; text-align:center; font-variant-numeric:tabular-nums; color:white; font-weight:700; }
+        
+        /* Lajittelu */
+        .sortable { cursor: pointer; }
+        .sortable:hover { color: #fff; }
+        .sort-asc::after { content: ' ▲'; font-size: 0.7em; }
+        .sort-desc::after { content: ' ▼'; font-size: 0.7em; }
+    </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
 
-    <div id="auth-view" class="h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
-            <h1 class="text-2xl font-bold">Tervetuloa</h1>
-            <p class="text-slate-400 mt-2 mb-6">Kirjaudu sisään tunnuksillasi.</p>
-            <div class="space-y-4">
-                <input id="email-input" name="email" type="email" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="sähköposti">
-                <input id="password-input" name="password" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="salasana">
-            </div>
-            <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
-            <div class="mt-4">
-                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">Kirjaudu sisään</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="teams-view" class="h-full w-full hidden items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
-            <h1 class="text-3xl font-bold">Valitse tai luo joukkue</h1>
-            <div id="teams-list" class="mt-6 space-y-2 max-h-60 overflow-y-auto"></div>
-            <div class="mt-6 border-t border-slate-700 pt-6">
-                <input id="new-team-name" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-center" placeholder="Uuden joukkueen nimi">
-                <button id="create-team-btn" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg">Luo uusi joukkue</button>
-            </div>
-             <button id="logout-btn-teams" class="w-full bg-red-600 hover:bg-red-700 font-bold py-3 px-4 rounded-lg mt-6">Kirjaudu ulos</button>
-        </div>
-    </div>
-
-    <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
-            <h1 id="team-name-header" class="text-3xl font-bold"></h1>
-             <p id="user-email" class="text-slate-400 mt-2 mb-8"></p>
-            <div class="space-y-4">
-                <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita uusi ottelu</button>
-                <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg disabled:opacity-50">Tarkastele kausidataa</button>
-                <button id="change-team-btn" class="w-full border border-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg mt-4">Vaihda joukkuetta</button>
-                <button id="logout-btn" class="w-full bg-red-600 hover:bg-red-700 font-bold py-3 px-4 rounded-lg mt-4">Kirjaudu ulos</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="setup-view" class="h-full w-full hidden items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
-            <h1 class="text-3xl font-bold mb-4">Uusi ottelu</h1>
-            <input id="opponent-name-input" name="opponent-name" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center mb-4" placeholder="Vastustajan nimi">
-            <textarea id="player-roster-input" name="player-roster" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm font-mono" placeholder="Syötä pelaajanumerot, esim: 7 Matti, 10, 12, 21..."></textarea>
-            <p id="setup-error" class="text-red-500 text-sm mt-2 h-5"></p>
-            <button id="start-button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita merkintä</button>
-            <button id="back-to-landing-btn" class="mt-2 w-full text-slate-400 hover:text-slate-200 font-semibold py-2">Takaisin</button>
-        </div>
-    </div>
-
-    <div id="app-container" class="h-full w-full hidden flex-col">
-        <div id="period-tabs" class="bg-slate-800 p-2 flex justify-center gap-1 md:gap-2 shrink-0 flex-wrap"></div>
-        <div class="flex-1 min-h-0 relative">
-            <div id="main-app" class="absolute inset-0 grid grid-cols-1 md:grid-cols-[256px,1fr]">
-                <div class="bg-slate-900 p-4 flex flex-col overflow-y-auto order-last md:order-first min-h-0">
-                    <div id="sidebar-content" class="flex-grow"></div>
-                    <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
-                </div>
-                <div class="relative flex flex-col pt-8 bg-slate-200">
-                    <div class="possession-wrap px-4 absolute left-0 right-0 top-0 z-30">
-                        <div class="possession-bar">
-                            <div id="pos-home" class="possession-home" style="width:50%"></div>
-                            <div id="pos-away" class="possession-away" style="width:50%"></div>
-                            <div class="possession-labels">
-                                <span id="pos-home-label">Koti 50%</span>
-                                <span id="pos-away-label">Vieras 50%</span>
-                            </div>
-                        </div>
-                    </div>
-                    <main class="flex-1 flex items-center justify-center gap-4 p-4 min-w-0">
-                        <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
-                    </main>
-              Tiedostosi oli rikki useasta kohtaa. Siellä oli virheellisiä Markdown-linkkejä `script`-tageissa ja satunnaisia merkkejä ympäri koodia (`s`, `_`, `S`, `TA`, `ds`, `e`, `E`, `Indentation`, `default`, `A`, `img/index.html`, `section .data`, `section .text`).
-
-Olen siivonnut koko tiedoston, poistanut kaikki virheelliset linkit ja ylimääräiset merkit. Tämän version pitäisi nyt latautua ja suorittaa JavaScript-koodi oikein.
+    <div id="auth-view" class="h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-2xl font-bold">Tervetuloa</h1>
+            <p class="text-slate-400 mt-2 mb-6">Kirjaudu sisään tunnuksillasi.</p>
+            <div class="space-y-4">
+                <input id="email-input" name="email" type="email" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="sähköposti">
+                <input id="password-input" name="password" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="salasana">
+            </div>
+            <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
+            <div class="mt-4">
+                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">Kirjaudu sisään</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="teams-view" class="h-full w-full hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-3xl font-bold">Valitse tai luo joukkue</h1>
+            <div id="teams-list"
