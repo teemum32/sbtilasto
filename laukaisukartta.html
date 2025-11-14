@@ -1373,11 +1373,19 @@
 
             const W = 900, H = 450;    // kuvapinta PDF:ää varten (2:1)
             const wrap = document.createElement('div');
+            // KORJAUS: Muutettu tyyliä varmemmaksi html2canvas-renderöintiä varten
             Object.assign(wrap.style, {
-                position: 'fixed', left: '-10000px', top: '0',
-                width: `${W}px`, height: `${H}px`,
-                background: '#ffffff', borderRadius: '12px',
-                boxShadow: '0 10px 30px rgba(0,0,0,.2)', overflow: 'hidden', zIndex: '-1'
+                position: 'fixed', 
+                left: '0px', // Asetetaan näkyvälle alueelle
+                top: '0px',
+                width: `${W}px`, 
+                height: `${H}px`,
+                background: '#ffffff', 
+                borderRadius: '12px',
+                boxShadow: '0 10px 30px rgba(0,0,0,.2)', 
+                overflow: 'hidden', 
+                zIndex: '-1', // Piiloon kaiken taakse
+                opacity: '0.01' // Lähes täysin näkymätön, mutta renderöidään
             });
 
             // taustakenttä
