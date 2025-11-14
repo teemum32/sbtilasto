@@ -54,6 +54,9 @@
     let currentGame = null;          // kun aloitetaan uusi ottelu
     let rosterData = {};             // valitun joukkueen pelaajat
 
+    // ODOTA, ETTÄ HTML-SIVU ON LADATTU KOKONAAN
+    document.addEventListener("DOMContentLoaded", () => {
+
     /***********************************************************
      * 3. NÄKYMÄT (DOM)
      ***********************************************************/
@@ -71,6 +74,7 @@
     const teamList   = document.getElementById("team-list");
     const newTeamInput = document.getElementById("new-team-input");
     const newTeamBtn   = document.getElementById("new-team-btn");
+    const logoutBtnTeams = document.getElementById("logout-btn-teams"); // Lisätty
 
     const opponentInput = document.getElementById("opponent-input");
     const startGameBtn  = document.getElementById("start-game-btn");
@@ -87,6 +91,10 @@
     const seasonView     = document.getElementById("season-view");
     const seasonBackBtn  = document.getElementById("season-back-btn");
     const seasonContent  = document.getElementById("season-content");
+
+    // Lisätty takaisin-napit
+    const setupBackBtn = document.getElementById("setup-back-btn");
+    const appBackBtn = document.getElementById("app-back-btn");
 
     /***********************************************************
      * 4. PIENI NÄKYMÄOHJAUS
@@ -265,6 +273,25 @@
       localStorage.removeItem("fs_selected_team");
       showAuth();
     });
+
+    // Lisätty listener tiiminäkymän uloskirjautumisnapille
+    logoutBtnTeams.addEventListener("click", async () => {
+      await signOut(auth);
+      localStorage.removeItem("fs_selected_team");
+      showAuth();
+    });
+
+    // Lisätty listenerit takaisin-napeille
+    setupBackBtn.addEventListener("click", () => {
+      showHome();
+    });
+
+    appBackBtn.addEventListener("click", () => {
+      // Varmuuden vuoksi nollataan peli jos poistutaan kesken
+      currentGame = null; 
+      showHome();
+    });
+
 
     /***********************************************************
      * 9. UUDEN OTTELUN ALOITUS
@@ -479,6 +506,9 @@
       showHome();
     });
 
+    // TÄMÄ SULKEE DOMContentLoaded-KUUNTELIJAN
+    });
+
   </script>
 </head>
 <body class="bg-slate-900 min-h-screen text-white">
@@ -502,7 +532,7 @@
       <div id="team-list" class="mb-4 space-y-2"></div>
       <input id="new-team-input" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600" placeholder="Uuden joukkueen nimi">
       <button id="new-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-2 rounded font-semibold">Luo uusi joukkue</button>
-      <button id="logout-btn-teams" class="w-full mt-3 bg-slate-600 hover:bg-slate-500 py-2 rounded" onclick="firebase.auth()?.signOut?.()">Kirjaudu ulos</button>
+      <button id="logout-btn-teams" class="w-full mt-3 bg-slate-600 hover:bg-slate-500 py-2 rounded">Kirjaudu ulos</button>
     </div>
   </div>
 
@@ -525,7 +555,7 @@
       <p class="text-sm text-slate-400">Pelaajat (numero ja nimi):</p>
       <textarea id="roster-textarea" class="w-full h-48 p-3 rounded bg-slate-700 border border-slate-600 font-mono text-sm"></textarea>
       <button id="start-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Aloita merkintä</button>
-      <button class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded" onclick="document.getElementById('home-view').classList.remove('hidden');document.getElementById('setup-view').classList.add('hidden');">Takaisin</button>
+      <button id="setup-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
     </div>
   </div>
 
@@ -537,8 +567,8 @@
       <h3 class="text-lg font-bold mt-6 mb-3">Vieras</h3>
       <div id="away-player-list" class="flex gap-2"></div>
       <div id="stats-box" class="mt-6 text-sm"></div>
-      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</to-do-list>
-      <button class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded" onclick="document.getElementById('app-view').classList.add('hidden');document.getElementById('home-view').classList.remove('hidden');">Takaisin</button>
+      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</button>
+      <button id="app-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
     </aside>
     <main class="flex-1 min-h-0 flex items-center justify-center bg-slate-200">
       <div id="field-container" class="relative bg-white border-2 border-slate-800 rounded-lg shadow-2xl aspect-[2/1] w-11/12 max-w-4xl">
