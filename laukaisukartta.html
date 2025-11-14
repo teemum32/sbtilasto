@@ -666,26 +666,56 @@
             return shot.team === 'away' ? 'away' : 'home';
         }
 
+        // ===== KORJATTU YHDISTETTY TILASTOFUNKTIO (OHJE 1) =====
+        /**
+         * YHTEINEN TILASTOFUNKTIO: palauttaa statsit yhdelle erälle tai koko ottelulle
+         * Tätä käyttävät updateStats(), getGameStats() ja PDF-luonti.
+         */
+        function getStatsForPeriod(game, period) {
+            const stats = {
+                home: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 },
+                away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 }
+            };
+
+            const shots = Array.isArray(game?.shots) ? game.shots : [];
+
+            shots.forEach(shot => {
+                // Jos halutaan tietyn erän statsit, hypätään muiden erien yli
+                // 'summary' sallii kaikki
+                if (period !== 'summary' && Number(shot.period) !== Number(period)) {
+                    return;
+                }
+
+                const teamKey = (shot.team === 'away') ? 'away' : 'home';
+                const oppKey = (teamKey === 'home') ? 'away' : 'home';
+                const shooter = stats[teamKey];
+                const opponent = stats[oppKey];
+
+                shooter.shots++;
+                shooter.xg += calculateXg(shot.x, shot.y, shot.team); // käytetään samaa xG-kaavaa
+
+                if (shot.quality === 'high') shooter.qualityHigh++;
+                if (shot.quality === 'low') shooter.qualityLow++;
+                if (shot.outcome === 'goal') shooter.goals++;
+                if (shot.outcome === 'save') opponent.saves++;
+                if (shot.outcome === 'block') opponent.blocks++;
+            });
+
+            return stats;
+        }
+
+        // ===== KORJATTU UPDATESTATS (OHJE 2) =====
+        /**
+         * Päivittää käyttöliittymän tilastot (sivupalkki)
+         */
         function updateStats() {
             if (!currentGame?.shots) return;
 
             const period = currentGame.currentPeriod;
-            const set = currentGame.shots.filter(s => period === 'summary' ? true : s.period === period);
-
-            let stats = { home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0},
-                          away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0} };
-
-            set.forEach(shot => {
-                const side = normalizeSideFromShot(shot);
-                const opp  = side === 'home' ? 'away' : 'home';
-                stats[side].shots++;
-                stats[side].xg += calculateXg(shot.x, shot.y, shot.team);
-                if (shot.outcome === 'goal')  stats[side].goals++;
-                if (shot.outcome === 'save')  stats[opp].saves++;
-                if (shot.outcome === 'block') stats[opp].blocks++;
-                if (shot.quality === 'high') stats[side].qualityHigh++;
-                if (shot.quality === 'low')  stats[side].qualityLow++;
-            });
+            
+            // UUSI: Käytetään yhtenäistä funktiota
+            // Muunnetaan 'summary' -> 'summary' ja '1' -> 1
+            const stats = getStatsForPeriod(currentGame, period === 'summary' ? 'summary' : Number(period));
 
             // 🔢 Pallonhallinta %
             const poss = getPossessionPctFor(currentGame, period);
@@ -713,6 +743,7 @@
             playerStatsContainer.classList.toggle('hidden', period !== 'summary');
             if (period === 'summary') updatePlayerStats();
         }
+
 
         function updatePlayerStats() { const playerStatsContainer = document.getElementById('player-stats-container'); let html = `<h3 class="text-lg font-bold text-center mb-3">Pelaajatilastot</h3><div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-400 mb-2 px-1"><span class="col-span-2">Pelaaja</span><span>L</span><span>M</span><span>L+</span><span>H-</span><span>+/-</span></div>`; (currentGame.players || []).forEach(pNum => { const shots = (currentGame.shots || []).filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length, qH = shots.filter(s=>s.quality==='high').length, qL = shots.filter(s=>s.quality==='low').length; const pm = currentGame.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { const bal = (pm?.plus || 0) - (pm?.minus || 0); const name = (currentGame.roster[pNum] || '').split(' ')[0] || ''; html += `<div class="grid grid-cols-7 text-center text-sm py-1 border-b border-slate-700 items-center"><span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span><span>${shots.length}</span><span>${goals}</span><span class="text-red-400 font-semibold">${qH}</span><span class="text-blue-400 font-semibold">${qL}</span><span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span></div>`; } }); playerStatsContainer.innerHTML = html; }
         
@@ -911,7 +942,7 @@
                 let gamesTable = `<h3 class="text-xl font-bold text-slate-100 my-4">Tallennetut ottelut</h3>`;
                 if (safeGames.length > 0) {
                     safeGames.forEach(game => {
-                        const s = getGameStats(game);
+                        const s = getGameStats(game); // KÄYTTÄÄ NYT YHTENÄISTÄ FUNKTIOTA
                         const possG = getPossessionPctFor(game, 'summary');
                         const ts = safeDateValue(game);
                         const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString('fi-FI') : '—';
@@ -965,22 +996,16 @@
         }
         function safeDateValue(game) { if (game?.date) { const d = new Date(game.date); if (!isNaN(+d)) return +d; } const asNum = Number(game?.id); return Number.isFinite(asNum) ? asNum : NaN; }
         
+        // ===== KORJATTU GETGAMESTATS (OHJE 1) =====
+        /**
+         * Hakee pelin yhteenlasketut tilastot (käyttää nyt yhtenäistä funktiota)
+         */
         function getGameStats(game) {
-            const s = { home: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 }, away: { goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh: 0, qualityLow: 0 } };
-            const shots = Array.isArray(game?.shots) ? game.shots : [];
-            shots.forEach(shot => {
-                const teamKey = (shot.team === 'away') ? 'away' : 'home'; const oppKey  = (teamKey === 'home') ? 'away' : 'home';
-                const shooter = s[teamKey], opponent = s[oppKey];
-                shooter.shots++; 
-                shooter.xg += calculateXg(shot.x, shot.y, shot.team); // Recalculate xG
-                if (shot.quality === 'high') shooter.qualityHigh++; if (shot.quality === 'low')  shooter.qualityLow++;
-                if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++;
-            });
-            return s;
+            return getStatsForPeriod(game, 'summary');
         }
 
         function generateGameDetailsHTML(game) {
-            const gameStats = getGameStats(game);
+            const gameStats = getGameStats(game); // KÄYTTÄÄ NYT YHTENÄISTÄ FUNKTIOTA
             const roster  = game?.roster || {}; 
             const shots   = Array.isArray(game?.shots) ? game.shots : []; 
             const pmAll   = game?.plusMinus || {}; 
@@ -1148,34 +1173,6 @@
             
             const periodNum = Number(period);
             return allShots.filter(shot => Number(shot.period) === periodNum);
-        }
-
-        /**
-         * Laskee erän tilastot (korvaa vanhan getStatsForPeriod)
-         */
-        function getStatsForPeriod(game, period) {
-            const shots = getShotsForPeriod(game, period);
-            const stats = {
-                home: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 },
-                away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 }
-            };
-
-            shots.forEach(shot => {
-                const teamKey = (shot.team === 'away') ? 'away' : 'home'; 
-                const oppKey  = (teamKey === 'home') ? 'away' : 'home';
-                const shooter = stats[teamKey], opponent = stats[oppKey];
-                
-                shooter.shots++;
-                // Käytetään tallennettua xG-arvoa, jos se on olemassa, muuten lasketaan
-                shooter.xg += (shot.xG != null) ? shot.xG : calculateXg(shot.x, shot.y, shot.team);
-
-                if (shot.outcome === 'goal') shooter.goals++;
-                if (shot.outcome === 'save') opponent.saves++;
-                if (shot.outcome === 'block') opponent.blocks++;
-                if (shot.quality === 'high') shooter.qualityHigh++;
-                if (shot.quality === 'low')  shooter.qualityLow++;
-            });
-            return stats;
         }
 
         /**
@@ -1440,6 +1437,9 @@
                     
                     // Piirrä laukaisukartta Canvasille
                     // Jos pelaajaraportti, piirrä vain pelaajan laukaukset
+                    // KORJATTU: Käytetään yhtenäistä getStatsForPeriod-funktiota
+                    const stats = isPlayerReport ? null : getStatsForPeriod(game, period);
+                    
                     const canvas = isPlayerReport ?
                         createShotmapCanvasForPdf({ shots: playerShotsForPeriod }, 'summary') : // Käytä jo filtteröityä listaa
                         createShotmapCanvasForPdf({ shots: shotsForPeriod }, 'summary'); // Käytä jo filtteröityä listaa
@@ -1467,7 +1467,7 @@
 
                     // --- Lisää tilastotaulukko ---
                     if (isPlayerReport) {
-                        const stats = getPlayerStatsForPeriod(game, pNum, period);
+                        const playerStats = getPlayerStatsForPeriod(game, pNum, period);
                         const pm = (game.plusMinus && game.plusMinus[pNum]) ? game.plusMinus[pNum] : { plus:0, minus:0 };
                         const bal = (pm.plus || 0) - (pm.minus || 0);
                         
@@ -1477,12 +1477,12 @@
                             theme: 'grid',
                             head: [['Tilasto', 'Arvo']],
                             body: [
-                                ['Laukaukset', stats.shots],
-                                ['Maalit', stats.goals],
-                                ['xG', stats.xg.toFixed(2)],
-                                ['Laadukkaat (L+)', stats.qualityHigh],
-                                ['Heikot (H-)', stats.qualityLow],
-                                ['Laukaisuprosentti', stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—'],
+                                ['Laukaukset', playerStats.shots],
+                                ['Maalit', playerStats.goals],
+                                ['xG', playerStats.xg.toFixed(2)],
+                                ['Laadukkaat (L+)', playerStats.qualityHigh],
+                                ['Heikot (H-)', playerStats.qualityLow],
+                                ['Laukaisuprosentti', playerStats.shots > 0 ? `${Math.round((playerStats.goals / playerStats.shots) * 100)}%` : '—'],
                                 // Näytä +/- vain summaryssa
                                 ...( (period === 'summary' || isOldData) ? [['+/-', `${bal > 0 ? '+' : ''}${bal}`]] : [])
                             ],
@@ -1491,7 +1491,7 @@
                             columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:30, halign:'right'} }
                         });
                     } else {
-                        const stats = getStatsForPeriod(game, period);
+                        // const stats = getStatsForPeriod(game, period); // Haettu jo aiemmin
                         const poss = getPossessionPctFor(game, period);
                         callAutoTable(doc, {
                             startY: yPos,
