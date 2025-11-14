@@ -648,7 +648,16 @@
         }
 
         function prefillRosterInput() { playerRosterInput.value = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(num => `${num} ${rosterData[num]||''}`).join('\n'); }
-        function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; const shotsToRender = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
+        
+        function renderShots() { 
+            const shotsLayer = document.getElementById('shots-layer'); 
+            if(shotsLayer) { 
+                shotsLayer.innerHTML = ''; 
+                // KÄYTTÄÄ NYT UUTTA, KORJATTUA FUNKTIOTA
+                const shotsToRender = getShotsForPeriod(currentGame, currentGame.currentPeriod);
+                shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); 
+            } 
+        }
         
         function createShotMarker(shotData) {
             const s = document.createElement('div');
@@ -677,15 +686,11 @@
                 away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 }
             };
 
-            const shots = Array.isArray(game?.shots) ? game.shots : [];
+            // KÄYTETÄÄN NYT KORJATTUA 'getShotsForPeriod' -FUNKTIOTA
+            const shots = getShotsForPeriod(game, period);
 
             shots.forEach(shot => {
-                // Jos halutaan tietyn erän statsit, hypätään muiden erien yli
-                // 'summary' sallii kaikki
-                if (period !== 'summary' && Number(shot.period) !== Number(period)) {
-                    return;
-                }
-
+                // Ei tarvita erillistä suodatusta, koska getShotsForPeriod teki sen jo
                 const teamKey = (shot.team === 'away') ? 'away' : 'home';
                 const oppKey = (teamKey === 'home') ? 'away' : 'home';
                 const shooter = stats[teamKey];
@@ -714,8 +719,7 @@
             const period = currentGame.currentPeriod;
             
             // UUSI: Käytetään yhtenäistä funktiota
-            // Muunnetaan 'summary' -> 'summary' ja '1' -> 1
-            const stats = getStatsForPeriod(currentGame, period === 'summary' ? 'summary' : Number(period));
+            const stats = getStatsForPeriod(currentGame, period);
 
             // 🔢 Pallonhallinta %
             const poss = getPossessionPctFor(currentGame, period);
@@ -1150,30 +1154,41 @@
         
         // ===== PDF-LUONNIN APUFUNKTIOT (OHJE 2 MUKAAN) =====
 
+        // KORJATTU: Viimeisin, kestävä versio 'getShotsForPeriod'-funktiosta
         /**
          * Hakee pelin laukaukset tietylle erälle (tai 'summary' kaikille)
+         * Käsittelee "vanhan datan" (kaikilta puuttuu period) ja "seka-datan" (joiltain puuttuu period).
          */
         function getShotsForPeriod(game, period) {
             const allShots = Array.isArray(game.shots) ? game.shots : [];
             if (allShots.length === 0) return [];
 
-            // KORJATTU: Tarkista, onko tämä "vanhaa dataa" (yhdelläkään laukauksella ei ole 'period'-kenttää)
-            // Tämä oletus on turvallisempi. Jos yksikin laukaus on ilman periodia, käsitellään vanhana.
-            const isOldData = allShots.length > 0 && allShots.some(s => s.period == null);
+            // UUSI LOGIIKKA:
+            // "Vanha data" = KAIKILTA laukauksilta puuttuu period-kenttä
+            // jos yksikin laukaus on tallennettu period-kentällä, käsitellään uutena datana
+            const allHaveNoPeriod = allShots.every(s => s.period == null);
 
-            if (isOldData) {
-                // Vanha data: kaikki laukaukset kuuluvat 'summary'-näkymään
+            if (allHaveNoPeriod) {
+                // Jos kaikki laukaukset ovat vanhaa mallia -> ei eräkohtaisia tietoja
                 return (period === 'summary') ? allShots : [];
             }
 
-            // Uusi data:
+            // UUSI DATA:
             if (period === 'summary') {
                 return allShots;
             }
             
             const periodNum = Number(period);
-            return allShots.filter(shot => Number(shot.period) === periodNum);
+            return allShots.filter(shot => {
+                // Jos joltain laukaukselta puuttuu period, laitetaan se varmuuden vuoksi Erä 1:een,
+                // jotta se ei jää datasta kokonaan.
+                if (shot.period == null) {
+                    return periodNum === 1;
+                }
+                return Number(shot.period) === periodNum;
+            });
         }
+
 
         /**
          * Hakee yksittäisen pelaajan tilastot erälle
@@ -1258,7 +1273,7 @@
             drawFieldBackground(ctx, W, H);
 
             // Tässä 'game' on jo esifiltteröity {shots: [...]} -objekti
-            const shots = game.shots; 
+            const shots = getShotsForPeriod(game, period); 
 
             shots.forEach(shot => {
                 const px = (shot.x / 100) * W;
@@ -1405,9 +1420,9 @@
                 yPos += 15;
 
                 // --- Käy läpi erät (VANHA vs UUSI data) ---
-                // KORJATTU: Tunnista "vanha data" siitä, että YKSIKIN laukaus on ilman period-tietoa
+                // KORJATTU: Tunnista "vanha data" siitä, että KAIKILTA laukauksilta puuttuu period-tieto
                 const allShots = Array.isArray(game.shots) ? game.shots : [];
-                const isOldData = allShots.length > 0 && allShots.some(s => s.period == null);
+                const isOldData = allShots.length > 0 && allShots.every(s => s.period == null);
 
                 const periodsToRender = isOldData ? ['summary'] : [1, 2, 3, 'summary'];
                 
@@ -1415,7 +1430,7 @@
                     
                     const title = (period === 'summary' || isOldData) ? 'Koko ottelu' : `Erä ${period}`;
 
-                    // Hae erän laukaukset (getShotsForPeriod osaa nyt käsitellä vanhan datan)
+                    // Hae erän laukaukset (getShotsForPeriod osaa nyt käsitellä vanhan/uuden datan)
                     const shotsForPeriod = getShotsForPeriod(game, period);
                     
                     // Jos pelaajaraportti, suodata vain pelaajan laukaukset
@@ -1441,8 +1456,8 @@
                     const stats = isPlayerReport ? null : getStatsForPeriod(game, period);
                     
                     const canvas = isPlayerReport ?
-                        createShotmapCanvasForPdf({ shots: playerShotsForPeriod }, 'summary') : // Käytä jo filtteröityä listaa
-                        createShotmapCanvasForPdf({ shots: shotsForPeriod }, 'summary'); // Käytä jo filtteröityä listaa
+                        createShotmapCanvasForPdf({ shots: playerShotsForPeriod, ...game }, 'summary') : // Annetaan filtteröidyt laukaukset
+                        createShotmapCanvasForPdf(game, period); // Annetaan koko peli ja erä
                         
                     const imgData = canvas.toDataURL('image/png');
                     
