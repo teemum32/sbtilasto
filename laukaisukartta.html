@@ -82,7 +82,8 @@
     const teamList   = document.getElementById("team-list");
     const newTeamInput = document.getElementById("new-team-input");
     const newTeamBtn   = document.getElementById("new-team-btn");
-    const logoutBtnTeams = document.getElementById("logout-btn-teams"); // Lisätty
+    const logoutBtnTeams = document.getElementById("logout-btn-teams"); 
+    const loggedInUserDisplay = document.getElementById("logged-in-user"); // UUSI
 
     const opponentInput = document.getElementById("opponent-input");
     const startGameBtn  = document.getElementById("start-game-btn");
@@ -100,7 +101,6 @@
     const seasonBackBtn  = document.getElementById("season-back-btn");
     const seasonContent  = document.getElementById("season-content");
 
-    // Lisätty takaisin-napit
     const setupBackBtn = document.getElementById("setup-back-btn");
     const appBackBtn = document.getElementById("app-back-btn");
 
@@ -124,6 +124,10 @@
       if(viewSetup) viewSetup.classList.add("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.add("hidden");
+      // UUSI: Näytä kirjautuneen käyttäjän UID
+      if (loggedInUserDisplay) {
+        loggedInUserDisplay.textContent = `Kirjautunut UID: ${currentUser?.uid || 'Ei tunnistettu'}`;
+      }
     }
     function showHome() {
       if(viewAuth) viewAuth.classList.add("hidden");
@@ -144,7 +148,6 @@
       if(viewSetup) viewSetup.classList.remove("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.add("hidden");
-      // roster näkyviin tekstialueeseen
       const ta = document.getElementById("roster-textarea");
       if (ta) {
         ta.value = Object.keys(rosterData)
@@ -183,8 +186,7 @@
               emailInput.value.trim(),
               passInput.value
             );
-            console.log("Kirjautuminen onnistui:", cred.user.email);
-            // kaikki muu tapahtuu onAuthStateChanged:ssä
+            console.log("Kirjautuminen onnistui:", cred.user.email, "UID:", cred.user.uid);
           } catch (err) {
             console.error("Kirjautumisvirhe:", err.message);
             if(loginErr) loginErr.textContent = err.message;
@@ -204,17 +206,21 @@
         return;
       }
       currentUser = user;
-      // 1) haetaan kaikki rosterit TÄSTÄ polusta:
+      console.log("Kirjautunut käyttäjä:", currentUser.uid); // TÄRKEÄ
       await loadAllRostersForUser(user.uid);
-      // 2) haetaan pelit
       listenForGames(user.uid);
-      // 3) jos käyttäjällä oli viimeksi valittu joukkue, otetaan se
+      
       const last = localStorage.getItem("fs_selected_team");
+      console.log("Viimeksi valittu tiimi (localStorage):", last);
+      console.log("Ladatut tiimit:", allTeams.map(t => t.id));
+
       if (last && allTeams.find(t => t.id === last)) {
+        console.log("Löytyi viimeksi valittu tiimi, näytetään koti.");
         currentTeamId = last;
         rosterData = allTeams.find(t => t.id === last).players || {};
         showHome();
       } else {
+        console.log("Ei löytynyt tiimejä TAI viimeksi valittua. Näytetään tiimin valinta.");
         showTeams();
       }
     });
@@ -223,8 +229,10 @@
      * 6. ROSTERIEN HAKU OIKEASTA POLUSTA
      ***********************************************************/
     async function loadAllRostersForUser(uid) {
-      console.log("Ladataan rosterit käyttäjälle:", uid);
-      // KORJATTU POLKU: Palautettu "artifacts" ja "default-app-id"
+      // KÄYTETÄÄN POLKUA, JOKA NÄKYI SCREENSHOTISSA
+      const path = `artifacts/default-app-id/users/${uid}/roster`;
+      console.log("Ladataan rosterit polusta:", path);
+      
       const rosterCol = collection(
         db,
         "artifacts",
@@ -233,21 +241,29 @@
         uid,
         "roster"
       );
+      
       try {
         const snap = await getDocs(rosterCol);
         allTeams = snap.docs.map(d => ({
-          id: d.id,
+          id: d.id, // d.id on "Varta P19" jne.
           ...(d.data() || {})
         }));
         console.log("Rosterit ladattu:", allTeams.length, "kpl");
         renderTeamList();
       } catch (err) {
         console.error("Rosterien lataus epäonnistui:", err);
+        // NÄYTÄ VIRHE KÄYTTÄJÄLLE
+        if (teamList) {
+          teamList.innerHTML = `<p class="text-red-400 text-sm">Virhe ladattaessa joukkueita: ${err.message}</p>`;
+        }
       }
     }
 
     function renderTeamList() {
       if (!teamList) return;
+      // Älä tyhjennä jos virhe näytettiin
+      if (teamList.innerHTML.includes('Virhe')) return; 
+
       teamList.innerHTML = "";
       if (!allTeams.length) {
         teamList.innerHTML = `<p class="text-slate-400 text-sm">Ei joukkueita vielä. Luo uusi.</p>`;
@@ -276,7 +292,7 @@
         const name = newTeamInput.value.trim();
         if (!name || !currentUser) return;
         console.log("Luodaan uusi joukkue:", name);
-        // KORJATTU POLKU:
+        
         const ref = doc(
           db,
           "artifacts",
@@ -287,6 +303,7 @@
           name
         );
         try {
+          // Tallenna dokumentti, jonka sisällä on 'players'-kenttä
           await setDoc(ref, { players: {} });
           newTeamInput.value = "";
           await loadAllRostersForUser(currentUser.uid);
@@ -322,7 +339,6 @@
       });
     }
 
-    // Lisätty listener tiiminäkymän uloskirjautumisnapille
     if (logoutBtnTeams) {
       logoutBtnTeams.addEventListener("click", async () => {
         await signOut(auth);
@@ -331,7 +347,6 @@
       });
     }
 
-    // Lisätty listenerit takaisin-napeille
     if (setupBackBtn) {
       setupBackBtn.addEventListener("click", () => {
         showHome();
@@ -340,7 +355,6 @@
 
     if (appBackBtn) {
       appBackBtn.addEventListener("click", () => {
-        // Varmuuden vuoksi nollataan peli jos poistutaan kesken
         currentGame = null; 
         showHome();
       });
@@ -353,7 +367,6 @@
     if (startGameBtn) {
       startGameBtn.addEventListener("click", async () => {
         const opponent = opponentInput.value.trim() || "Vieras";
-        // päivitetään roster jos käyttäjä muokkasi textareaa
         const rosterText = document.getElementById("roster-textarea").value;
         const ta = rosterText.split("\n")
           .map(l => l.trim())
@@ -368,10 +381,9 @@
           }
         });
 
-        // tallenna muokattu roster takaisin samaan dokumenttiin
         if (currentUser && currentTeamId) {
           console.log("Päivitetään roster:", currentTeamId);
-          // KORJATTU POLKU:
+          // Tässä päivitetään olemassa olevaa tiimidokumenttia
           const ref = doc(
             db,
             "artifacts",
@@ -379,9 +391,10 @@
             "users",
             currentUser.uid,
             "roster",
-            currentTeamId
+            currentTeamId // TÄMÄ on dokumentin ID (esim. "Varta P19")
           );
           try {
+            // Päivitä 'players'-kenttä tämän dokumentin sisällä
             await setDoc(ref, { players: newRoster }, { merge: true });
           } catch (err) {
             console.error("Rosterin päivitys epäonnistui:", err);
@@ -389,7 +402,6 @@
         }
         rosterData = newRoster;
 
-        // luodaan uusi peli APP-tilaan
         currentGame = {
           date: new Date().toISOString(),
           opponent,
@@ -417,15 +429,14 @@
       if (!currentGame) return;
       currentGame.players.forEach(num => {
         const div = document.createElement("div");
-        div.className = "player-number"; // TÄHÄN TARVITSET CSS-TYYLIT!
+        div.className = "player-number"; 
         div.textContent = num;
         homePlayerList.appendChild(div);
       });
-      // vain yksi vieras
       if (!awayPlayerList) return;
       awayPlayerList.innerHTML = "";
       const av = document.createElement("div");
-      av.className = "player-number"; // TÄHÄN TARVITSET CSS-TYYLIT!
+      av.className = "player-number"; 
       av.textContent = "V";
       awayPlayerList.appendChild(av);
     }
@@ -436,19 +447,18 @@
     if (fieldContainer) {
       fieldContainer.addEventListener("click", (e) => {
         if (!currentGame) return;
-        // testiversio: tehdään aina KOTI laukaus maali
         const rect = fieldContainer.getBoundingClientRect();
         const xPct = ((e.clientX - rect.left) / rect.width) * 100;
         const yPct = ((e.clientY - rect.top) / rect.height) * 100;
         const shot = {
           id: Date.now(),
           team: "home",
-          player: currentGame.players[0] || 0,
-          outcome: "goal",
+          player: currentGame.players[0] || 0, // placeholder
+          outcome: "goal", // placeholder
           x: xPct,
           y: yPct,
           period: currentGame.currentPeriod,
-          xG: 0.25
+          xG: 0.25 // placeholder
         };
         console.log("Uusi laukaus lisätty:", shot);
         currentGame.shots.push(shot);
@@ -463,7 +473,7 @@
       if (!currentGame) return;
       currentGame.shots.forEach(s => {
         const m = document.createElement("div");
-        m.className = "shot-marker " + (s.outcome === "goal" ? "goal" : "miss"); // TÄHÄN TARVITSET CSS-TYYLIT!
+        m.className = "shot-marker " + (s.outcome === "goal" ? "goal" : "miss"); 
         m.style.left = s.x + "%";
         m.style.top  = s.y + "%";
         const span = document.createElement("span");
@@ -504,7 +514,6 @@
         if (!currentUser || !currentGame) return;
         console.log("Tallennetaan peli...");
         try {
-          // KORJATTU POLKU:
           await addDoc(
             collection(
               db,
@@ -529,7 +538,6 @@
      * 12. KAUSINÄKYMÄ
      ***********************************************************/
     function listenForGames(uid) {
-      // KORJATTU POLKU:
       const gamesCol = collection(
         db,
         "artifacts",
@@ -541,7 +549,6 @@
       onSnapshot(gamesCol, (snap) => {
         console.log("Kausidata päivittyi, pelejä:", snap.docs.length);
         seasonData.games = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // jos kausinäkymä auki, piirrä
         if (seasonView && !seasonView.classList.contains("hidden")) {
           renderSeasonView();
         }
@@ -571,7 +578,6 @@
           del.addEventListener("click", async () => {
             console.log("Poistetaan peli:", g.id);
             try {
-              // KORJATTU POLKU:
               await deleteDoc(doc(
                 db,
                 "artifacts",
@@ -669,6 +675,8 @@
   <div id="team-view" class="hidden min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-800 p-6 rounded-lg shadow">
       <h2 class="text-2xl font-bold mb-4 text-center">Valitse tai luo joukkue</h2>
+      <!-- UUSI ELEMENTTI NÄYTTÄÄ UID:N -->
+      <div id="logged-in-user" class="text-center text-xs text-slate-400 mb-4 break-all"></div>
       <div id="team-list" class="mb-4 space-y-2"></div>
       <input id="new-team-input" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600" placeholder="Uuden joukkueen nimi">
       <button id="new-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-2 rounded font-semibold">Luo uusi joukkue</button>
