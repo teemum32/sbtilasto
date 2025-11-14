@@ -16,8 +16,8 @@
     <title>Salibandyn Kausitilastot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <!-- HUOM: html2canvas ei enää tarvita PDF-luontiin, mutta pidetään se, jos sitä käytetään muualla -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- HUOM: html2canvas EI ENÄÄ TARVITA PDF-RAPORTEISSA -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -648,16 +648,7 @@
         }
 
         function prefillRosterInput() { playerRosterInput.value = Object.keys(rosterData).map(Number).sort((a,b)=>a-b).map(num => `${num} ${rosterData[num]||''}`).join('\n'); }
-        
-        // KORJATTU: Käyttää nyt uutta getShotsForPeriod-funktiota
-        function renderShots() { 
-            const shotsLayer = document.getElementById('shots-layer'); 
-            if(shotsLayer) { 
-                shotsLayer.innerHTML = ''; 
-                const shotsToRender = getShotsForPeriod(currentGame, currentGame.currentPeriod);
-                shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); 
-            } 
-        }
+        function renderShots() { const shotsLayer = document.getElementById('shots-layer'); if(shotsLayer) { shotsLayer.innerHTML = ''; const shotsToRender = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod); shotsToRender.forEach(s => shotsLayer.appendChild(createShotMarker(s))); } }
         
         function createShotMarker(shotData) {
             const s = document.createElement('div');
@@ -675,12 +666,11 @@
             return shot.team === 'away' ? 'away' : 'home';
         }
 
-        // KORJATTU: Käyttää nyt uutta getShotsForPeriod-funktiota
         function updateStats() {
             if (!currentGame?.shots) return;
 
             const period = currentGame.currentPeriod;
-            const set = getShotsForPeriod(currentGame, period); // KORJATTU TÄMÄ
+            const set = currentGame.shots.filter(s => period === 'summary' ? true : s.period === period);
 
             let stats = { home:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0},
                           away:{goals:0,shots:0,xg:0,saves:0,blocks:0,qualityHigh:0,qualityLow:0} };
@@ -689,9 +679,7 @@
                 const side = normalizeSideFromShot(shot);
                 const opp  = side === 'home' ? 'away' : 'home';
                 stats[side].shots++;
-                // Varmistetaan että xG lasketaan (jos puuttuu vanhasta datasta)
-                const xg = shot.xG ?? calculateXg(shot.x, shot.y, shot.team);
-                stats[side].xg += xg;
+                stats[side].xg += calculateXg(shot.x, shot.y, shot.team);
                 if (shot.outcome === 'goal')  stats[side].goals++;
                 if (shot.outcome === 'save')  stats[opp].saves++;
                 if (shot.outcome === 'block') stats[opp].blocks++;
@@ -776,9 +764,6 @@
                 const delta = now - posLastSwitch;
                 addPossessionTime(posActiveTeam, delta);
             }
-            // Päivitä summary-objekti heti pysähtyessä
-            updatePossessionSummary();
-            
             posActiveTeam = null;
             posLastSwitch = null;
             posClockMs = 0;
@@ -797,27 +782,10 @@
                 currentGame.possession[key][team] += ms;
             }
         }
-        
-        // Laske summary-kenttä uudelleen erien perusteella
-        function updatePossessionSummary() {
-            if (!currentGame.possession) return;
-            let home = 0, away = 0;
-            [1,2,3].forEach(p => {
-                if (currentGame.possession[p]) {
-                    home += currentGame.possession[p].home || 0;
-                    away += currentGame.possession[p].away || 0;
-                }
-            });
-            currentGame.possession.summary = { home, away };
-        }
-
 
         // Renderöi pylvään ja prosentit nykyisen näkymän mukaan
         function renderPossession() {
             if (!currentGame || !currentGame.possession) return;
-            // Varmistetaan että summary on ajan tasalla
-            updatePossessionSummary();
-            
             const poss = getPossessionPctFor(currentGame, currentGame.currentPeriod);
             
             // palkit
@@ -844,26 +812,27 @@
             // Palauttaa { homeMs, awayMs, homePct, awayPct }
             const pos = game.possession || {};
             let homeMs = 0, awayMs = 0;
-            const currentPeriodNum = Number(game.currentPeriod);
+            const currentPeriod = game.currentPeriod; // Haetaan tämä erikseen
 
             if (period === 'summary') {
-                // Käytä laskettua summary-kenttää, jos se on olemassa
-                homeMs = pos.summary?.home || 0;
-                awayMs = pos.summary?.away || 0;
+                [1,2,3].forEach(p => {
+                    if (pos[p]) { homeMs += pos[p].home || 0; awayMs += pos[p].away || 0; }
+                });
             } else if ([1,2,3].includes(Number(period))) {
                 const periodNum = Number(period);
                 homeMs = (pos[periodNum]?.home || 0);
                 awayMs = (pos[periodNum]?.away || 0);
 
                 // Jos kyseessä on NYKYINEN erä ja timer käy, lasketaan käynnissä oleva segmentti mukaan näyttöön
-                if (game === currentGame && currentPeriodNum === periodNum && typeof performance !== 'undefined' && posActiveTeam && posLastSwitch != null) {
+                if (game === currentGame && Number(currentPeriod) === periodNum && typeof performance !== 'undefined' && posActiveTeam && posLastSwitch != null) {
                     const delta = performance.now() - posLastSwitch;
                     if (posActiveTeam === 'home') homeMs += delta; else awayMs += delta;
                 }
             } else {
                 // Muissa näkymissä (esim. plus-minus, season) näytetään summat
-                homeMs = pos.summary?.home || 0;
-                awayMs = pos.summary?.away || 0;
+                [1,2,3].forEach(p => {
+                    if (pos[p]) { homeMs += pos[p].home || 0; awayMs += pos[p].away || 0; }
+                });
             }
 
             const total = homeMs + awayMs;
@@ -887,8 +856,8 @@
                 
                 let sortedPlayers = [...allPlayers];
                 sortedPlayers.sort((a, b) => {
-                    const statsA = playerStats[a] || { games:0, shots:0, goals:0, plus:0, minus:0, qualityHigh:0, qualityLow:0, xG: 0 };
-                    const statsB = playerStats[b] || { games:0, shots:0, goals:0, plus:0, minus:0, qualityHigh:0, qualityLow:0, xG: 0 };
+                    const statsA = playerStats[a] || { games:0, shots:0, goals:0, plus:0, minus:0, qualityHigh:0, qualityLow:0, xg: 0 };
+                    const statsB = playerStats[b] || { games:0, shots:0, goals:0, plus:0, minus:0, qualityHigh:0, qualityLow:0, xg: 0 };
                     let valA, valB;
 
                     switch (sortKey) {
@@ -943,20 +912,6 @@
                 if (safeGames.length > 0) {
                     safeGames.forEach(game => {
                         const s = getGameStats(game);
-                        // Varmista, että summary lasketaan vanhoille peleille
-                        if (!game.possession || !game.possession.summary) {
-                            updatePossessionSummary(); // Tämä toimii vain currentGameen...
-                            // Lasketaan lennosta vanhoille peleille
-                            let homeMs = 0, awayMs = 0;
-                            [1,2,3].forEach(p => {
-                                if (game.possession && game.possession[p]) {
-                                    homeMs += game.possession[p].home || 0;
-                                    awayMs += game.possession[p].away || 0;
-                                }
-                            });
-                            game.possession.summary = { home: homeMs, away: awayMs };
-                        }
-                        
                         const possG = getPossessionPctFor(game, 'summary');
                         const ts = safeDateValue(game);
                         const dateStr = Number.isFinite(ts) ? new Date(ts).toLocaleDateString('fi-FI') : '—';
@@ -989,15 +944,19 @@
                     else if (sharePlayersBtn) { shareDataByEmail('players'); } 
                     else if (shareGameBtn) { shareDataByEmail('game', shareGameBtn.dataset.gameId); } 
                     else if (deleteGameBtn) { e.preventDefault(); showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)); } 
+                    
+                    // KORJATTU: Yhdistetty kutsumaan uutta 'openGamePdf'-funktiota
                     else if (pdfBtn) { 
                         e.preventDefault(); 
                         window.__allowBlobNavFor();
-                        generatePdfReport(pdfBtn.dataset.gameId, pdfBtn); 
+                        const game = (seasonData.games || []).find(g => g.id === pdfBtn.dataset.gameId);
+                        if (game) openGamePdf(game, null, pdfBtn); 
                     }
                     else if (playerReportBtn) { 
                         e.preventDefault(); 
                         window.__allowBlobNavFor();
-                        generatePlayerPdfReport(playerReportBtn.dataset.gameId, playerReportBtn.dataset.playerNum, playerReportBtn); 
+                        const game = (seasonData.games || []).find(g => g.id === playerReportBtn.dataset.gameId);
+                        if (game) openGamePdf(game, playerReportBtn.dataset.playerNum, playerReportBtn); 
                     }
                 });
             } catch (err) {
@@ -1013,8 +972,7 @@
                 const teamKey = (shot.team === 'away') ? 'away' : 'home'; const oppKey  = (teamKey === 'home') ? 'away' : 'home';
                 const shooter = s[teamKey], opponent = s[oppKey];
                 shooter.shots++; 
-                const xg = shot.xG ?? calculateXg(shot.x, shot.y, shot.team);
-                shooter.xg += xg;
+                shooter.xg += calculateXg(shot.x, shot.y, shot.team); // Recalculate xG
                 if (shot.quality === 'high') shooter.qualityHigh++; if (shot.quality === 'low')  shooter.qualityLow++;
                 if (shot.outcome === 'goal') shooter.goals++; if (shot.outcome === 'save') opponent.saves++; if (shot.outcome === 'block') opponent.blocks++;
             });
@@ -1032,7 +990,7 @@
             let playerStats = allGamePlayers.map(pNum => {
                 const p = Number(pNum);
                 const pShots = shots.filter(s => s.team === 'home' && Number(s.player) === p);
-                const xg = pShots.reduce((sum, s) => sum + (s.xG ?? calculateXg(s.x, s.y, s.team)), 0);
+                const xg = pShots.reduce((sum, s) => sum + calculateXg(s.x, s.y, s.team), 0);
                 const goals  = pShots.filter(s => s.outcome === 'goal').length;
                 const qH = pShots.filter(s => s.quality === 'high').length;
                 const qL = pShots.filter(s => s.quality === 'low').length;
@@ -1091,7 +1049,7 @@
                 </div>`;
 
             const container = document.createElement('div');
-            container.innerHTML = `<div class="space-y-3"><div><p class="font-semibold text-sm">Joukkueet</p><div class="text-xs text-slate-400 mt-1"><p><b>Koti:</b> L ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, T ${gameStats.home.saves}, B ${gameStats.home.blocks}</p><p><b>Vieras:</b> L ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, T ${gameStats.away.saves}, B ${gameStats.away.blocks}</p></div></div><div><p class="font-semibold text-sm mt-3">Pelaajat</p>${headerHTML}${html || `<div class="text-center text-slate-400 py-2">Ei pelaajakohtaisia tilastoja.</div>`}</div></div>`;
+            container.innerHTML = `<div class="space-y-3"><div><p class="font-semibold text-sm">Joukkueet</p><div class="text-xs text-slate-400 mt-1"><p><b>Koti:</b> L ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, T ${gameStats.home.saves}, B ${gameStats.home.blocks}</p><p><b>Vieras:</b> L ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, T ${gameStats.away.saves}, B ${gameStats.away.blocks}</p></div></div><div><p class="font-semibold text-sm mt-3">Pelaajat</p>${headerHTML}${html || `<div class="text-center text-slate-400 py-2">Ei pelaajakohtaisia tilstoja.</div>`}</div></div>`;
             
             container.querySelectorAll('[data-sort-game]').forEach(header => {
                 const key = header.dataset.sortGame;
@@ -1142,8 +1100,7 @@
                         const p = Number(shot.player); 
                         if (seasonPlayerStats[p]) { 
                             seasonPlayerStats[p].shots++; 
-                            const xg = shot.xG ?? calculateXg(shot.x, shot.y, shot.team);
-                            seasonPlayerStats[p].xg += xg;
+                            seasonPlayerStats[p].xg += calculateXg(shot.x, shot.y, shot.team);
                             if (shot.outcome === 'goal') seasonPlayerStats[p].goals++; 
                             if (shot.quality === 'high') seasonPlayerStats[p].qualityHigh++; 
                             if (shot.quality === 'low') seasonPlayerStats[p].qualityLow++; 
@@ -1166,14 +1123,10 @@
         function generateAndDownloadXLSX_Game(game, filename) { const data = [["Pelaaja", "Laukaukset", "Maalit", "Laadukkaat", "Heikot", "Teho %", "+/-"]]; game.players.forEach(pNum => { const shots = game.shots.filter(s => s.team === 'home' && s.player == pNum), goals = shots.filter(s => s.outcome === 'goal').length; const qH = shots.filter(s=>s.quality==='high').length; const qL = shots.filter(s=>s.quality==='low').length; const pm = game.plusMinus[pNum]; if (shots.length > 0 || pm?.plus > 0 || pm?.minus > 0) { data.push([`#${pNum} ${game.roster[pNum]||''}`, shots.length, goals, qH, qL, shots.length > 0 ? (goals/shots.length):0, (pm?.plus || 0) - (pm?.minus || 0)]); } }); const ws = XLSX.utils.aoa_to_sheet(data); ws['!cols'] = [{wch:20}, {wch:10}, {wch:8}, {wch:10}, {wch:8}, {wch:8}, {wch:8}]; for (let i = 2; i <= data.length; i++) { if(ws[`F${i}`]) { ws[`F${i}`].t = 'n'; ws[`F${i}`].z = '0%'; } } const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, `Ottelu ${game.opponent}`); downloadXLSX(wb, filename); }
         function downloadXLSX(workbook, filename) { const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }); const blob = new Blob([wbout], { type: 'application/octet-stream' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(link.href); }
         
-        // =================================================================
-        // UUDET JA PÄIVITETYT PDF-FUNKTIOT (OHJEIDEN MUKAAN)
-        // =================================================================
+        // ===== PDF-LUONNIN APUFUNKTIOT (OHJE 2 MUKAAN) =====
 
-        // UUSI APUFUNKTIO (Ohje 2)
         /**
-         * Hakee filtteröidyn listan laukauksista tietylle erälle.
-         * Käsittelee 'summary'-tilan ja vanhan datan, josta 'period'-kenttä voi puuttua.
+         * Hakee pelin laukaukset tietylle erälle (tai 'summary' kaikille)
          */
         function getShotsForPeriod(game, period) {
             if (!Array.isArray(game.shots)) return [];
@@ -1182,21 +1135,20 @@
             if (period === 'summary') {
                 return game.shots;
             }
-
+            
+            const periodNum = Number(period);
             return game.shots.filter(shot => {
                 // Vanhoissa otteluissa ei ehkä ole period-kenttää:
                 if (shot.period == null) {
                     // tulkitaan ne eräksi 1, ettei data katoa
-                    return period === 1;
+                    return periodNum === 1;
                 }
-                return shot.period === period;
+                return Number(shot.period) === periodNum;
             });
         }
 
-        // PÄIVITETTY FUNKTIO (Ohje 2)
         /**
-         * Laskee tilastot (laukaukset, maalit, xG, jne.) tietylle erälle.
-         * Käyttää nyt getShotsForPeriod-funktiota.
+         * Laskee erän tilastot (korvaa vanhan getStatsForPeriod)
          */
         function getStatsForPeriod(game, period) {
             const shots = getShotsForPeriod(game, period);
@@ -1204,17 +1156,16 @@
                 home: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 },
                 away: { goals: 0, shots: 0, xg: 0, saves: 0, blocks: 0, qualityHigh: 0, qualityLow: 0 }
             };
-            
+
             shots.forEach(shot => {
-                const teamKey = (shot.team === 'away') ? 'away' : 'home';
+                const teamKey = (shot.team === 'away') ? 'away' : 'home'; 
                 const oppKey  = (teamKey === 'home') ? 'away' : 'home';
                 const shooter = stats[teamKey], opponent = stats[oppKey];
-
-                shooter.shots++;
-                // Varmistetaan että xG on laskettu
-                const xg = shot.xG ?? calculateXg(shot.x, shot.y, shot.team);
-                shooter.xg += xg;
                 
+                shooter.shots++;
+                // Käytetään tallennettua xG-arvoa, jos se on olemassa, muuten lasketaan
+                shooter.xg += (shot.xG != null) ? shot.xG : calculateXg(shot.x, shot.y, shot.team);
+
                 if (shot.outcome === 'goal') shooter.goals++;
                 if (shot.outcome === 'save') opponent.saves++;
                 if (shot.outcome === 'block') opponent.blocks++;
@@ -1223,111 +1174,116 @@
             });
             return stats;
         }
-        
-        // UUSI APUFUNKTIO (Ohje 2:n toteutukseen)
+
         /**
-         * Palauttaa laukauksen tyylit PDF-canvas-piirtoa varten.
+         * Hakee yksittäisen pelaajan tilastot erälle
+         */
+        function getPlayerStatsForPeriod(game, playerNum, period) {
+            const pNum = Number(playerNum);
+            const shots = getShotsForPeriod(game, period).filter(s =>
+                s.team === 'home' && Number(s.player) === pNum
+            );
+
+            const agg = { goals: 0, shots: 0, xg: 0, qualityHigh: 0, qualityLow: 0 };
+            shots.forEach(shot => {
+                agg.shots++;
+                agg.xg += (shot.xG != null) ? shot.xG : calculateXg(shot.x, shot.y, shot.team);
+                if (shot.outcome === 'goal') agg.goals++;
+                if (shot.quality === 'high') agg.qualityHigh++;
+                if (shot.quality === 'low')  agg.qualityLow++;
+            });
+            return agg;
+        }
+
+        /**
+         * Palauttaa laukauksen tyylit PDF-piirtoa varten
          */
         function getShotStyle(shot) {
-            const fill = shot.outcome === 'goal' ? '#10B981' :
-                         shot.outcome === 'miss' ? '#3B82F6' :
-                         shot.outcome === 'block' ? '#FACC15' : '#EF4444';
+            const style = {
+                fill: '#3B82F6',   // miss (default)
+                stroke: '#ffffff', // valkoinen reunus (default)
+                text: '#ffffff',   // valkoinen teksti (default)
+            };
             
-            let stroke = '#ffffff'; // Oletusreuna
-            let lineWidth = 2;
-            if (shot.quality === 'high') {
-                stroke = '#b91c1c';
-                lineWidth = 4;
-            } else if (shot.quality === 'low') {
-                stroke = '#2563eb';
-                lineWidth = 4;
+            switch (shot.outcome) {
+                case 'goal':  style.fill = '#10B981'; break;
+                case 'save':  style.fill = '#EF4444'; break;
+                case 'block': style.fill = '#FACC15'; style.text = '#111827'; break; // tumma teksti
             }
 
-            const text = (shot.outcome === 'block') ? '#111827' : '#ffffff';
-            return { fill, stroke, text, lineWidth };
+            if (shot.quality === 'high') style.stroke = '#b91c1c';
+            if (shot.quality === 'low')  style.stroke = '#2563eb';
+            
+            return style;
         }
-        
-        // UUSI APUFUNKTIO (Ohje 2:n toteutukseen)
+
         /**
-         * Piirtää salibandykentän taustan PDF-canvas-elementtiin.
+         * Piirtää salibandykentän viivat canvas-kontekstiin
          */
         function drawFieldBackground(ctx, W, H) {
+            // Tausta
             ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, W, H);
+            
+            // Reunus
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, W, H);
+
+            // Viivat (skaalattu 400x200 -> WxH)
             ctx.strokeStyle = '#94a3b8';
             ctx.lineWidth = 2;
-
-            ctx.fillRect(0, 0, W, H);
-            ctx.strokeRect(0, 0, W, H); // Ulkoreuna
-
-            // Keskiviiva (SVG: x1="200" y1="0" x2="200" y2="200" / viewBox 400x200)
-            const midX = W / 2;
-            ctx.beginPath();
-            ctx.moveTo(midX, 0);
-            ctx.lineTo(midX, H);
-            ctx.stroke();
-
-            // Maalialueet (SVG: rect x="30" y="75" width="40" height="50" ... 330)
-            const boxW = (40 / 400) * W;
-            const boxH = (50 / 200) * H;
-            const boxY = (75 / 200) * H;
             
-            const leftBoxX = (30 / 400) * W;
-            ctx.strokeRect(leftBoxX, boxY, boxW, boxH);
-
-            const rightBoxX = (330 / 400) * W;
-            ctx.strokeRect(rightBoxX, boxY, boxW, boxH);
-
-            // Maaliviivat (SVG: line x1="40" y1="90" x2="40" y2="110" ... 360)
-            const lineY1 = (90 / 200) * H;
-            const lineY2 = (110 / 200) * H;
-            
-            const leftLineX = (40 / 400) * W;
+            // Keskiviiva
             ctx.beginPath();
-            ctx.moveTo(leftLineX, lineY1);
-            ctx.lineTo(leftLineX, lineY2);
+            ctx.moveTo(W / 2, 0);
+            ctx.lineTo(W / 2, H);
             ctx.stroke();
 
-            const rightLineX = (360 / 400) * W;
-            ctx.beginPath();
-            ctx.moveTo(rightLineX, lineY1);
-            ctx.lineTo(rightLineX, lineY2);
-            ctx.stroke();
+            // Maalialueet (skaalattu 30,75,40,50 ja 330,75,40,50)
+            ctx.strokeRect((30 / 400) * W, (75 / 200) * H, (40 / 400) * W, (50 / 200) * H);
+            ctx.strokeRect((330 / 400) * W, (75 / 200) * H, (40 / 400) * W, (50 / 200) * H);
         }
 
-        // UUSI APUFUNKTIO (Ohje 2)
         /**
-         * Luo laukaisukartan suoraan canvas-elementille (html2canvas-korvaaja).
+         * Luo canvas-elementin, jossa on erän/pelin laukaisukartta
          */
         function createShotmapCanvasForPdf(game, period) {
             const canvas = document.createElement('canvas');
-            canvas.width  = 800;
-            canvas.height = 400;
+            const W = 800, H = 400; // 2:1 suhde
+            canvas.width = W;
+            canvas.height = H;
             const ctx = canvas.getContext('2d');
 
-            drawFieldBackground(ctx, canvas.width, canvas.height);
+            drawFieldBackground(ctx, W, H);
 
             const shots = getShotsForPeriod(game, period);
 
             shots.forEach(shot => {
-                const px = (shot.x / 100) * canvas.width;
-                const py = (shot.y / 100) * canvas.height;
-                const label = (String(shot.player).toUpperCase() === 'V' || shot.team === 'away') ? 'V' : shot.player;
-
+                const px = (shot.x / 100) * W;
+                const py = (shot.y / 100) * H;
 
                 const style = getShotStyle(shot);
-                ctx.fillStyle   = style.fill;
-                ctx.strokeStyle = style.stroke;
-                ctx.lineWidth   = style.lineWidth;
                 
+                // Piirrä reunus (laatu) ensin
+                ctx.strokeStyle = style.stroke;
+                ctx.lineWidth = 4; // Paksumpi reunus
                 ctx.beginPath();
-                ctx.arc(px, py, 10, 0, Math.PI * 2); // 10px säde
-                ctx.fill();
+                ctx.arc(px, py, 10, 0, Math.PI * 2); // Ulkokehä
                 ctx.stroke();
 
+                // Piirrä pallo
+                ctx.fillStyle = style.fill;
+                ctx.beginPath();
+                ctx.arc(px, py, 8, 0, Math.PI * 2); // Sisäympyrä
+                ctx.fill();
+
+                // Piirrä teksti
                 ctx.fillStyle = style.text;
-                ctx.font = 'bold 9pt Inter, Arial, sans-serif';
+                ctx.font = 'bold 9pt Inter, Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                const label = (String(shot.player).toUpperCase() === 'V' || shot.team === 'away') ? 'V' : shot.player;
                 ctx.fillText(label, px, py);
             });
 
@@ -1335,306 +1291,31 @@
         }
 
         /**
-         * PÄIVITETTY PÄÄFUNKTIO PDF:n LUONTIIN (Ohjeet 1, 2, 3)
-         * - Käyttää nyt createShotmapCanvasForPdf (ei html2canvas)
-         * - Käyttää getStatsForPeriod (joka käyttää getShotsForPeriod)
-         * - Käy läpi [1, 2, 3, 'summary']
-         * - Ohittaa tyhjät erät
+         * jsPDF AutoTable-pluginin kutsuminen
          */
-        async function generatePdfReport(gameId, buttonElement) {
-            const originalText = buttonElement.textContent;
-            buttonElement.textContent = 'Luodaan…';
-            buttonElement.disabled = true;
-
-            try {
-                const game = (seasonData.games || []).find(g => g.id === gameId);
-                if (!game) throw new Error('Ottelua ei löytynyt.');
-
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-
-                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
-                const filename = `Otteluraportti ${game.opponent || ''} ${dateStr}.pdf`;
-                doc.setProperties({ title: filename });
-
-                const margin = 10;
-                const pageW = doc.internal.pageSize.getWidth();
-                const pageH = doc.internal.pageSize.getHeight();
-                let yPos = margin;
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(18);
-                doc.text(`Otteluraportti: ${game.opponent || ''}`, pageW / 2, yPos, { align: 'center' });
-                yPos += 8;
-                doc.setFontSize(12);
-                doc.text(dateStr, pageW / 2, yPos, { align: 'center' });
-                yPos += 15;
-
-                // KORJATTU SILMUKKA (Ohje 3)
-                const periods = [1, 2, 3, 'summary'];
-                for (const period of periods) {
-                    const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
-                    
-                    // KORJATTU DATAN HAKU (Ohje 2)
-                    const stats = getStatsForPeriod(game, period);
-                    const poss = getPossessionPctFor(game, period);
-                    
-                    // KORJATTU TARKISTUS (Ohje 3)
-                    const hasEvents = stats.home.shots    || stats.away.shots ||
-                                      stats.home.goals    || stats.away.goals ||
-                                      poss.homeMs > 0     || poss.awayMs > 0;
-
-                    // Älä ohita summary-sivua, vaikka peli olisi tyhjä
-                    if (period !== 'summary' && !hasEvents) {
-                        continue;
-                    }
-
-                    // KORJATTU: Käytetään suoraa canvas-piirtoa (Ohje 2)
-                    const canvas = createShotmapCanvasForPdf(game, period);
-                    const imgData = canvas.toDataURL('image/png');
-                    
-                    const imgWidth = 140;
-                    const imgHeight = (canvas.height * imgWidth) / canvas.width; // 140 * (400/800) = 70
-
-                    const sectionHeight = imgHeight + 80; // Arvioi osion korkeus
-                    if (yPos + sectionHeight > pageH - margin && period !== 1) {
-                        doc.addPage();
-                        yPos = margin;
-                    }
-
-                    doc.setFontSize(14);
-                    doc.text(title, margin, yPos);
-                    yPos += 8;
-                    
-                    doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
-                    yPos += imgHeight + 5;
-
-                    callAutoTable(doc, {
-                        startY: yPos,
-                        margin: { left: margin },
-                        theme: 'grid',
-                        head: [['Tapahtuma', 'Koti', 'Vieras']],
-                        body: [
-                            ['Maalit', stats.home.goals, stats.away.goals],
-                            ['Laukaukset', stats.home.shots, stats.away.shots],
-                            ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
-                            ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
-                            ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
-                            ['Torjunnat', stats.home.saves, stats.away.saves],
-                            ['Blokit', stats.home.blocks, stats.away.blocks],
-                            ['Pallonhallinta %', `${poss.homePct}%`, `${poss.awayPct}%`],
-                        ],
-                        styles: { font: 'helvetica', fontSize: 10 },
-                        headStyles: { fillColor: [41, 52, 72], textColor: 255 },
-                        columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:20, halign:'right'}, 2:{cellWidth:20, halign:'right'} }
-                    });
-                    
-                    yPos = doc.lastAutoTable.finalY + 15;
-                }
-
-                doc.addPage();
-                yPos = margin;
-                doc.setFontSize(16);
-                doc.text('Pelaajakohtaiset tilastot', pageW / 2, yPos, { align: 'center' });
-                yPos += 10;
-                generatePlayerStatsForPdf(doc, game, yPos);
-                
-                // PDF-näkymän näyttäminen (tämä toimi jo)
-                const pdfBlob = doc.output('blob');
-                const pdfUrl = URL.createObjectURL(pdfBlob);
-                
-                const iframe = document.getElementById('pdf-iframe');
-                iframe.src = pdfUrl;
-                document.getElementById('pdf-overlay').classList.add('visible');
-
-                // Sulje-nappi
-                document.getElementById('close-pdf-overlay').onclick = () => {
-                    document.getElementById('pdf-overlay').classList.remove('visible');
-                    iframe.src = 'about:blank';
-                    URL.revokeObjectURL(pdfUrl); // Vapauta muisti
-                };
-
-            } catch (err) {
-                console.error('PDF-raportin luonti epäonnistui:', err);
-                alert(`Raportin luonti epäonnistui: ${err?.message || err}`);
-            } finally {
-                buttonElement.textContent = originalText;
-                buttonElement.disabled = false;
-            }
-        }
-        
-        /**
-         * PÄIVITETTY FUNKTIO PELAAJARAPORTIN LUONTIIN
-         * - Käyttää nyt myös createShotmapCanvasForPdf
-         * - Käyttää getPlayerStatsForPeriod (joka käyttää getShotsForPeriod)
-         */
-        async function generatePlayerPdfReport(gameId, playerNum, buttonElement) {
-            const originalText = buttonElement.textContent;
-            buttonElement.textContent = 'Luodaan…';
-            buttonElement.disabled = true;
-
-            try {
-                const game = (seasonData.games || []).find(g => g.id === gameId);
-                if (!game) throw new Error('Ottelua ei löytynyt.');
-                
-                const pNum = Number(playerNum);
-                const playerName = (game.roster?.[pNum] || '').trim();
-                const playerLastName = playerName.split(' ').pop() || `Pelaaja ${pNum}`;
-                const playerDisplay = playerName ? `#${pNum} ${playerName}` : `#${pNum}`;
-
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
-                const filename = `Otteluraportti ${playerLastName} - ${game.opponent || ''} ${dateStr}.pdf`;
-                doc.setProperties({
-                    title: `Pelaajaraportti ${playerDisplay} vs ${game.opponent || ''}`
-                });
-
-                const margin = 10;
-                const pageW = doc.internal.pageSize.getWidth();
-                const pageH = doc.internal.pageSize.getHeight();
-                let yPos = margin;
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(18);
-                doc.text(`Pelaajaraportti: ${playerDisplay}`, pageW / 2, yPos, { align: 'center' });
-                yPos += 8;
-                doc.setFontSize(12);
-                doc.text(`Ottelu vs ${game.opponent || ''} - ${dateStr}`, pageW / 2, yPos, { align: 'center' });
-                yPos += 15;
-
-                // KORJATTU SILMUKKA
-                for (const period of ['summary', 1, 2, 3]) {
-                    const isSummary = period === 'summary';
-                    const title = isSummary ? 'Koko ottelu' : `Erä ${period}`;
-                    
-                    // KORJATTU DATAN HAKU
-                    const playerShots = getShotsForPeriod(game, period).filter(s => {
-                        return s.team === 'home' && Number(s.player) === pNum;
-                    });
-
-                    if (!isSummary && playerShots.length === 0) {
-                        continue; // Älä näytä erää, jos pelaajalla ei laukauksia
-                    }
-
-                    const stats = getPlayerStatsForPeriod(game, pNum, period);
-                    
-                    // KORJATTU: Käytetään suoraa canvas-piirtoa
-                    // Luodaan "fake game" -objekti, joka sisältää vain tämän pelaajan laukaukset
-                    const shotmapCanvas = createShotmapCanvasForPdf({ shots: playerShots }, 'summary');
-                    const imgData = shotmapCanvas.toDataURL('image/png');
-
-                    const imgWidth = 140;
-                    const imgHeight = (shotmapCanvas.height * imgWidth) / shotmapCanvas.width;
-                    
-                    const sectionHeight = imgHeight + 60; 
-                    if (yPos + sectionHeight > pageH - margin) {
-                        doc.addPage();
-                        yPos = margin;
-                    }
-
-                    doc.setFontSize(14);
-                    doc.text(title, margin, yPos);
-                    yPos += 8;
-                    
-                    doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
-                    yPos += imgHeight + 5;
-                    
-                    const pm = (game.plusMinus && game.plusMinus[pNum]) ? game.plusMinus[pNum] : { plus:0, minus:0 };
-                    const bal = (pm.plus || 0) - (pm.minus || 0);
-                    
-                    callAutoTable(doc, {
-                        startY: yPos,
-                        margin: { left: margin },
-                        theme: 'grid',
-                        head: [['Tilasto', 'Arvo']],
-                        body: [
-                            ['Laukaukset', stats.shots],
-                            ['Maalit', stats.goals],
-                            ['xG', stats.xg.toFixed(2)],
-                            ['Laadukkaat (L+)', stats.qualityHigh],
-                            ['Heikot (H-)', stats.qualityLow],
-                            ['Laukaisuprosentti', stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—'],
-                            ...(isSummary ? [['+/-', `${bal > 0 ? '+' : ''}${bal}`]] : [])
-                        ],
-                        styles: { font: 'helvetica', fontSize: 10 },
-                        headStyles: { fillColor: [41, 52, 72], textColor: 255 },
-                        columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:30, halign:'right'} }
-                    });
-                    
-                    yPos = doc.lastAutoTable.finalY + 15;
-                }
-
-                // PDF-näkymän näyttäminen
-                const pdfBlob = doc.output('blob');
-                const pdfUrl = URL.createObjectURL(pdfBlob);
-                
-                const iframe = document.getElementById('pdf-iframe');
-                iframe.src = pdfUrl;
-                document.getElementById('pdf-overlay').classList.add('visible');
-
-                // Sulje-nappi
-                document.getElementById('close-pdf-overlay').onclick = () => {
-                    document.getElementById('pdf-overlay').classList.remove('visible');
-                    iframe.src = 'about:blank';
-                    URL.revokeObjectURL(pdfUrl); // Vapauta muisti
-                };
-                
-            } catch (err) {
-                console.error('Pelaajaraportin luonti epäonnistui:', err);
-                alert(`Raportin luonti epäonnistui: ${err?.message || err}`);
-            } finally {
-                buttonElement.textContent = originalText;
-                buttonElement.disabled = false;
-            }
-        }
-
         const callAutoTable = (doc, opts) => {
-            // yritä modernia jspdfAutoTable-funktiota ensin
             if (typeof window.jspdfAutoTable === 'function') {
                 return window.jspdfAutoTable(doc, opts);
             }
-            // fallback vanhempaan doc.autoTable-metodiin
             if (typeof doc.autoTable === 'function') {
                 return doc.autoTable(opts);
             }
-            // Jos kumpaakaan ei löydy
-            console.error('jsPDF AutoTable -pluginia ei löytynyt. Varmista, että se on ladattu oikein.');
+            console.error('jsPDF AutoTable -pluginia ei löytynyt.');
             throw new Error('AutoTable-plugin ei ole ladattu');
         };
 
-        // POISTETTU: createShotmapElement (korvattu createShotmapCanvasForPdf:llä)
-        
-        // PÄIVITETTY: Käyttää nyt getShotsForPeriod
-        function getPlayerStatsForPeriod(game, playerNum, period) {
-            const pNum = Number(playerNum);
-            
-            // KORJATTU: Käytetään getShotsForPeriod
-            const shots = getShotsForPeriod(game, period).filter(s => {
-                return s.team === 'home' && Number(s.player) === pNum;
-            });
-
-            const agg = { goals: 0, shots: 0, xg: 0, qualityHigh: 0, qualityLow: 0 };
-            shots.forEach(shot => {
-                agg.shots++;
-                const xg = shot.xG ?? calculateXg(shot.x, shot.y, shot.team);
-                agg.xg += xg;
-                if (shot.outcome === 'goal') agg.goals++;
-                if (shot.quality === 'high') agg.qualityHigh++;
-                if (shot.quality === 'low')  agg.qualityLow++;
-            });
-            return agg;
-        }
-        
+        /**
+         * Luo pelaajatilastot-taulukon PDF-dokumenttiin
+         */
         function generatePlayerStatsForPdf(doc, game, startY = 20) {
             const rows = [];
             const players = (game.players || []).slice().sort((a,b)=>a-b);
+            
             players.forEach(pNum => {
                 const p = Number(pNum); 
-                // Haetaan koko ottelun statsit pelaajalle
                 const stats = getPlayerStatsForPeriod(game, p, 'summary');
-                
                 const pm = (game.plusMinus && game.plusMinus[p]) ? game.plusMinus[p] : { plus:0, minus:0 };
+                
                 const bal = (pm.plus || 0) - (pm.minus || 0); 
                 const name = (game.roster?.[p] || '').trim();
                 const display = name ? `#${p} ${name}` : `#${p}`;
@@ -1649,6 +1330,7 @@
                     `${bal > 0 ? '+' : ''}${bal}`
                 ]);
             });
+
             callAutoTable(doc, {
                 startY,
                 theme: 'grid',
@@ -1663,11 +1345,184 @@
                     3: { cellWidth: 20, halign:'right' },
                     4: { cellWidth: 20, halign:'right' },
                     5: { cellWidth: 20, halign:'right' },
-                    6: { cellWidth: 20, halign:'right' } 
+                    6: { cellWidth: 20, halign:'right' }
                 }
             });
         }
         
+        // ===== YHDISTETTY PDF-LUONTIFUNKTIO (OHJE 1) =====
+
+        /**
+         * Luo ja avaa PDF-raportin joko koko pelille tai yhdelle pelaajalle.
+         * @param {object} game - Koko peli-objekti
+         * @param {string|null} playerNum - Pelaajan numero (jos pelaajaraportti), muuten null
+         * @param {HTMLElement} buttonElement - Nappi, jota klikattiin (lataustilaa varten)
+         */
+        async function openGamePdf(game, playerNum = null, buttonElement) {
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = 'Luodaan…';
+            buttonElement.disabled = true;
+
+            try {
+                if (!game) throw new Error('Ottelua ei löytynyt.');
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
+                const margin = 10;
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                let yPos = margin;
+                
+                const isPlayerReport = playerNum != null;
+                const pNum = Number(playerNum);
+
+                // --- Aseta PDF:n metadata ja otsikko ---
+                if (isPlayerReport) {
+                    const playerName = (game.roster?.[pNum] || '').trim();
+                    const playerLastName = playerName.split(' ').pop() || `Pelaaja ${pNum}`;
+                    const playerDisplay = playerName ? `#${pNum} ${playerName}` : `#${pNum}`;
+                    doc.setProperties({ title: `Pelaajaraportti ${playerDisplay} vs ${game.opponent || ''}` });
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(18);
+                    doc.text(`Pelaajaraportti: ${playerDisplay}`, pageW / 2, yPos, { align: 'center' });
+                    yPos += 8;
+                    doc.setFontSize(12);
+                    doc.text(`Ottelu vs ${game.opponent || ''} - ${dateStr}`, pageW / 2, yPos, { align: 'center' });
+                } else {
+                    doc.setProperties({ title: `Otteluraportti: ${game.opponent || ''}` });
+                    
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(18);
+                    doc.text(`Otteluraportti: ${game.opponent || ''}`, pageW / 2, yPos, { align: 'center' });
+                    yPos += 8;
+                    doc.setFontSize(12);
+                    doc.text(dateStr, pageW / 2, yPos, { align: 'center' });
+                }
+                yPos += 15;
+
+                // --- Käy läpi erät ---
+                const periods = [1, 2, 3, 'summary'];
+                
+                for (const period of periods) {
+                    // Jos pelaajaraportti, hypätään erät yli, joissa ei ole laukauksia
+                    if (isPlayerReport && period !== 'summary') {
+                        const playerShots = getShotsForPeriod(game, period).filter(s => s.team === 'home' && Number(s.player) === pNum);
+                        if (playerShots.length === 0) {
+                            continue; 
+                        }
+                    }
+                    
+                    const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
+                    
+                    // Piirrä laukaisukartta Canvasille
+                    const canvas = isPlayerReport ?
+                        createShotmapCanvasForPdf({ shots: getShotsForPeriod(game, period).filter(s => s.team === 'home' && Number(s.player) === pNum) }, 'summary') :
+                        createShotmapCanvasForPdf(game, period);
+                        
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = 140;
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width; // 70
+
+                    // Tarkista sivunvaihto
+                    const sectionHeight = imgHeight + (isPlayerReport ? 60 : 70); 
+                    if (yPos + sectionHeight > pageH - margin && period !== 1) {
+                        doc.addPage();
+                        yPos = margin;
+                    }
+
+                    doc.setFontSize(14);
+                    doc.text(title, margin, yPos);
+                    yPos += 8;
+                    
+                    doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+                    yPos += imgHeight + 5;
+
+                    // --- Lisää tilastotaulukko ---
+                    if (isPlayerReport) {
+                        const stats = getPlayerStatsForPeriod(game, pNum, period);
+                        const pm = (game.plusMinus && game.plusMinus[pNum]) ? game.plusMinus[pNum] : { plus:0, minus:0 };
+                        const bal = (pm.plus || 0) - (pm.minus || 0);
+                        
+                        callAutoTable(doc, {
+                            startY: yPos,
+                            margin: { left: margin },
+                            theme: 'grid',
+                            head: [['Tilasto', 'Arvo']],
+                            body: [
+                                ['Laukaukset', stats.shots],
+                                ['Maalit', stats.goals],
+                                ['xG', stats.xg.toFixed(2)],
+                                ['Laadukkaat (L+)', stats.qualityHigh],
+                                ['Heikot (H-)', stats.qualityLow],
+                                ['Laukaisuprosentti', stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—'],
+                                // Näytä +/- vain summaryssa
+                                ...(period === 'summary' ? [['+/-', `${bal > 0 ? '+' : ''}${bal}`]] : [])
+                            ],
+                            styles: { font: 'helvetica', fontSize: 10 },
+                            headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                            columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:30, halign:'right'} }
+                        });
+                    } else {
+                        const stats = getStatsForPeriod(game, period);
+                        const poss = getPossessionPctFor(game, period);
+                        callAutoTable(doc, {
+                            startY: yPos,
+                            margin: { left: margin },
+                            theme: 'grid',
+                            head: [['Tapahtuma', 'Koti', 'Vieras']],
+                            body: [
+                                ['Maalit', stats.home.goals, stats.away.goals],
+                                ['Laukaukset', stats.home.shots, stats.away.shots],
+                                ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
+                                ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
+                                ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
+                                ['Torjunnat', stats.home.saves, stats.away.saves],
+                                ['Blokit', stats.home.blocks, stats.away.blocks],
+                                ['Pallonhallinta %', `${poss.homePct}%`, `${poss.awayPct}%`],
+                            ],
+                            styles: { font: 'helvetica', fontSize: 10 },
+                            headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                            columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:20, halign:'right'}, 2:{cellWidth:20, halign:'right'} }
+                        });
+                    }
+                    yPos = doc.lastAutoTable.finalY + 15;
+                }
+
+                // Lisää pelaajakohtainen summary-sivu vain koko ottelun raporttiin
+                if (!isPlayerReport) {
+                    doc.addPage();
+                    yPos = margin;
+                    doc.setFontSize(16);
+                    doc.text('Pelaajakohtaiset tilastot', pageW / 2, yPos, { align: 'center' });
+                    yPos += 10;
+                    generatePlayerStatsForPdf(doc, game, yPos);
+                }
+
+                // --- Näytä PDF ---
+                const pdfBlob = doc.output('blob');
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                
+                const iframe = document.getElementById('pdf-iframe');
+                iframe.src = pdfUrl;
+                document.getElementById('pdf-overlay').classList.add('visible');
+
+                document.getElementById('close-pdf-overlay').onclick = () => {
+                    document.getElementById('pdf-overlay').classList.remove('visible');
+                    iframe.src = 'about:blank';
+                    URL.revokeObjectURL(pdfUrl);
+                };
+
+            } catch (err) {
+                console.error('PDF-raportin luonti epäonnistui:', err);
+                alert(`Raportin luonti epäonnistui: ${err?.message || err}`);
+            } finally {
+                buttonElement.textContent = originalText;
+                buttonElement.disabled = false;
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', startFirebaseApp);
     </script>
 </body>
