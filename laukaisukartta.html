@@ -229,7 +229,9 @@
      * 6. ROSTERIEN HAKU OIKEASTA POLUSTA
      ***********************************************************/
     async function loadAllRostersForUser(uid) {
-      const path = `artifacts/default-app-id/users/${uid}/roster`;
+      // --- KORJATTU POLKU ---
+      // Haetaan nyt 'teams' kokoelmasta, ei 'roster'
+      const path = `artifacts/default-app-id/users/${uid}/teams`;
       console.log("Ladataan rosterit polusta:", path);
       
       const rosterCol = collection(
@@ -238,7 +240,7 @@
         "default-app-id",
         "users",
         uid,
-        "roster"
+        "teams" // --- KORJATTU ---
       );
       
       try {
@@ -296,7 +298,7 @@
           "default-app-id",
           "users",
           currentUser.uid,
-          "roster",
+          "teams", // --- KORJATTU ---
           name
         );
         try {
@@ -335,7 +337,6 @@
       });
     }
 
-    // --- TÄMÄ ON UUSI LISÄYS ---
     if (changeTeamBtn) {
       changeTeamBtn.addEventListener("click", () => {
         console.log("Vaihdetaan joukkuetta manuaalisesti...");
@@ -345,7 +346,6 @@
         showTeams(); // Pakota tiiminvalinta-näkymä
       });
     }
-    // --- LISÄYS PÄÄTTYY ---
 
     if (logoutBtnTeams) {
       logoutBtnTeams.addEventListener("click", async () => {
@@ -397,7 +397,7 @@
             "default-app-id",
             "users",
             currentUser.uid,
-            "roster",
+            "teams", // --- KORJATTU ---
             currentTeamId 
           );
           try {
@@ -696,7 +696,6 @@
       <button id="home-newgame-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Aloita uusi ottelu</button>
       <button id="home-season-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-3 rounded font-semibold">Tarkastele kausidataa</button>
       
-      <!-- TÄMÄ ON UUSI NAPPI -->
       <button id="home-change-team-btn" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded text-sm">Vaihda joukkuetta</button> 
       
       <button id="home-logout-btn" class="w-full bg-red-500 hover:bg-red-600 py-3 rounded font-semibold">Kirjaudu ulos</button>
@@ -723,7 +722,7 @@
       <h3 class="text-lg font-bold mt-6 mb-3">Vieras</h3>
       <div id="away-player-list" class="flex gap-2"></div>
       <div id="stats-box" class="mt-6 text-sm"></div>
-      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</button>
+      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</Dbutton>
       <button id="app-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
     </aside>
     <main class="flex-1 min-h-0 flex items-center justify-center bg-slate-200">
