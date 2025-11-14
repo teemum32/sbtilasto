@@ -1350,7 +1350,7 @@
             });
         }
         
-        // ===== YHDISTETTY PDF-LUONTIFUNKTIO (OHJE 1) =====
+        // ===== YHDISTETTY PDF-LUONTIFUNKTIO (OHJE 1, 2 & 3) =====
 
         /**
          * Luo ja avaa PDF-raportin joko koko pelille tai yhdelle pelaajalle.
@@ -1369,7 +1369,9 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
                 const dateStr = game.date ? new Date(game.date).toLocaleDateString('fi-FI') : '';
-                const margin = 10;
+                
+                // KORJATTU: Marginaali kasvatettu ja kuvan leveys dynaaminen
+                const margin = 15;
                 const pageW = doc.internal.pageSize.getWidth();
                 const pageH = doc.internal.pageSize.getHeight();
                 let yPos = margin;
@@ -1402,32 +1404,46 @@
                 }
                 yPos += 15;
 
-                // --- Käy läpi erät ---
-                const periods = [1, 2, 3, 'summary'];
+                // --- Käy läpi erät (VANHA vs UUSI data) ---
+                // KORJATTU: Tunnistetaan vanha datan muoto (game.periods)
+                const isOldData = game.periods != null && typeof game.periods === 'object';
+                const periodsToRender = isOldData ? ['summary'] : [1, 2, 3, 'summary'];
                 
-                for (const period of periods) {
-                    // Jos pelaajaraportti, hypätään erät yli, joissa ei ole laukauksia
-                    if (isPlayerReport && period !== 'summary') {
-                        const playerShots = getShotsForPeriod(game, period).filter(s => s.team === 'home' && Number(s.player) === pNum);
-                        if (playerShots.length === 0) {
-                            continue; 
-                        }
+                for (const period of periodsToRender) {
+                    
+                    const title = (period === 'summary' || isOldData) ? 'Koko ottelu' : `Erä ${period}`;
+
+                    // Hae erän laukaukset
+                    const shotsForPeriod = getShotsForPeriod(game, isOldData ? 'summary' : period);
+                    
+                    // Jos pelaajaraportti, suodata vain pelaajan laukaukset
+                    const playerShotsForPeriod = isPlayerReport ? shotsForPeriod.filter(s => s.team === 'home' && Number(s.player) === pNum) : [];
+
+                    // KORJATTU: Hyppää yli, jos erässä ei ole dataa (paitsi summary)
+                    if (period !== 'summary' && !isOldData) {
+                         const stats = getStatsForPeriod(game, period);
+                         const poss = getPossessionPctFor(game, period);
+                         const hasData = stats.home.shots > 0 || stats.away.shots > 0 || poss.homeMs > 0 || poss.awayMs > 0;
+                         if (!hasData && !isPlayerReport) continue;
+                         if (isPlayerReport && playerShotsForPeriod.length === 0) continue;
                     }
                     
-                    const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
-                    
                     // Piirrä laukaisukartta Canvasille
+                    // Jos pelaajaraportti, piirrä vain pelaajan laukaukset
                     const canvas = isPlayerReport ?
-                        createShotmapCanvasForPdf({ shots: getShotsForPeriod(game, period).filter(s => s.team === 'home' && Number(s.player) === pNum) }, 'summary') :
-                        createShotmapCanvasForPdf(game, period);
+                        createShotmapCanvasForPdf({ shots: playerShotsForPeriod }, 'summary') :
+                        createShotmapCanvasForPdf({ shots: shotsForPeriod }, 'summary'); // Käytä jo filtteröityä listaa
                         
                     const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = 140;
-                    const imgHeight = (canvas.height * imgWidth) / canvas.width; // 70
+                    
+                    // KORJATTU: Dynaaminen kuvan leveys
+                    const aspect = canvas.height / canvas.width; // e.g. 400 / 800 = 0.5
+                    const imgWidth = pageW - margin * 2;
+                    const imgHeight = imgWidth * aspect;
 
                     // Tarkista sivunvaihto
                     const sectionHeight = imgHeight + (isPlayerReport ? 60 : 70); 
-                    if (yPos + sectionHeight > pageH - margin && period !== 1) {
+                    if (yPos + sectionHeight > pageH - margin && !(isOldData && period === 'summary') && period !== 1) {
                         doc.addPage();
                         yPos = margin;
                     }
@@ -1441,7 +1457,7 @@
 
                     // --- Lisää tilastotaulukko ---
                     if (isPlayerReport) {
-                        const stats = getPlayerStatsForPeriod(game, pNum, period);
+                        const stats = getPlayerStatsForPeriod(game, pNum, isOldData ? 'summary' : period);
                         const pm = (game.plusMinus && game.plusMinus[pNum]) ? game.plusMinus[pNum] : { plus:0, minus:0 };
                         const bal = (pm.plus || 0) - (pm.minus || 0);
                         
@@ -1458,15 +1474,15 @@
                                 ['Heikot (H-)', stats.qualityLow],
                                 ['Laukaisuprosentti', stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—'],
                                 // Näytä +/- vain summaryssa
-                                ...(period === 'summary' ? [['+/-', `${bal > 0 ? '+' : ''}${bal}`]] : [])
+                                ...( (period === 'summary' || isOldData) ? [['+/-', `${bal > 0 ? '+' : ''}${bal}`]] : [])
                             ],
                             styles: { font: 'helvetica', fontSize: 10 },
                             headStyles: { fillColor: [41, 52, 72], textColor: 255 },
                             columnStyles: { 0:{cellWidth:40}, 1:{cellWidth:30, halign:'right'} }
                         });
                     } else {
-                        const stats = getStatsForPeriod(game, period);
-                        const poss = getPossessionPctFor(game, period);
+                        const stats = getStatsForPeriod(game, isOldData ? 'summary' : period);
+                        const poss = getPossessionPctFor(game, isOldData ? 'summary' : period);
                         callAutoTable(doc, {
                             startY: yPos,
                             margin: { left: margin },
