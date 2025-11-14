@@ -224,12 +224,9 @@
      ***********************************************************/
     async function loadAllRostersForUser(uid) {
       console.log("Ladataan rosterit käyttäjälle:", uid);
-      // HUOM: sulla on Firestoressa tämä rakenne:
-      // artifacts / default-app-id / users / <uid> / roster / <docit>
+      // KORJATTU POLKU: Poistettu "artifacts" ja "default-app-id"
       const rosterCol = collection(
         db,
-        "artifacts",
-        "default-app-id",
         "users",
         uid,
         "roster"
@@ -277,10 +274,9 @@
         const name = newTeamInput.value.trim();
         if (!name || !currentUser) return;
         console.log("Luodaan uusi joukkue:", name);
+        // KORJATTU POLKU:
         const ref = doc(
           db,
-          "artifacts",
-          "default-app-id",
           "users",
           currentUser.uid,
           "roster",
@@ -371,10 +367,9 @@
         // tallenna muokattu roster takaisin samaan dokumenttiin
         if (currentUser && currentTeamId) {
           console.log("Päivitetään roster:", currentTeamId);
+          // KORJATTU POLKU:
           const ref = doc(
             db,
-            "artifacts",
-            "default-app-id",
             "users",
             currentUser.uid,
             "roster",
@@ -503,11 +498,10 @@
         if (!currentUser || !currentGame) return;
         console.log("Tallennetaan peli...");
         try {
+          // KORJATTU POLKU:
           await addDoc(
             collection(
               db,
-              "artifacts",
-              "default-app-id",
               "users",
               currentUser.uid,
               "games"
@@ -527,10 +521,9 @@
      * 12. KAUSINÄKYMÄ
      ***********************************************************/
     function listenForGames(uid) {
+      // KORJATTU POLKU:
       const gamesCol = collection(
         db,
-        "artifacts",
-        "default-app-id",
         "users",
         uid,
         "games"
@@ -568,10 +561,9 @@
           del.addEventListener("click", async () => {
             console.log("Poistetaan peli:", g.id);
             try {
+              // KORJATTU POLKU:
               await deleteDoc(doc(
                 db,
-                "artifacts",
-                "default-app-id",
                 "users",
                 currentUser.uid,
                 "games",
