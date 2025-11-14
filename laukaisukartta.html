@@ -1134,7 +1134,7 @@
 
             // KORJATTU: Tarkista, onko tämä "vanhaa dataa" (yhdelläkään laukauksella ei ole 'period'-kenttää)
             // Tämä oletus on turvallisempi. Jos yksikin laukaus on ilman periodia, käsitellään vanhana.
-            const isOldData = allShots.some(s => s.period == null);
+            const isOldData = allShots.length > 0 && allShots.some(s => s.period == null);
 
             if (isOldData) {
                 // Vanha data: kaikki laukaukset kuuluvat 'summary'-näkymään
@@ -1260,7 +1260,8 @@
 
             drawFieldBackground(ctx, W, H);
 
-            const shots = getShotsForPeriod(game, period);
+            // Tässä 'game' on jo esifiltteröity {shots: [...]} -objekti
+            const shots = game.shots; 
 
             shots.forEach(shot => {
                 const px = (shot.x / 100) * W;
@@ -1423,13 +1424,18 @@
                     // Jos pelaajaraportti, suodata vain pelaajan laukaukset
                     const playerShotsForPeriod = isPlayerReport ? shotsForPeriod.filter(s => s.team === 'home' && Number(s.player) === pNum) : [];
 
-                    // KORJATTU: Hyppää yli, jos erässä ei ole dataa (paitsi summary)
+                    // KORJATTU VIIMEISIN: Yksinkertaistettu datan tarkistus
                     if (period !== 'summary' && !isOldData) {
-                         const stats = getStatsForPeriod(game, period);
-                         const poss = getPossessionPctFor(game, period);
-                         const hasData = stats.home.shots > 0 || stats.away.shots > 0 || poss.homeMs > 0 || poss.awayMs > 0;
-                         if (!hasData && !isPlayerReport) continue;
-                         if (isPlayerReport && playerShotsForPeriod.length === 0) continue;
+                        if (isPlayerReport && playerShotsForPeriod.length === 0) {
+                            continue; // Hypätään yli pelaajan tyhjä erä
+                        }
+                        if (!isPlayerReport && shotsForPeriod.length === 0) {
+                             // Tarkistetaan vielä pallonhallinta, jos laukauksia ei ole
+                            const poss = getPossessionPctFor(game, period);
+                            if (poss.homeMs === 0 && poss.awayMs === 0) {
+                                continue; // Hypätään yli joukkueen tyhjä erä
+                            }
+                        }
                     }
                     
                     // Piirrä laukaisukartta Canvasille
