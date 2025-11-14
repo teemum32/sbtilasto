@@ -77,8 +77,6 @@
     const loginBtn   = document.getElementById("login-btn");
     const loginErr   = document.getElementById("login-error");
 
-    console.log("Kirjautumisnappi haettu:", loginBtn); // TÄMÄ KERTOO, LÖYTYIKÖ SE
-
     const teamList   = document.getElementById("team-list");
     const newTeamInput = document.getElementById("new-team-input");
     const newTeamBtn   = document.getElementById("new-team-btn");
@@ -96,7 +94,7 @@
     const saveGameBtn    = document.getElementById("save-game-btn");
     const seasonBtn      = document.getElementById("home-season-btn");
     const logoutBtn      = document.getElementById("home-logout-btn");
-    const changeTeamBtn  = document.getElementById("home-change-team-btn"); // UUSI NAPPI
+    const changeTeamBtn  = document.getElementById("home-change-team-btn");
 
     const seasonView     = document.getElementById("season-view");
     const seasonBackBtn  = document.getElementById("season-back-btn");
@@ -176,9 +174,7 @@
      * 5. KIRJAUTUMINEN
      ***********************************************************/
      if (loginBtn) {
-        console.log("Lisätään kuuntelija login-nappiin...");
         loginBtn.addEventListener("click", async () => {
-          console.log("Login-nappia painettu!");
           if(loginErr) loginErr.textContent = "";
           try {
             const cred = await signInWithEmailAndPassword(
@@ -186,20 +182,17 @@
               emailInput.value.trim(),
               passInput.value
             );
-            console.log("Kirjautuminen onnistui:", cred.user.email, "UID:", cred.user.uid);
           } catch (err) {
             console.error("Kirjautumisvirhe:", err.message);
             if(loginErr) loginErr.textContent = err.message;
           }
         });
-        console.log("Kuuntelija lisätty.");
      } else {
-        console.error("VIRHE: loginBtn-elementtiä (id='login-btn') ei löytynyt. Kuuntelijaa ei voi lisätä.");
+        console.error("VIRHE: loginBtn-elementtiä (id='login-btn') ei löytynyt.");
      }
 
 
     onAuthStateChanged(auth, async (user) => {
-      console.log("Auth staten muutos:", user ? user.email : "Ei käyttäjää");
       if (!user) {
         currentUser = null;
         showAuth();
@@ -230,17 +223,15 @@
      ***********************************************************/
     async function loadAllRostersForUser(uid) {
       // --- KORJATTU POLKU ---
-      // Haetaan nyt 'teams' kokoelmasta, ei 'roster'
-      const path = `artifacts/default-app-id/users/${uid}/teams`;
+      // Poistettu 'artifacts/default-app-id'
+      const path = `users/${uid}/teams`;
       console.log("Ladataan rosterit polusta:", path);
       
       const rosterCol = collection(
         db,
-        "artifacts",
-        "default-app-id",
         "users",
         uid,
-        "teams" // --- KORJATTU ---
+        "teams" // Haetaan nyt 'teams' kokoelmasta
       );
       
       try {
@@ -292,13 +283,12 @@
         if (!name || !currentUser) return;
         console.log("Luodaan uusi joukkue:", name);
         
+        // --- KORJATTU POLKU ---
         const ref = doc(
           db,
-          "artifacts",
-          "default-app-id",
           "users",
           currentUser.uid,
-          "teams", // --- KORJATTU ---
+          "teams", // Tallennetaan 'teams' kokoelmaan
           name
         );
         try {
@@ -391,13 +381,12 @@
 
         if (currentUser && currentTeamId) {
           console.log("Päivitetään roster:", currentTeamId);
+          // --- KORJATTU POLKU ---
           const ref = doc(
             db,
-            "artifacts",
-            "default-app-id",
             "users",
             currentUser.uid,
-            "teams", // --- KORJATTU ---
+            "teams", // Päivitetään 'teams' kokoelmaan
             currentTeamId 
           );
           try {
@@ -520,11 +509,10 @@
         if (!currentUser || !currentGame) return;
         console.log("Tallennetaan peli...");
         try {
+          // --- KORJATTU POLKU ---
           await addDoc(
             collection(
               db,
-              "artifacts",
-              "default-app-id",
               "users",
               currentUser.uid,
               "games"
@@ -544,10 +532,9 @@
      * 12. KAUSINÄKYMÄ
      ***********************************************************/
     function listenForGames(uid) {
+      // --- KORJATTU POLKU ---
       const gamesCol = collection(
         db,
-        "artifacts",
-        "default-app-id",
         "users",
         uid,
         "games"
@@ -584,10 +571,9 @@
           del.addEventListener("click", async () => {
             console.log("Poistetaan peli:", g.id);
             try {
+              // --- KORJATTU POLKU ---
               await deleteDoc(doc(
                 db,
-                "artifacts",
-                "default-app-id",
                 "users",
                 currentUser.uid,
                 "games",
