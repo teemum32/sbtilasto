@@ -71,6 +71,7 @@
     const viewHome   = document.getElementById("home-view");
     const viewSetup  = document.getElementById("setup-view");
     const viewApp    = document.getElementById("app-view");
+    const viewStats  = document.getElementById("stats-view"); // UUSI TILASTONÄKYMÄ
 
     const emailInput = document.getElementById("email-input");
     const passInput  = document.getElementById("password-input");
@@ -93,6 +94,7 @@
     const shotsLayer     = document.getElementById("shots-layer");
     const statsBox       = document.getElementById("stats-box");
     const saveGameBtn    = document.getElementById("save-game-btn");
+    const printReportBtn = document.getElementById("print-report-btn"); 
     const seasonBtn      = document.getElementById("home-season-btn");
     const logoutBtn      = document.getElementById("home-logout-btn");
     const changeTeamBtn  = document.getElementById("home-change-team-btn");
@@ -103,6 +105,14 @@
 
     const setupBackBtn = document.getElementById("setup-back-btn");
     const appBackBtn = document.getElementById("app-back-btn");
+
+    // UUDEN STATS-NÄKYMÄN ELEMENTIT
+    const statsViewContent = document.getElementById("stats-view-content");
+    const statsBackBtn = document.getElementById("stats-back-btn");
+    const statsPdfBtn = document.getElementById("stats-pdf-btn");
+    const statsDeleteBtn = document.getElementById("stats-delete-btn");
+    const statsOpenMapBtn = document.getElementById("stats-open-map-btn");
+
 
     console.log("Kaikki DOM-elementit haettu.");
 
@@ -117,6 +127,7 @@
       if(viewSetup) viewSetup.classList.add("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.add("hidden");
+      if(viewStats) viewStats.classList.add("hidden"); // UUSI
     }
     function showTeams() {
       if(viewAuth) viewAuth.classList.add("hidden");
@@ -125,11 +136,11 @@
       if(viewSetup) viewSetup.classList.add("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.add("hidden");
+      if(viewStats) viewStats.classList.add("hidden"); // UUSI
       if (loggedInUserDisplay) {
         loggedInUserDisplay.textContent = `Kirjautunut UID: ${currentUser?.uid || 'Ei tunnistettu'}`;
       }
     }
-    // showHome-funktio on myöhemmin, koska se kutsuu listenForGames-funktiota
     function showSetup() {
       if(viewAuth) viewAuth.classList.add("hidden");
       if(viewTeams) viewTeams.classList.add("hidden");
@@ -137,6 +148,7 @@
       if(viewSetup) viewSetup.classList.remove("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.add("hidden");
+      if(viewStats) viewStats.classList.add("hidden"); // UUSI
       
       // Tyhjennä kentät uutta peliä varten
       if(opponentInput) opponentInput.value = "";
@@ -155,16 +167,21 @@
       if(viewSetup) viewSetup.classList.add("hidden");
       if(viewApp) viewApp.classList.remove("hidden");
       if(seasonView) seasonView.classList.add("hidden");
+      if(viewStats) viewStats.classList.add("hidden"); // UUSI
 
-      // --- LISÄTTY: Päivitä napin teksti ---
+      // Päivitä napin teksti
       if (saveGameBtn) {
-        // Jos pelillä on ID, se on vanha peli -> päivitä
         if (currentGame && currentGame.id) {
           saveGameBtn.textContent = "Päivitä ottelu";
         } else {
           saveGameBtn.textContent = "Tallenna ottelu";
         }
       }
+      
+      // Päivitä app-näkymän data
+      renderPlayers();
+      renderStatsBox();
+      renderShots();
     }
     function showSeason() {
       if(viewAuth) viewAuth.classList.add("hidden");
@@ -173,6 +190,17 @@
       if(viewSetup) viewSetup.classList.add("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.remove("hidden");
+      if(viewStats) viewStats.classList.add("hidden"); // UUSI
+    }
+    // UUSI NÄKYMÄNFUNKTIO
+    function showStats() {
+      if(viewAuth) viewAuth.classList.add("hidden");
+      if(viewTeams) viewTeams.classList.add("hidden");
+      if(viewHome) viewHome.classList.add("hidden");
+      if(viewSetup) viewSetup.classList.add("hidden");
+      if(viewApp) viewApp.classList.add("hidden");
+      if(seasonView) seasonView.classList.add("hidden");
+      if(viewStats) viewStats.classList.remove("hidden"); // NÄYTÄ TÄMÄ
     }
 
     /***********************************************************
@@ -187,7 +215,6 @@
               emailInput.value.trim(),
               passInput.value
             );
-            // kaikki muu tapahtuu onAuthStateChanged:ssä
           } catch (err) {
             console.error("Kirjautumisvirhe:", err.message);
             if(loginErr) loginErr.textContent = err.message;
@@ -235,7 +262,7 @@
       try {
         const snap = await getDocs(rosterCol);
         allTeams = snap.docs.map(d => ({
-          id: d.id, // "FvZhxe..." ID
+          id: d.id, 
           ...(d.data() || {})
         }));
         console.log("Joukkueet ladattu:", allTeams.length, "kpl");
@@ -308,6 +335,7 @@
       if(viewSetup) viewSetup.classList.add("hidden");
       if(viewApp) viewApp.classList.add("hidden");
       if(seasonView) seasonView.classList.add("hidden");
+      if(viewStats) viewStats.classList.add("hidden"); // UUSI
       
       const teamNameEl = document.getElementById("selected-team-name");
       if(teamNameEl) {
@@ -324,7 +352,6 @@
     if (homeNewGameBtn) {
       homeNewGameBtn.addEventListener("click", () => {
         if (!currentTeamId) return;
-        // Nollataan currentGame, kun aloitetaan uusi peli
         currentGame = null; 
         showSetup();
       });
@@ -351,7 +378,7 @@
         localStorage.removeItem("fs_selected_team");
         currentTeamId = null;
         rosterData = {};
-        seasonData = { games: [] }; // Nollaa myös kausidata
+        seasonData = { games: [] }; 
         showTeams(); 
       });
     }
@@ -372,8 +399,20 @@
 
     if (appBackBtn) {
       appBackBtn.addEventListener("click", () => {
-        currentGame = null; 
-        showHome();
+        // Takaisin-nappi laukaisukartalta palaa nyt TILASTONÄKYMÄÄN
+        if (currentGame && currentGame.id) {
+          renderStatsView(currentGame);
+          showStats();
+        } else {
+          showHome();
+        }
+      });
+    }
+
+    if (printReportBtn) {
+      printReportBtn.addEventListener("click", () => {
+        console.log("Valmistellaan tulostusta (laukaisukartta)...");
+        window.print(); 
       });
     }
 
@@ -398,7 +437,6 @@
           }
         });
 
-        // Rosterin päivitys joukkueen sisään
         if (currentUser && currentTeamId) {
           console.log("Päivitetään roster joukkueelle:", currentTeamId);
           const ref = doc(db, "users", currentUser.uid, "teams", currentTeamId);
@@ -426,10 +464,7 @@
         });
 
         console.log("Aloitetaan uusi peli:", currentGame);
-        renderPlayers();
-        renderStatsBox();
-        renderShots(); // Nollaa laukaukset näytöltä
-        showApp();
+        showApp(); // Siirtyy suoraan app-näkymään
       });
     }
 
@@ -454,10 +489,12 @@
     /***********************************************************
      * 10. LAUKAISUMERKINTÄ (yksinkertainen versio)
      ***********************************************************/
+    // HUOM: TÄMÄ ON EDELLEEN YKSINKERTAISTETTU!
+    // Se ei tallenna L, M, L+, H- tilastoja, joita vanha datasi sisältää.
+    // Se tallentaa vain placeholder-laukauksia.
     if (fieldContainer) {
       fieldContainer.addEventListener("click", (e) => {
         if (!currentGame) return;
-        // testiversio: tehdään aina KOTI laukaus maali
         const rect = fieldContainer.getBoundingClientRect();
         const xPct = ((e.clientX - rect.left) / rect.width) * 100;
         const yPct = ((e.clientY - rect.top) / rect.height) * 100;
@@ -481,10 +518,10 @@
     function renderShots() {
       if (!shotsLayer) return;
       shotsLayer.innerHTML = "";
-      if (!currentGame || !currentGame.shots) return; // Varmistus
+      if (!currentGame || !currentGame.shots) return; 
       currentGame.shots.forEach(s => {
         const m = document.createElement("div");
-        m.className = "shot-marker " + (s.outcome === "goal" ? "goal" : "miss"); 
+        m.className = "shot-marker " + (s.outcome === "goal" || s.outcome === "M" ? "goal" : "miss"); 
         m.style.left = s.x + "%";
         m.style.top  = s.y + "%";
         const span = document.createElement("span");
@@ -498,16 +535,22 @@
       if (!currentGame || !statsBox) return;
       let homeGoals = 0, awayGoals = 0, homeShots = 0, awayShots = 0, homeXg=0, awayXg=0;
       
-      if (currentGame.shots) { // Varmistus
+      if (currentGame.shots) { 
         currentGame.shots.forEach(s => {
+          // Laske laukaukset ja maalit vanhan datan perusteella
+          const isShot = s.outcome === 'L' || s.outcome === 'M';
+          const isGoal = s.outcome === 'M';
+          const isXg = s.xG || 0;
+
           if (s.team === "home") {
-            homeShots++;
-            homeXg += s.xG || 0;
-            if (s.outcome === "goal") homeGoals++;
+            if (isShot) homeShots++;
+            if (isGoal) homeGoals++;
+            homeXg += isXg;
           } else {
-            awayShots++;
-            awayXg += s.xG || 0;
-            if (s.outcome === "goal") awayGoals++;
+            // Oletetaan, että vieraan tiedot on tallennettu samalla logiikalla
+            if (isShot) awayShots++;
+            if (isGoal) awayGoals++;
+            awayXg += isXg;
           }
         });
       }
@@ -532,13 +575,8 @@
             // --- PÄIVITYS (setDoc) ---
             console.log("Päivitetään peli:", currentGame.id);
             const gameRef = doc(
-              db,
-              "users",
-              currentUser.uid,
-              "teams",
-              currentGame.team, 
-              "games",
-              currentGame.id // Käytä olemassaolevaa ID:tä
+              db, "users", currentUser.uid, "teams",
+              currentGame.team, "games", currentGame.id 
             );
             await setDoc(gameRef, currentGame, { merge: true }); 
             console.log("Peli päivitetty.");
@@ -548,12 +586,8 @@
             console.log("Tallennetaan uusi peli joukkueelle:", currentGame.team);
             await addDoc(
               collection(
-                db,
-                "users",
-                currentUser.uid,
-                "teams",
-                currentGame.team, 
-                "games"
+                db, "users", currentUser.uid, "teams",
+                currentGame.team, "games"
               ),
               currentGame
             );
@@ -606,60 +640,50 @@
         .sort((a,b) => new Date(b.date) - new Date(a.date))
         .forEach(g => {
           const div = document.createElement("div");
-          // --- KORJAUS: Poistettu flex, jotta h-elementti voi täyttää tilan ---
           div.className = "bg-slate-800 rounded p-4 mb-3"; 
           
           const h = document.createElement("div");
-          // --- KORJAUS: Lisätty flex ja justify-between tähän ---
           h.className = "flex justify-between items-center cursor-pointer"; 
           
           const team = allTeams.find(t => t.id === g.team);
           const teamName = team ? team.name : (g.team || "");
           
-          const textDiv = document.createElement("div"); // Tekstit omaan diviin
+          const textDiv = document.createElement("div"); 
           textDiv.innerHTML = `<p class="font-semibold">${new Date(g.date).toLocaleDateString("fi-FI")} vs ${g.opponent}</p>
                            <p class="text-sm text-slate-400">${teamName}</p>`;
           
           const del = document.createElement("button");
-          del.className = "bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm ml-4 flex-shrink-0"; // Estä kutistuminen
+          del.className = "bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm ml-4 flex-shrink-0"; 
           del.textContent = "Poista";
 
-          h.appendChild(textDiv); // Lisää tekstit
-          h.appendChild(del);     // Lisää nappi
-          div.appendChild(h);     // Lisää koko rivi pää-diviin
+          h.appendChild(textDiv); 
+          h.appendChild(del);     
+          div.appendChild(h);     
           seasonContent.appendChild(div);
 
-          // --- KORJAUS: Lisää klikkauskuuntelija tekstiosiolle (textDiv) ---
+          // --- MUUTETTU KLIKKAUSKUUNTELIJA ---
           textDiv.addEventListener("click", () => {
             const loadedGame = seasonData.games.find(game => game.id === g.id);
             if (!loadedGame) {
               console.error("Peliä ei löytynyt datasta:", g.id);
               return;
             }
-            currentGame = loadedGame;
-            rosterData = currentGame.roster || {}; 
-            console.log("Ladataan vanha peli:", currentGame);
+            currentGame = loadedGame; // Aseta tämä globaaliksi
+            console.log("Ladataan peli tilastoihin:", currentGame);
 
-            // Päivitä ja näytä app-näkymä
-            renderPlayers();
-            renderStatsBox();
-            renderShots();
-            showApp();
+            // Kutsutaan uutta tilastojen renderöijää
+            renderStatsView(currentGame);
+            // Näytetään uusi tilastonäkymä
+            showStats();
           });
           
-          // --- KORJAUS: Siirretty poistokuuntelija ---
           del.addEventListener("click", async (e) => {
-            e.stopPropagation(); // Estä textDiv:n klikkaus
+            e.stopPropagation(); 
             console.log("Poistetaan peli:", g.id);
             try {
               await deleteDoc(doc(
-                db,
-                "users",
-                currentUser.uid,
-                "teams",
-                currentTeamId, 
-                "games",
-                g.id
+                db, "users", currentUser.uid, "teams",
+                currentTeamId, "games", g.id
               ));
             } catch (err) {
               console.error("Pelin poisto epäonnistui:", err);
@@ -674,6 +698,176 @@
         showHome();
       });
     }
+    
+    
+    /***********************************************************
+     * 13. UUSI TILASTONÄKYMÄ (STATS-VIEW)
+     ***********************************************************/
+
+    // Laskee statsit annetusta pelidatasta
+    function calculateStats(game) {
+      const stats = {
+        team: { L: 0, M: 0, 'L+': 0, 'H-': 0, xG: 0, T: 0, B: 0 },
+        opponent: { L: 0, M: 0, 'L+': 0, 'H-': 0, xG: 0, T: 0, B: 0 },
+        players: {}
+      };
+      
+      if (!game.roster || !game.shots) {
+        console.warn("Peli-objektista puuttuu roster tai shots-data.");
+        return stats;
+      }
+      
+      // Alusta pelaajatilastot
+      for (const playerNum in game.roster) {
+        stats.players[playerNum] = { 
+          name: game.roster[playerNum] || `Pelaaja ${playerNum}`,
+          L: 0, M: 0, 'L+': 0, 'H-': 0, T: 0, B: 0, '+/-': 0
+        };
+      }
+      
+      // Laske tilastot laukauksista
+      game.shots.forEach(shot => {
+        const target = shot.team === 'home' ? stats.team : stats.opponent;
+        const outcome = shot.outcome; // Esim. 'L', 'M', 'L+', 'H-'
+        
+        if (target[outcome] !== undefined) {
+          target[outcome]++;
+        }
+        target.xG += shot.xG || 0;
+        
+        // Pelaajakohtaiset
+        if (shot.team === 'home' && stats.players[shot.player]) {
+          const pStats = stats.players[shot.player];
+          if (pStats[outcome] !== undefined) {
+            pStats[outcome]++;
+          }
+        }
+      });
+      
+      // Tässä voisi laskea myös +/- ja pallonhallinnan, jos dataa olisi
+      
+      return stats;
+    }
+
+    // Rakentaa ja näyttää stats-view'n
+    function renderStatsView(game) {
+      if (!statsViewContent) return;
+      
+      const gameStats = calculateStats(game);
+      
+      let homeScore = gameStats.team.M;
+      let awayScore = gameStats.opponent.M;
+      
+      // Yhteenveto
+      let summaryHtml = `
+        <h2 class="text-3xl font-bold mb-2">${new Date(game.date).toLocaleDateString("fi-FI")} vs ${game.opponent}</h2>
+        <p class="text-xl mb-2">Tulos: ${homeScore} - ${awayScore}</p>
+        <p class="text-slate-400 mb-4">Pallonhallinta: 50% - 50% (placeholder)</p>
+        
+        <div class="mb-6">
+          <h3 class="text-xl font-semibold mb-2">Joukkueet</h3>
+          <p class="text-sm"><b>Koti:</b> L ${gameStats.team.L}, M ${gameStats.team.M}, xG ${gameStats.team.xG.toFixed(2)}, L+ ${gameStats.team['L+']}, H- ${gameStats.team['H-']}</p>
+          <p class="text-sm"><b>Vieras:</b> L ${gameStats.opponent.L}, M ${gameStats.opponent.M}, xG ${gameStats.opponent.xG.toFixed(2)}, L+ ${gameStats.opponent['L+']}, H- ${gameStats.opponent['H-']}</p>
+        </div>
+      `;
+      
+      // Pelaajataulukko
+      let tableHtml = `
+        <h3 class="text-xl font-semibold mb-3">Pelaajat</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left stats-table">
+            <thead>
+              <tr>
+                <th>Nimi</th>
+                <th>L</th>
+                <th>M</th>
+                <th>L+</th>
+                <th>H-</th>
+                <th>T%</th>
+                <th>+/-</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      
+      // Luo pelaajarivit rosterin perusteella
+      const sortedPlayerNumbers = Object.keys(game.roster).sort((a,b) => Number(a) - Number(b));
+      
+      for (const playerNum of sortedPlayerNumbers) {
+        const p = gameStats.players[playerNum];
+        if (!p) continue;
+        
+        const shotPct = (p.L > 0) ? ((p.M / p.L) * 100).toFixed(0) : 0;
+        
+        tableHtml += `
+          <tr>
+            <td><b>#${playerNum}</b> ${p.name}</td>
+            <td>${p.L}</td>
+            <td>${p.M}</td>
+            <td>${p['L+']}</td>
+            <td>${p['H-']}</td>
+            <td>${shotPct}%</td>
+            <td>${p['+/-']}</td>
+          </tr>
+        `;
+      }
+      
+      tableHtml += `
+            </tbody>
+          </table>
+        </div>
+      `;
+      
+      statsViewContent.innerHTML = summaryHtml + tableHtml;
+    }
+    
+    // Stats-näkymän nappien kuuntelijat
+    if (statsBackBtn) {
+      statsBackBtn.addEventListener("click", () => {
+        currentGame = null; // Nollaa peli palatessa
+        showSeason();
+      });
+    }
+    
+    if (statsOpenMapBtn) {
+      statsOpenMapBtn.addEventListener("click", () => {
+        // currentGame on jo asetettu, kun siirryimme tähän näkymään
+        if (currentGame) {
+          showApp(); // Siirry laukaisukarttaan
+        }
+      });
+    }
+    
+    if (statsDeleteBtn) {
+      statsDeleteBtn.addEventListener("click", async () => {
+        if (!currentGame || !currentUser) return;
+        
+        console.log("Poistetaan peli (stats-näkymästä):", currentGame.id);
+        try {
+          await deleteDoc(doc(
+            db, "users", currentUser.uid, "teams",
+            currentGame.team, "games", currentGame.id
+          ));
+          console.log("Peli poistettu.");
+          currentGame = null;
+          renderSeasonView(); // Päivitä kausilista (koska data muuttui)
+          showSeason(); // Palaa kausinäkymään
+        } catch (err) {
+          console.error("Pelin poisto epäonnistui:", err);
+        }
+      });
+    }
+    
+    if (statsPdfBtn) {
+      statsPdfBtn.addEventListener("click", () => {
+        console.log("Valmistellaan tulostusta (tilastot)...");
+        // Käytä CSS-sääntöä @media print (stats-print)
+        document.body.classList.add("stats-print");
+        window.print();
+        document.body.classList.remove("stats-print");
+      });
+    }
+
 
     console.log("Kaikki kuuntelijat lisätty DOMContentLoaded-eventin sisällä.");
     }); // <-- DOMContentLoaded päättyy tähän
@@ -725,6 +919,104 @@
     .shot-marker span {
       pointer-events: none; /* Estää span-elementtiä kaappaamasta klikkauksia */
     }
+    
+    /* UUDET TYYLIT TILASTOTAULUKOLLE */
+    .stats-table th, .stats-table td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #334155; /* slate-700 */
+    }
+    .stats-table th {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #94a3b8; /* slate-400 */
+    }
+    .stats-table tr:last-child td {
+      border-bottom: none;
+    }
+    .stats-table td:not(:first-child) {
+      text-align: center;
+    }
+
+    /* --- TULOSTUSTYYLIT --- */
+    @media print {
+      
+      /* Yleinen tulostus (laukaisukartta) */
+      body:not(.stats-print) > div:not(#app-view) {
+        display: none;
+      }
+      body:not(.stats-print) #app-view {
+        display: block !important;
+        height: 100vh;
+        width: 100vw;
+      }
+      body:not(.stats-print) #app-view aside {
+        display: none;
+      }
+      body:not(.stats-print) #app-view main {
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        margin: 0;
+        background-color: white;
+      }
+      body:not(.stats-print) #field-container {
+        max-width: 100%;
+        width: 100%;
+        height: auto;
+        border: 2px solid black;
+        box-shadow: none;
+      }
+      body:not(.stats-print) #field-container svg line, 
+      body:not(.stats-print) #field-container svg rect {
+        stroke: #000000;
+      }
+      body:not(.stats-print) .shot-marker {
+        border: 1px solid black;
+      }
+      
+      /* Tilastojen tulostus (stats-print) */
+      body.stats-print {
+        background-color: white !important;
+        color: black !important;
+      }
+      body.stats-print > div:not(#stats-view) {
+        display: none;
+      }
+      body.stats-print #stats-view {
+        display: block !important;
+        height: 100%;
+        width: 100%;
+        padding: 20px;
+      }
+      body.stats-print #stats-view-header,
+      body.stats-print #stats-view-buttons {
+        display: none;
+      }
+      body.stats-print #stats-view-content {
+        color: black;
+      }
+      body.stats-print .stats-table th, 
+      body.stats-print .stats-table td {
+        border-bottom: 1px solid #cccccc;
+        color: black;
+      }
+      body.stats-print .stats-table th {
+         color: #555555;
+      }
+      
+      /* Yhteiset tulostussäännöt */
+      .shot-marker.goal {
+        background-color: #16a34a !important; 
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+      .shot-marker.miss {
+        background-color: #dc2626 !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+    }
+
   </style>
 
 </head>
@@ -789,10 +1081,12 @@
       <div id="away-player-list" class="flex gap-2"></div>
       <div id="stats-box" class="mt-6 text-sm"></div>
       <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</button>
+      <button id="print-report-btn" class="w-full mt-2 bg-green-600 hover:bg-green-700 py-2 rounded font-semibold">Tulosta Raportti</button>
       <button id="app-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
     </aside>
-    <main class="flex-1 min-h-0 flex items-center justify-center bg-slate-200">
-      <div id="field-container" class="relative bg-white border-2 border-slate-800 rounded-lg shadow-2xl aspect-[2/1] w-11/11 max-w-4xl">
+    
+    <main class="flex-1 min-h-0 flex items-center justify-center bg-slate-200 p-4 md:p-8">
+      <div id="field-container" class="relative bg-white border-2 border-slate-800 rounded-lg shadow-2xl aspect-[2/1] w-full max-w-4xl">
         <svg viewBox="0 0 400 200" class="w-full h-full">
           <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"></line>
           <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"></rect>
@@ -811,6 +1105,28 @@
         <button id="season-back-btn" class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded">Takaisin</button>
       </div>
       <div id="season-content" class="space-y-3"></div>
+    </div>
+  </div>
+  
+  <!-- 7. UUSI TILASTONÄKYMÄ -->
+  <div id="stats-view" class="hidden min-h-screen p-4 md:p-8 bg-slate-900">
+    <div class="max-w-4xl mx-auto">
+      <div id="stats-view-header" class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Ottelun tilastot</h2>
+        <button id="stats-back-btn" class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded">Takaisin kauteen</button>
+      </div>
+      
+      <!-- Tähän ladataan sisältö JS:llä -->
+      <div id="stats-view-content" class="bg-slate-800 rounded-lg p-6 mb-6">
+        <!-- renderStatsView(game) täyttää tämän -->
+      </div>
+      
+      <!-- Toimintonapit -->
+      <div id="stats-view-buttons" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button id="stats-open-map-btn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded font-semibold">Avaa Laukaisukartta</button>
+        <button id="stats-pdf-btn" class="w-full bg-green-600 hover:bg-green-700 py-3 rounded font-semibold">Luo PDF-raportti</button>
+        <button id="stats-delete-btn" class="w-full bg-red-500 hover:bg-red-600 py-3 rounded font-semibold">Poista ottelu</button>
+      </div>
     </div>
   </div>
 
