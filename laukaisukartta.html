@@ -262,9 +262,13 @@
       allTeams.forEach(team => {
         const btn = document.createElement("button");
         btn.className = "w-full bg-slate-700 hover:bg-slate-600 text-left px-4 py-2 rounded mb-2";
-        btn.textContent = team.id;
+        
+        // --- KORJAUS TÄSSÄ ---
+        // Näytä team.name (tai team.id, jos nimeä ei ole)
+        btn.textContent = team.name || team.id; 
+        
         btn.addEventListener("click", () => {
-          currentTeamId = team.id;
+          currentTeamId = team.id; // ID tallennetaan edelleen oikein
           rosterData = team.players || {};
           localStorage.setItem("fs_selected_team", currentTeamId);
           showHome();
@@ -292,7 +296,12 @@
           name
         );
         try {
-          await setDoc(ref, { players: {} });
+          // --- KORJAUS TÄSSÄ ---
+          // Tallenna myös nimi itse dokumenttiin
+          await setDoc(ref, { 
+            name: name, 
+            players: {} 
+          });
           newTeamInput.value = "";
           await loadAllRostersForUser(currentUser.uid);
         } catch (err) {
@@ -553,11 +562,17 @@
     function renderSeasonView() {
       if (!seasonContent) return;
       seasonContent.innerHTML = "";
-      if (!seasonData.games.length) {
-        seasonContent.innerHTML = `<p class="text-slate-300">Ei tallennettuja otteluita.</p>`;
+
+      // --- KORJAUS TÄSSÄ: SUODATA PELIT VALITUN JOUKKUEEN MUKAAN ---
+      const teamGames = seasonData.games.filter(g => g.team === currentTeamId);
+
+      if (!teamGames.length) { // Tarkista suodatetun listan pituus
+        seasonContent.innerHTML = `<p class="text-slate-300">Ei tallennettuja otteluita tälle joukkueelle.</p>`;
         return;
       }
-      seasonData.games
+
+      // Käytä suodatettua listaa
+      teamGames
         .sort((a,b) => new Date(b.date) - new Date(a.date))
         .forEach(g => {
           const div = document.createElement("div");
@@ -708,7 +723,7 @@
       <h3 class="text-lg font-bold mt-6 mb-3">Vieras</h3>
       <div id="away-player-list" class="flex gap-2"></div>
       <div id="stats-box" class="mt-6 text-sm"></div>
-      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</Dbutton>
+      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</button>
       <button id="app-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
     </aside>
     <main class="flex-1 min-h-0 flex items-center justify-center bg-slate-200">
