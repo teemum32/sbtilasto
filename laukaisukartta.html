@@ -224,9 +224,11 @@
      ***********************************************************/
     async function loadAllRostersForUser(uid) {
       console.log("Ladataan rosterit käyttäjälle:", uid);
-      // KORJATTU POLKU: Poistettu "artifacts" ja "default-app-id"
+      // KORJATTU POLKU: Palautettu "artifacts" ja "default-app-id"
       const rosterCol = collection(
         db,
+        "artifacts",
+        "default-app-id",
         "users",
         uid,
         "roster"
@@ -277,6 +279,8 @@
         // KORJATTU POLKU:
         const ref = doc(
           db,
+          "artifacts",
+          "default-app-id",
           "users",
           currentUser.uid,
           "roster",
@@ -370,6 +374,8 @@
           // KORJATTU POLKU:
           const ref = doc(
             db,
+            "artifacts",
+            "default-app-id",
             "users",
             currentUser.uid,
             "roster",
@@ -502,6 +508,8 @@
           await addDoc(
             collection(
               db,
+              "artifacts",
+              "default-app-id",
               "users",
               currentUser.uid,
               "games"
@@ -524,6 +532,8 @@
       // KORJATTU POLKU:
       const gamesCol = collection(
         db,
+        "artifacts",
+        "default-app-id",
         "users",
         uid,
         "games"
@@ -564,6 +574,8 @@
               // KORJATTU POLKU:
               await deleteDoc(doc(
                 db,
+                "artifacts",
+                "default-app-id",
                 "users",
                 currentUser.uid,
                 "games",
