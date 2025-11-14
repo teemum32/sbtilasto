@@ -595,23 +595,29 @@
       currentGame.shots.forEach(s => {
         const m = document.createElement("div");
         
-        // --- KORJATTU LAUKAUSKARTAN NÄKYMÄ ---
-        let outcomeClass = 'miss'; // Oletus 'L'
+        // --- KORJATTU LAUKAUSKARTAN NÄKYMÄ (TAAKSEPIN YHTEENSOPIVA) ---
+        let outcomeClass = 'shot-l'; // Oletus 'L' tai 'miss'
         switch(s.outcome) {
             case 'M':
-                outcomeClass = 'goal';
+            case 'goal':
+                outcomeClass = 'shot-m';
                 break;
             case 'L+':
-                outcomeClass = 'l-plus';
+                outcomeClass = 'shot-l-plus';
                 break;
             case 'H-':
-                outcomeClass = 'h-minus';
+                outcomeClass = 'shot-h-minus';
                 break;
             case 'B':
-                outcomeClass = 'blocked';
+                outcomeClass = 'shot-b';
                 break;
             case 'T':
-                outcomeClass = 'turnover';
+                outcomeClass = 'shot-t';
+                break;
+            case 'L':
+            case 'miss':
+            default:
+                outcomeClass = 'shot-l';
                 break;
         }
         
@@ -633,9 +639,9 @@
       if (currentGame.shots) { 
         currentGame.shots.forEach(s => {
           
-          // --- KORJATTU LAUKAUSTEN LASKENTA (SIVUPALKKI) ---
-          const isShot = s.outcome === 'L' || s.outcome === 'M' || s.outcome === 'L+';
-          const isGoal = s.outcome === 'M';
+          // --- KORJATTU LAUKAUSTEN LASKENTA (TAAKSEPIN YHTEENSOPIVA) ---
+          const isShot = s.outcome === 'L' || s.outcome === 'M' || s.outcome === 'L+' || s.outcome === 'miss' || s.outcome === 'goal';
+          const isGoal = s.outcome === 'M' || s.outcome === 'goal';
           const isXg = s.xG || 0;
 
           if (s.team === "home") {
@@ -818,16 +824,20 @@
         const target = shot.team === 'home' ? stats.team : stats.opponent;
         const outcome = shot.outcome; 
         
-        if (target.hasOwnProperty(outcome)) {
-          target[outcome]++;
-        }
+        // --- KORJAUS TAAKSEPÄIN YHTEENSOPIVUUTEEN (JOUKKUE) ---
+        if (outcome === 'M' || outcome === 'goal') target.M++;
+        else if (outcome === 'L' || outcome === 'miss') target.L++;
+        else if (target.hasOwnProperty(outcome)) target[outcome]++;
+
         target.xG += shot.xG || 0;
         
+        // --- KORJAUS TAAKSEPÄIN YHTEENSOPIVUUTEEN (PELAAJAT) ---
         if (shot.team === 'home' && stats.players[shot.player]) {
           const pStats = stats.players[shot.player];
-          if (pStats.hasOwnProperty(outcome)) {
-            pStats[outcome]++;
-          }
+          
+          if (outcome === 'M' || outcome === 'goal') pStats.M++;
+          else if (outcome === 'L' || outcome === 'miss') pStats.L++;
+          else if (pStats.hasOwnProperty(outcome)) pStats[outcome]++;
         }
       });
       
@@ -884,7 +894,7 @@
           continue;
         }
         
-        // --- KORJATTU T% LASKENTA ---
+        // --- KORJATTU T% LASKENTA (TAAKSEPÄIN YHTEENSOPIVA) ---
         const totalShots = pStats.L + pStats.M + pStats['L+'];
         const shotPct = (totalShots > 0) ? ((pStats.M / totalShots) * 100).toFixed(0) : "—";
         
@@ -895,7 +905,7 @@
             <td>${pStats.M}</td>
             <td class="stat-plus">${pStats['L+']}</td>
             <td class="stat-minus">${pStats['H-']}</td>
-            <td>${shotPct}%</td>
+            <td>${shotPct}${totalShots > 0 ? '%' : ''}</td>
             <td>${pStats['+/-']}</td>
           </tr>
         `;
@@ -961,7 +971,7 @@
 
   </script>
 
-  <!-- PÄIVITETYT TYYLIT -->
+  <!-- === PÄIVITETYT TYYLIT VASTAAMAAN MUISTIKUVAA === -->
   <style>
     .player-number {
       width: 40px;
@@ -1010,28 +1020,41 @@
       font-weight: bold;
       color: white;
       text-shadow: 0 0 2px black;
-      border: 2px solid white;
+      border: 3px solid white; /* Oletusreunus */
     }
-    /* "AIDOT" VÄRIT LAUKAISUKARTTAAN */
-    .shot-marker.goal {
-      background-color: rgba(22, 163, 74, 0.8); /* green-600 */
+    
+    /* "AIDOT" VÄRIT LAUKAISUKARTTAAN (MUISTIKUVAN MUKAAN) */
+    /* L (Laukaus) / miss */
+    .shot-marker.shot-l {
+      background-color: #3b82f6; /* blue-500 */
+      border-color: #1d4ed8; /* blue-700 */
     }
-    .shot-marker.miss {
-      background-color: rgba(220, 38, 38, 0.8); /* red-600 */
+    /* M (Maali) / goal */
+    .shot-marker.shot-m {
+      background-color: #22c55e; /* green-500 */
+      border-color: #15803d; /* green-700 */
     }
-    .shot-marker.l-plus {
-      background-color: rgba(5, 150, 105, 0.8); /* emerald-600 */
-      border-radius: 4px; /* neliö */
+    /* L+ (Laukaus+) */
+    .shot-marker.shot-l-plus {
+      background-color: #eab308; /* yellow-500 */
+      border-color: #ca8a04; /* yellow-600 */
     }
-    .shot-marker.h-minus {
-      background-color: rgba(190, 18, 60, 0.8); /* rose-700 */
-      border-radius: 4px; /* neliö */
+    /* H- (Harhasyöttö) */
+    .shot-marker.shot-h-minus {
+      background-color: #ef4444; /* red-500 */
+      border-color: #b91c1c; /* red-700 */
     }
-    .shot-marker.blocked {
-      background-color: rgba(107, 114, 128, 0.8); /* gray-500 */
+    /* B (Blokki) */
+    .shot-marker.shot-b {
+      background-color: #ffffff; /* white */
+      border-color: #000000; /* black */
+      color: #000000;
+      text-shadow: none;
     }
-    .shot-marker.turnover {
-      background-color: rgba(245, 158, 11, 0.8); /* amber-500 */
+    /* T (Menetys) */
+    .shot-marker.shot-t {
+      background-color: #f97316; /* orange-500 */
+      border-color: #ea580c; /* orange-600 */
     }
     
     .shot-marker span {
@@ -1098,7 +1121,7 @@
         stroke: #000000;
       }
       body:not(.stats-print) .shot-marker {
-        border: 1px solid black;
+        border-width: 2px;
       }
       
       /* Tilastojen tulostus (stats-print) */
@@ -1141,35 +1164,41 @@
          color-adjust: exact;
       }
       
-      /* Yhteiset tulostussäännöt */
-      .shot-marker.goal {
-        background-color: #16a34a !important; 
+      /* Yhteiset tulostussäännöt (KAIKKI VÄRIT) */
+      .shot-marker.shot-l {
+        background-color: #3b82f6 !important; 
+        border-color: #1d4ed8 !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
-      .shot-marker.miss {
-        background-color: #dc2626 !important;
+      .shot-marker.shot-m {
+        background-color: #22c55e !important; 
+        border-color: #15803d !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
-      /* LISÄTTY LOPUT TULOSTUSVÄRIT */
-      .shot-marker.l-plus {
-        background-color: #059669 !important;
+      .shot-marker.shot-l-plus {
+        background-color: #eab308 !important;
+        border-color: #ca8a04 !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
-      .shot-marker.h-minus {
-        background-color: #be123c !important;
+      .shot-marker.shot-h-minus {
+        background-color: #ef4444 !important;
+        border-color: #b91c1c !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
-      .shot-marker.blocked {
-        background-color: #6b7280 !important;
+      .shot-marker.shot-b {
+        background-color: #ffffff !important;
+        border-color: #000000 !important;
+        color: #000000 !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
-      .shot-marker.turnover {
-        background-color: #f59e0b !important;
+      .shot-marker.shot-t {
+        background-color: #f97316 !important;
+        border-color: #ea580c !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
@@ -1188,7 +1217,7 @@
       <input id="email-input" type="email" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600 text-center" placeholder="sähköposti">
       <input id="password-input" type="password" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600 text-center" placeholder="salasana">
       <p id="login-error" class="text-red-400 text-sm h-5 mb-3"></p>
-      <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Kirjaudu sisään</button>
+      <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Kirjaudu sisään</Gbutton>
     </div>
   </div>
 
