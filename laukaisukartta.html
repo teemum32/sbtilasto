@@ -475,7 +475,6 @@
     
     // Yksinkertainen xG-laskuri placeholder
     function calculateXg(x, y) {
-      // Tämä on vain esimerkki, voit hienosäätää
       const dist = Math.sqrt(Math.pow(x - 10, 2) + Math.pow(y - 50, 2)); // Etäisyys maalista (karkea)
       let xg = 0.5 - (dist / 200);
       return Math.max(0.01, Math.min(xg, 0.99));
@@ -484,12 +483,10 @@
     // Päivitä valittu pelaaja
     function updateSelectedPlayer(targetElement) {
       if (!homePlayerList) return;
-      // Poista valinta vanhalta
       const oldSelected = homePlayerList.querySelector(".selected");
       if (oldSelected) {
         oldSelected.classList.remove("selected");
       }
-      // Aseta valinta uudelle
       if (targetElement) {
         targetElement.classList.add("selected");
         currentShotDetails.player = parseInt(targetElement.dataset.player, 10);
@@ -502,12 +499,10 @@
     // Päivitä valittu laukaustyyppi
     function updateSelectedButton(targetElement) {
       if (!shotOutcomeButtons) return;
-      // Poista valinta vanhalta
       const oldSelected = shotOutcomeButtons.querySelector(".selected");
       if (oldSelected) {
         oldSelected.classList.remove("selected");
       }
-      // Aseta valinta uudelle
       if (targetElement) {
         targetElement.classList.add("selected");
         currentShotDetails.outcome = targetElement.dataset.outcome;
@@ -526,9 +521,8 @@
         const div = document.createElement("div");
         div.className = "player-number"; 
         div.textContent = num;
-        div.dataset.player = num; // Tärkeä data-attribuutti
+        div.dataset.player = num; 
         
-        // Klikkauskuuntelija pelaajan valinnalle
         div.addEventListener("click", (e) => {
           updateSelectedPlayer(e.target);
         });
@@ -542,7 +536,6 @@
       av.className = "player-number"; 
       av.textContent = "V";
       av.dataset.player = "Vieras";
-      // Tähän voisi lisätä vieraan laukausten valinnan
       awayPlayerList.appendChild(av);
     }
     
@@ -563,10 +556,8 @@
       fieldContainer.addEventListener("click", (e) => {
         if (!currentGame) return;
         
-        // --- TARKISTUS: Onko pelaaja ja tyyppi valittu? ---
         if (!currentShotDetails.player) {
           console.log("Ei pelaajaa valittuna. Valitse pelaaja ensin.");
-          // Voit näyttää tässä ilmoituksen käyttäjälle
           return; 
         }
         if (!currentShotDetails.outcome) {
@@ -580,7 +571,7 @@
         
         const shot = {
           id: Date.now(),
-          team: "home", // Tässä oletetaan aina koti, vieras vaatisi lisälogiikkaa
+          team: "home", 
           player: currentShotDetails.player,
           outcome: currentShotDetails.outcome,
           x: xPct,
@@ -603,9 +594,28 @@
       
       currentGame.shots.forEach(s => {
         const m = document.createElement("div");
-        // --- PÄIVITETTY LOGIIKKA NÄYTTÄMÄÄN LAUKAUS/MAALI ---
-        const isGoal = s.outcome === 'M';
-        m.className = "shot-marker " + (isGoal ? "goal" : "miss"); 
+        
+        // --- KORJATTU LAUKAUSKARTAN NÄKYMÄ ---
+        let outcomeClass = 'miss'; // Oletus 'L'
+        switch(s.outcome) {
+            case 'M':
+                outcomeClass = 'goal';
+                break;
+            case 'L+':
+                outcomeClass = 'l-plus';
+                break;
+            case 'H-':
+                outcomeClass = 'h-minus';
+                break;
+            case 'B':
+                outcomeClass = 'blocked';
+                break;
+            case 'T':
+                outcomeClass = 'turnover';
+                break;
+        }
+        
+        m.className = "shot-marker " + outcomeClass; 
         
         m.style.left = s.x + "%";
         m.style.top  = s.y + "%";
@@ -622,8 +632,9 @@
       
       if (currentGame.shots) { 
         currentGame.shots.forEach(s => {
-          // --- PÄIVITETTY LOGIIKKA LASKEMAAN OIKEIN ---
-          const isShot = s.outcome === 'L' || s.outcome === 'M';
+          
+          // --- KORJATTU LAUKAUSTEN LASKENTA (SIVUPALKKI) ---
+          const isShot = s.outcome === 'L' || s.outcome === 'M' || s.outcome === 'L+';
           const isGoal = s.outcome === 'M';
           const isXg = s.xG || 0;
 
@@ -656,7 +667,6 @@
         
         try {
           if (currentGame.id) {
-            // --- PÄIVITYS (setDoc) ---
             console.log("Päivitetään peli:", currentGame.id);
             const gameRef = doc(
               db, "users", currentUser.uid, "teams",
@@ -666,7 +676,6 @@
             console.log("Peli päivitetty.");
 
           } else {
-            // --- UUSI (addDoc) ---
             console.log("Tallennetaan uusi peli joukkueelle:", currentGame.team);
             await addDoc(
               collection(
@@ -793,13 +802,11 @@
         players: {}
       };
       
-      // Varmistetaan, että roster ja shots ovat olemassa
       if (!game.roster || !game.shots) {
         console.warn("Peli-objektista puuttuu roster tai shots-data.");
         return stats;
       }
       
-      // Alusta pelaajatilastot
       for (const playerNum in game.roster) {
         stats.players[playerNum] = { 
           name: game.roster[playerNum] || `Pelaaja ${playerNum}`,
@@ -807,28 +814,22 @@
         };
       }
       
-      // Laske tilastot laukauksista
       game.shots.forEach(shot => {
         const target = shot.team === 'home' ? stats.team : stats.opponent;
-        const outcome = shot.outcome; // Esim. 'L', 'M', 'L+', 'H-'
+        const outcome = shot.outcome; 
         
-        // --- TÄRKEÄ KORJAUS: Varmista, että 'outcome' on olemassa stats-objektissa ---
         if (target.hasOwnProperty(outcome)) {
           target[outcome]++;
         }
         target.xG += shot.xG || 0;
         
-        // Pelaajakohtaiset
         if (shot.team === 'home' && stats.players[shot.player]) {
           const pStats = stats.players[shot.player];
-          // --- TÄRKEÄ KORJAUS: Varmista, että 'outcome' on olemassa pStats-objektissa ---
           if (pStats.hasOwnProperty(outcome)) {
             pStats[outcome]++;
           }
         }
       });
-      
-      // Tässä voisi laskea myös +/- ja pallonhallinnan, jos dataa olisi
       
       return stats;
     }
@@ -842,7 +843,7 @@
       let homeScore = gameStats.team.M;
       let awayScore = gameStats.opponent.M;
       
-      // Yhteenveto
+      // --- KORJATTU YHTEENVETO NÄYTTÄMÄÄN KAIKKI DATAT ---
       let summaryHtml = `
         <h2 class="text-3xl font-bold mb-2">${new Date(game.date).toLocaleDateString("fi-FI")} vs ${game.opponent}</h2>
         <p class="text-xl mb-2">Tulos: ${homeScore} - ${awayScore}</p>
@@ -850,12 +851,11 @@
         
         <div class="mb-6">
           <h3 class="text-xl font-semibold mb-2">Joukkueet</h3>
-          <p class="text-sm"><b>Koti:</b> L ${gameStats.team.L}, M ${gameStats.team.M}, xG ${gameStats.team.xG.toFixed(2)}, L+ ${gameStats.team['L+']}, H- ${gameStats.team['H-']}</p>
-          <p class="text-sm"><b>Vieras:</b> L ${gameStats.opponent.L}, M ${gameStats.opponent.M}, xG ${gameStats.opponent.xG.toFixed(2)}, L+ ${gameStats.opponent['L+']}, H- ${gameStats.opponent['H-']}</p>
+          <p class="text-sm"><b>Koti:</b> L ${gameStats.team.L}, M ${gameStats.team.M}, xG ${gameStats.team.xG.toFixed(2)}, L+ ${gameStats.team['L+']}, H- ${gameStats.team['H-']}, T ${gameStats.team.T}, B ${gameStats.team.B}</p>
+          <p class="text-sm"><b>Vieras:</b> L ${gameStats.opponent.L}, M ${gameStats.opponent.M}, xG ${gameStats.opponent.xG.toFixed(2)}, L+ ${gameStats.opponent['L+']}, H- ${gameStats.opponent['H-']}, T ${gameStats.opponent.T}, B ${gameStats.opponent.B}</p>
         </div>
       `;
       
-      // Pelaajataulukko
       let tableHtml = `
         <h3 class="text-xl font-semibold mb-3">Pelaajat</h3>
         <div class="overflow-x-auto">
@@ -874,28 +874,27 @@
             <tbody>
       `;
       
-      // Luo pelaajarivit rosterin perusteella
       const sortedPlayerNumbers = Object.keys(game.roster).sort((a,b) => Number(a) - Number(b));
       
       for (const playerNum of sortedPlayerNumbers) {
         const pStats = gameStats.players[playerNum];
         
-        // Varmistus, jos pelaajaa ei löytynyt tilastoista
         if (!pStats) {
           console.warn(`Pelaajaa nro ${playerNum} ei löytynyt lasketuista tilastoista.`);
           continue;
         }
         
-        const totalShots = pStats.L + pStats.M;
-        const shotPct = (totalShots > 0) ? ((pStats.M / totalShots) * 100).toFixed(0) : 0;
+        // --- KORJATTU T% LASKENTA ---
+        const totalShots = pStats.L + pStats.M + pStats['L+'];
+        const shotPct = (totalShots > 0) ? ((pStats.M / totalShots) * 100).toFixed(0) : "—";
         
         tableHtml += `
           <tr>
             <td><b>#${playerNum}</b> ${pStats.name}</td>
             <td>${pStats.L}</td>
             <td>${pStats.M}</td>
-            <td>${pStats['L+']}</td>
-            <td>${pStats['H-']}</td>
+            <td class="stat-plus">${pStats['L+']}</td>
+            <td class="stat-minus">${pStats['H-']}</td>
             <td>${shotPct}%</td>
             <td>${pStats['+/-']}</td>
           </tr>
@@ -962,7 +961,7 @@
 
   </script>
 
-  <!-- Lisätään yksinkertaiset tyylit pelaajanumeroille ja laukaisuille -->
+  <!-- PÄIVITETYT TYYLIT -->
   <style>
     .player-number {
       width: 40px;
@@ -982,7 +981,6 @@
       border-color: #3b82f6; /* blue-500 */
     }
 
-    /* "AIDON" TYÖKALUN NAPIT */
     .shot-outcome-btn {
       padding: 8px;
       font-size: 12px;
@@ -1012,20 +1010,35 @@
       font-weight: bold;
       color: white;
       text-shadow: 0 0 2px black;
+      border: 2px solid white;
     }
+    /* "AIDOT" VÄRIT LAUKAISUKARTTAAN */
     .shot-marker.goal {
       background-color: rgba(22, 163, 74, 0.8); /* green-600 */
-      border: 2px solid white;
     }
     .shot-marker.miss {
       background-color: rgba(220, 38, 38, 0.8); /* red-600 */
-      border: 2px solid white;
     }
+    .shot-marker.l-plus {
+      background-color: rgba(5, 150, 105, 0.8); /* emerald-600 */
+      border-radius: 4px; /* neliö */
+    }
+    .shot-marker.h-minus {
+      background-color: rgba(190, 18, 60, 0.8); /* rose-700 */
+      border-radius: 4px; /* neliö */
+    }
+    .shot-marker.blocked {
+      background-color: rgba(107, 114, 128, 0.8); /* gray-500 */
+    }
+    .shot-marker.turnover {
+      background-color: rgba(245, 158, 11, 0.8); /* amber-500 */
+    }
+    
     .shot-marker span {
       pointer-events: none; /* Estää span-elementtiä kaappaamasta klikkauksia */
     }
     
-    /* UUDET TYYLIT TILASTOTAULUKOLLE */
+    /* "AIDOT" VÄRIT TILASTOTAULUKKOON */
     .stats-table th, .stats-table td {
       padding: 12px 8px;
       border-bottom: 1px solid #334155; /* slate-700 */
@@ -1041,6 +1054,15 @@
     .stats-table td:not(:first-child) {
       text-align: center;
     }
+    .stats-table .stat-plus {
+      color: #22c55e; /* green-500 */
+      font-weight: bold;
+    }
+    .stats-table .stat-minus {
+      color: #ef4444; /* red-500 */
+      font-weight: bold;
+    }
+
 
     /* --- TULOSTUSTYYLIT --- */
     @media print {
@@ -1108,6 +1130,16 @@
       body.stats-print .stats-table th {
          color: #555555;
       }
+      body.stats-print .stats-table .stat-plus {
+         color: #16a34a !important;
+         -webkit-print-color-adjust: exact;
+         color-adjust: exact;
+      }
+      body.stats-print .stats-table .stat-minus {
+         color: #dc2626 !important;
+         -webkit-print-color-adjust: exact;
+         color-adjust: exact;
+      }
       
       /* Yhteiset tulostussäännöt */
       .shot-marker.goal {
@@ -1117,6 +1149,27 @@
       }
       .shot-marker.miss {
         background-color: #dc2626 !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+      /* LISÄTTY LOPUT TULOSTUSVÄRIT */
+      .shot-marker.l-plus {
+        background-color: #059669 !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+      .shot-marker.h-minus {
+        background-color: #be123c !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+      .shot-marker.blocked {
+        background-color: #6b7280 !important;
+        -webkit-print-color-adjust: exact;
+        color-adjust: exact;
+      }
+      .shot-marker.turnover {
+        background-color: #f59e0b !important;
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
       }
