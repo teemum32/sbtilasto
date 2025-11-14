@@ -326,7 +326,7 @@
                     console.log("Firestore offline-tuki käytössä.");
                 } catch (err) {
                     if (err.code == 'failed-precondition') {
-                        console.warn("Offline-tuki epäonnistui (failed-precondition), todennäköisesti jo auki toisessa välilehdessä.");
+                        console.warn("Offline-tuki epäonnistui (failed-precondition), todennäköisesti jo auki toisessa väliledessä.");
                     } else if (err.code == 'unimplemented') {
                         console.log("Offline-tuki ei ole tuettu tässä selaimessa.");
                     }
@@ -1156,7 +1156,11 @@
                     const poss = getPossessionPctFor(game, period);
                     const mapContainer = createShotmapElement(game, period);
                     document.body.appendChild(mapContainer);
-                    await new Promise(r => requestAnimationFrame(() => r()));
+                    
+                    // KORJATTU: Muutettu requestAnimationFrame -> 100ms timeout
+                    // Tämä antaa selaimelle enemmän aikaa renderöidä SVG-elementit.
+                    await new Promise(r => setTimeout(r, 100)); 
+                    
                     const canvas = await html2canvas(mapContainer, {
                         scale: 2,
                         backgroundColor: '#ffffff',
@@ -1212,7 +1216,6 @@
                 generatePlayerStatsForPdf(doc, game, yPos);
                 
                 // PDF-näkymän näyttäminen
-                // KORJATTU: Vaihdettu datauristring -> blob luotettavampaan näyttöön
                 const pdfBlob = doc.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);
                 
@@ -1226,8 +1229,6 @@
                     iframe.src = 'about:blank';
                     URL.revokeObjectURL(pdfUrl); // Vapauta muisti
                 };
-
-                // doc.save(filename); // Korvattu overlaylla
 
             } catch (err) {
                 console.error('PDF-raportin luonti epäonnistui:', err);
@@ -1285,13 +1286,17 @@
                     const periodShots = isSummary ? playerShots : playerShots.filter(s => s.period === period);
 
                     if (!isSummary && periodShots.length === 0) {
-                        continue;
+                        continue; // Älä näytä erää, jos pelaajalla ei laukauksia
                     }
 
                     const stats = getPlayerStatsForPeriod(game, pNum, period);
                     const mapContainer = createShotmapElement({ shots: periodShots }, 'summary');
                     document.body.appendChild(mapContainer);
-                    await new Promise(r => requestAnimationFrame(() => r()));
+
+                    // KORJATTU: Muutettu requestAnimationFrame -> 100ms timeout
+                    // Tämä antaa selaimelle enemmän aikaa renderöidä SVG-elementit.
+                    await new Promise(r => setTimeout(r, 100)); 
+
                     const canvas = await html2canvas(mapContainer, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
                     document.body.removeChild(mapContainer);
 
@@ -1338,7 +1343,6 @@
                 }
 
                 // PDF-näkymän näyttäminen
-                // KORJATTU: Vaihdettu datauristring -> blob luotettavampaan näyttöön
                 const pdfBlob = doc.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);
                 
@@ -1353,8 +1357,6 @@
                     URL.revokeObjectURL(pdfUrl); // Vapauta muisti
                 };
                 
-                // doc.save(filename); // Korvattu overlaylla
-
             } catch (err) {
                 console.error('Pelaajaraportin luonti epäonnistui:', err);
                 alert(`Raportin luonti epäonnistui: ${err?.message || err}`);
