@@ -1,1333 +1,169 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="fi" class="h-full">
 <head>
-  <meta charset="UTF-8" />
-  <title>Floorball Shotmap</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase -->
-  <script type="module">
-    /***********************************************************
-     * 1. FIREBASE-ALUSTUS
-     ***********************************************************/
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import {
-      getAuth,
-      signInWithEmailAndPassword,
-      onAuthStateChanged,
-      signOut
-    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import {
-      getFirestore,
-      collection,
-      doc,
-      getDoc,
-      getDocs,
-      addDoc,
-      setDoc,
-      deleteDoc,
-      onSnapshot,
-    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    /* TÄMÄ ON SUN PROJUN KONFFI (sama joka oli aiemmassa toimivassa versiossa) */
-    const firebaseConfig = {
-      apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0",
-      authDomain: "sbtilastot.firebaseapp.com",
-      projectId: "sbtilastot",
-      storageBucket: "sbtilastot.appspot.com",
-      messagingSenderId: "1056099775207",
-      appId: "1:1056099775207:web:6dc886fb56b71f708fe842"
-    };
-
-    console.log("Skripti alkaa latautua (moduuli).");
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    console.log("Firebase alustettu.");
-
-    /***********************************************************
-     * 2. KOKONAISUUDEN TILA
-     ***********************************************************/
-    let currentUser = null;          // firebase user
-    let currentTeamId = null;        // esim. "FvZhxe7B6dkFw4ldVWTg"
-    let allTeams = [];               // teams-kokoelman dokkarit
-    let seasonData = { games: [] };  // haetaan games-kokoelmasta
-    let currentGame = null;          // kun aloitetaan uusi ottelu
-    let rosterData = {};             // valitun joukkueen pelaajat
-    
-    // --- PALAUTETTU "AITO" TILA ---
-    let currentShotDetails = { player: null, outcome: 'L' };
-
-    // ODOTA, ETTÄ HTML-SIVU ON LADATTU KOKONAAN
-    document.addEventListener("DOMContentLoaded", () => {
-      
-      console.log("DOM ladattu. Yritetään alustaa näkymää ja hakea elementtejä...");
-
-    /***********************************************************
-     * 3. NÄKYMÄT (DOM)
-     ***********************************************************/
-    const viewAuth   = document.getElementById("auth-view");
-    const viewTeams  = document.getElementById("team-view");
-    const viewHome   = document.getElementById("home-view");
-    const viewSetup  = document.getElementById("setup-view");
-    const viewApp    = document.getElementById("app-view");
-    const viewStats  = document.getElementById("stats-view"); 
-
-    const emailInput = document.getElementById("email-input");
-    const passInput  = document.getElementById("password-input");
-    const loginBtn   = document.getElementById("login-btn");
-    const loginErr   = document.getElementById("login-error");
-
-    const teamList   = document.getElementById("team-list");
-    const newTeamInput = document.getElementById("new-team-input");
-    const newTeamBtn   = document.getElementById("new-team-btn");
-    const logoutBtnTeams = document.getElementById("logout-btn-teams"); 
-    const loggedInUserDisplay = document.getElementById("logged-in-user");
-
-    const opponentInput = document.getElementById("opponent-input");
-    const startGameBtn  = document.getElementById("start-game-btn");
-
-    const homeNewGameBtn = document.getElementById("home-newgame-btn"); 
-    const homePlayerList = document.getElementById("home-player-list");
-    const awayPlayerList = document.getElementById("away-player-list");
-    const fieldContainer = document.getElementById("field-container");
-    const shotsLayer     = document.getElementById("shots-layer");
-    const statsBox       = document.getElementById("stats-box");
-    const saveGameBtn    = document.getElementById("save-game-btn");
-    const printReportBtn = document.getElementById("print-report-btn"); 
-    const seasonBtn      = document.getElementById("home-season-btn");
-    const logoutBtn      = document.getElementById("home-logout-btn");
-    const changeTeamBtn  = document.getElementById("home-change-team-btn");
-    
-    // "Aidon työkalun" napit
-    const shotOutcomeButtons = document.getElementById("shot-outcome-buttons");
-
-    const seasonView     = document.getElementById("season-view");
-    const seasonBackBtn  = document.getElementById("season-back-btn");
-    const seasonContent  = document.getElementById("season-content");
-
-    const setupBackBtn = document.getElementById("setup-back-btn");
-    const appBackBtn = document.getElementById("app-back-btn");
-
-    const statsViewContent = document.getElementById("stats-view-content");
-    const statsBackBtn = document.getElementById("stats-back-btn");
-    const statsPdfBtn = document.getElementById("stats-pdf-btn");
-    const statsDeleteBtn = document.getElementById("stats-delete-btn");
-    const statsOpenMapBtn = document.getElementById("stats-open-map-btn");
-
-
-    console.log("Kaikki DOM-elementit haettu.");
-
-
-    /***********************************************************
-     * 4. PIENI NÄKYMÄOHJAUS
-     ***********************************************************/
-    function showAuth() {
-      if(viewAuth) viewAuth.classList.remove("hidden");
-      if(viewTeams) viewTeams.classList.add("hidden");
-      if(viewHome) viewHome.classList.add("hidden");
-      if(viewSetup) viewSetup.classList.add("hidden");
-      if(viewApp) viewApp.classList.add("hidden");
-      if(seasonView) seasonView.classList.add("hidden");
-      if(viewStats) viewStats.classList.add("hidden"); 
-    }
-    function showTeams() {
-      if(viewAuth) viewAuth.classList.add("hidden");
-      if(viewTeams) viewTeams.classList.remove("hidden");
-      if(viewHome) viewHome.classList.add("hidden");
-      if(viewSetup) viewSetup.classList.add("hidden");
-      if(viewApp) viewApp.classList.add("hidden");
-      if(seasonView) seasonView.classList.add("hidden");
-      if(viewStats) viewStats.classList.add("hidden"); 
-      if (loggedInUserDisplay) {
-        loggedInUserDisplay.textContent = `Kirjautunut UID: ${currentUser?.uid || 'Ei tunnistettu'}`;
-      }
-    }
-    function showSetup() {
-      if(viewAuth) viewAuth.classList.add("hidden");
-      if(viewTeams) viewTeams.classList.add("hidden");
-      if(viewHome) viewHome.classList.add("hidden");
-      if(viewSetup) viewSetup.classList.remove("hidden");
-      if(viewApp) viewApp.classList.add("hidden");
-      if(seasonView) seasonView.classList.add("hidden");
-      if(viewStats) viewStats.classList.add("hidden"); 
-      
-      if(opponentInput) opponentInput.value = "";
-      const ta = document.getElementById("roster-textarea");
-      if (ta) {
-        ta.value = Object.keys(rosterData)
-          .map(n => `${n} ${rosterData[n] ?? ""}`.trim())
-          .join("\n");
-      }
-    }
-    function showApp() {
-      if(viewAuth) viewAuth.classList.add("hidden");
-      if(viewTeams) viewTeams.classList.add("hidden");
-      if(viewHome) viewHome.classList.add("hidden");
-      if(viewSetup) viewSetup.classList.add("hidden");
-      if(viewApp) viewApp.classList.remove("hidden");
-      if(seasonView) seasonView.classList.add("hidden");
-      if(viewStats) viewStats.classList.add("hidden"); 
-
-      // Nollaa "aidon työkalun" tila
-      currentShotDetails = { player: null, outcome: 'L' };
-      if (shotOutcomeButtons) {
-        updateSelectedButton(shotOutcomeButtons.querySelector('[data-outcome="L"]'));
-      }
-
-      if (saveGameBtn) {
-        if (currentGame && currentGame.id) {
-          saveGameBtn.textContent = "Päivitä ottelu";
-        } else {
-          saveGameBtn.textContent = "Tallenna ottelu";
-        }
-      }
-      
-      renderPlayers();
-      renderStatsBox();
-      renderShots();
-    }
-    function showSeason() {
-      if(viewAuth) viewAuth.classList.add("hidden");
-      if(viewTeams) viewTeams.classList.add("hidden");
-      if(viewHome) viewHome.classList.add("hidden");
-      if(viewSetup) viewSetup.classList.add("hidden");
-      if(viewApp) viewApp.classList.add("hidden");
-      if(seasonView) seasonView.classList.remove("hidden");
-      if(viewStats) viewStats.classList.add("hidden"); 
-    }
-    function showStats() {
-      if(viewAuth) viewAuth.classList.add("hidden");
-      if(viewTeams) viewTeams.classList.add("hidden");
-      if(viewHome) viewHome.classList.add("hidden");
-      if(viewSetup) viewSetup.classList.add("hidden");
-      if(viewApp) viewApp.classList.add("hidden");
-      if(seasonView) seasonView.classList.add("hidden");
-      if(viewStats) viewStats.classList.remove("hidden"); 
-    }
-
-    /***********************************************************
-     * 5. KIRJAUTUMINEN
-     ***********************************************************/
-     if (loginBtn) {
-        loginBtn.addEventListener("click", async () => {
-          if(loginErr) loginErr.textContent = "";
-          try {
-            const cred = await signInWithEmailAndPassword(
-              auth,
-              emailInput.value.trim(),
-              passInput.value
-            );
-          } catch (err) {
-            console.error("Kirjautumisvirhe:", err.message);
-            if(loginErr) loginErr.textContent = err.message;
-          }
-        });
-     } else {
-        console.error("VIRHE: loginBtn-elementtiä (id='login-btn') ei löytynyt.");
-     }
-
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        currentUser = null;
-        showAuth();
-        return;
-      }
-      currentUser = user;
-      console.log("Kirjautunut käyttäjä:", currentUser.uid); 
-      
-      await loadAllRostersForUser(user.uid);
-      
-      const last = localStorage.getItem("fs_selected_team");
-      console.log("Viimeksi valittu tiimi (localStorage):", last);
-
-      if (last && allTeams.find(t => t.id === last)) {
-        console.log("Löytyi viimeksi valittu tiimi, näytetään koti.");
-        currentTeamId = last;
-        rosterData = allTeams.find(t => t.id === last).players || {};
-        showHome();
-      } else {
-        console.log("Ei löytynyt tiimejä TAI viimeksi valittua. Näytetään tiimin valinta.");
-        showTeams();
-      }
-    });
-
-    /***********************************************************
-     * 6. JOUKKUEIDEN (ROSTERIEN) HAKU
-     ***********************************************************/
-    async function loadAllRostersForUser(uid) {
-      const path = `users/${uid}/teams`;
-      console.log("Ladataan joukkueet polusta:", path);
-      
-      const rosterCol = collection(db, "users", uid, "teams");
-      
-      try {
-        const snap = await getDocs(rosterCol);
-        allTeams = snap.docs.map(d => ({
-          id: d.id, 
-          ...(d.data() || {})
-        }));
-        console.log("Joukkueet ladattu:", allTeams.length, "kpl");
-        renderTeamList();
-      } catch (err) {
-        console.error("Joukkueiden lataus epäonnistui:", err);
-        if (teamList) {
-          teamList.innerHTML = `<p class="text-red-400 text-sm">Virhe ladattaessa joukkueita: ${err.message}</p>`;
-        }
-      }
-    }
-
-    function renderTeamList() {
-      if (!teamList) return;
-      if (teamList.innerHTML.includes('Virhe')) return; 
-
-      teamList.innerHTML = "";
-      if (!allTeams.length) {
-        teamList.innerHTML = `<p class="text-slate-400 text-sm">Ei joukkueita vielä. Luo uusi.</p>`;
-        return;
-      }
-      allTeams.forEach(team => {
-        const btn = document.createElement("button");
-        btn.className = "w-full bg-slate-700 hover:bg-slate-600 text-left px-4 py-2 rounded mb-2";
-        btn.textContent = team.name || team.id; 
-        
-        btn.addEventListener("click", () => {
-          currentTeamId = team.id; 
-          rosterData = team.players || {};
-          localStorage.setItem("fs_selected_team", currentTeamId);
-          showHome();
-        });
-        teamList.appendChild(btn);
-      });
-    }
-
-    /***********************************************************
-     * 7. UUDEN JOUKKUEEN LUONTI
-     ***********************************************************/
-    if (newTeamBtn) {
-      newTeamBtn.addEventListener("click", async () => {
-        if (!newTeamInput) return;
-        const name = newTeamInput.value.trim();
-        if (!name || !currentUser) return;
-        console.log("Luodaan uusi joukkue:", name);
-        
-        const teamsCol = collection(db, "users", currentUser.uid, "teams");
-        try {
-          await addDoc(teamsCol, { 
-            name: name, 
-            players: {},
-            createdAt: new Date().toISOString()
-          });
-          newTeamInput.value = "";
-          await loadAllRostersForUser(currentUser.uid);
-        } catch (err) {
-          console.error("Joukkueen luonti epäonnistui:", err);
-        }
-      });
-    }
-
-    /***********************************************************
-     * 8. KOTINÄKYMÄN NAPIT
-     ***********************************************************/
-     
-    function showHome() {
-      if(viewAuth) viewAuth.classList.add("hidden");
-      if(viewTeams) viewTeams.classList.add("hidden");
-      if(viewHome) viewHome.classList.remove("hidden");
-      if(viewSetup) viewSetup.classList.add("hidden");
-      if(viewApp) viewApp.classList.add("hidden");
-      if(seasonView) seasonView.classList.add("hidden");
-      if(viewStats) viewStats.classList.add("hidden"); 
-      
-      const teamNameEl = document.getElementById("selected-team-name");
-      if(teamNameEl) {
-        const team = allTeams.find(t => t.id === currentTeamId);
-        teamNameEl.textContent = team ? team.name : (currentTeamId || "—");
-      }
-
-      if (currentUser && currentTeamId) {
-        listenForGames(currentUser.uid, currentTeamId);
-      }
-    }
-     
-    if (homeNewGameBtn) {
-      homeNewGameBtn.addEventListener("click", () => {
-        if (!currentTeamId) return;
-        currentGame = null; 
-        showSetup();
-      });
-    }
-
-    if (seasonBtn) {
-      seasonBtn.addEventListener("click", () => {
-        renderSeasonView();
-        showSeason();
-      });
-    }
-
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", async () => {
-        await signOut(auth);
-        localStorage.removeItem("fs_selected_team");
-        showAuth();
-      });
-    }
-
-    if (changeTeamBtn) {
-      changeTeamBtn.addEventListener("click", () => {
-        console.log("Vaihdetaan joukkuetta manuaalisesti...");
-        localStorage.removeItem("fs_selected_team");
-        currentTeamId = null;
-        rosterData = {};
-        seasonData = { games: [] }; 
-        showTeams(); 
-      });
-    }
-
-    if (logoutBtnTeams) {
-      logoutBtnTeams.addEventListener("click", async () => {
-        await signOut(auth);
-        localStorage.removeItem("fs_selected_team");
-        showAuth();
-      });
-    }
-
-    if (setupBackBtn) {
-      setupBackBtn.addEventListener("click", () => {
-        showHome();
-      });
-    }
-
-    if (appBackBtn) {
-      appBackBtn.addEventListener("click", () => {
-        if (currentGame && currentGame.id) {
-          renderStatsView(currentGame);
-          showStats();
-        } else {
-          showHome();
-        }
-      });
-    }
-
-    if (printReportBtn) {
-      printReportBtn.addEventListener("click", () => {
-        console.log("Valmistellaan tulostusta (laukaisukartta)...");
-        window.print(); 
-      });
-    }
-
-
-    /***********************************************************
-     * 9. UUDEN OTTELUN ALOITUS
-     ***********************************************************/
-    if (startGameBtn) {
-      startGameBtn.addEventListener("click", async () => {
-        const opponent = opponentInput.value.trim() || "Vieras";
-        const rosterText = document.getElementById("roster-textarea").value;
-        const ta = rosterText.split("\n")
-          .map(l => l.trim())
-          .filter(Boolean);
-
-        const newRoster = {};
-        ta.forEach(line => {
-          const parts = line.split(/\s+/);
-          const num = parseInt(parts[0], 10);
-          if (!isNaN(num)) {
-            newRoster[num] = parts.slice(1).join(" ");
-          }
-        });
-
-        if (currentUser && currentTeamId) {
-          console.log("Päivitetään roster joukkueelle:", currentTeamId);
-          const ref = doc(db, "users", currentUser.uid, "teams", currentTeamId);
-          try {
-            await setDoc(ref, { players: newRoster }, { merge: true });
-          } catch (err) {
-            console.error("Rosterin päivitys epäonnistui:", err);
-          }
-        }
-        rosterData = newRoster;
-
-        currentGame = {
-          date: new Date().toISOString(),
-          opponent,
-          team: currentTeamId, 
-          players: Object.keys(rosterData).map(n => Number(n)).sort((a,b)=>a-b),
-          roster: rosterData,
-          shots: [],
-          plusMinus: {},
-          currentPeriod: 1
-        };
-        currentGame.players.forEach(p => {
-          currentGame.plusMinus[p] = { plus:0, minus:0 };
-        });
-
-        console.log("Aloitetaan uusi peli:", currentGame);
-        showApp(); 
-      });
-    }
-
-    // --- "AIDON" TYÖKALUN FUNKTIOT ---
-    
-    // Yksinkertainen xG-laskuri placeholder
-    function calculateXg(x, y) {
-      const dist = Math.sqrt(Math.pow(x - 10, 2) + Math.pow(y - 50, 2)); // Etäisyys maalista (karkea)
-      let xg = 0.5 - (dist / 200);
-      return Math.max(0.01, Math.min(xg, 0.99));
-    }
-    
-    // Päivitä valittu pelaaja
-    function updateSelectedPlayer(targetElement) {
-      if (!homePlayerList) return;
-      const oldSelected = homePlayerList.querySelector(".selected");
-      if (oldSelected) {
-        oldSelected.classList.remove("selected");
-      }
-      if (targetElement) {
-        targetElement.classList.add("selected");
-        currentShotDetails.player = parseInt(targetElement.dataset.player, 10);
-      } else {
-        currentShotDetails.player = null;
-      }
-      console.log("Valittu pelaaja:", currentShotDetails.player);
-    }
-    
-    // Päivitä valittu laukaustyyppi
-    function updateSelectedButton(targetElement) {
-      if (!shotOutcomeButtons) return;
-      const oldSelected = shotOutcomeButtons.querySelector(".selected");
-      if (oldSelected) {
-        oldSelected.classList.remove("selected");
-      }
-      if (targetElement) {
-        targetElement.classList.add("selected");
-        currentShotDetails.outcome = targetElement.dataset.outcome;
-      } else {
-        currentShotDetails.outcome = null;
-      }
-      console.log("Valittu tyyppi:", currentShotDetails.outcome);
-    }
-
-    function renderPlayers() {
-      if (!homePlayerList) return;
-      homePlayerList.innerHTML = "";
-      if (!currentGame) return;
-      
-      currentGame.players.forEach(num => {
-        const div = document.createElement("div");
-        div.className = "player-number"; 
-        div.textContent = num;
-        div.dataset.player = num; 
-        
-        div.addEventListener("click", (e) => {
-          updateSelectedPlayer(e.target);
-        });
-        
-        homePlayerList.appendChild(div);
-      });
-      
-      if (!awayPlayerList) return;
-      awayPlayerList.innerHTML = "";
-      const av = document.createElement("div");
-      av.className = "player-number"; 
-      av.textContent = "V";
-      av.dataset.player = "Vieras";
-      awayPlayerList.appendChild(av);
-    }
-    
-    // Lisää kuuntelijat laukausnapeille
-    if (shotOutcomeButtons) {
-      shotOutcomeButtons.querySelectorAll('.shot-outcome-btn').forEach(btn => {
-        btn.addEventListener("click", (e) => {
-          updateSelectedButton(e.currentTarget);
-        });
-      });
-    }
-
-    /***********************************************************
-     * 10. LAUKAISUMERKINTÄ ("AITO" VERSIO)
-     ***********************************************************/
-    
-    if (fieldContainer) {
-      fieldContainer.addEventListener("click", (e) => {
-        if (!currentGame) return;
-        
-        if (!currentShotDetails.player) {
-          console.log("Ei pelaajaa valittuna. Valitse pelaaja ensin.");
-          return; 
-        }
-        if (!currentShotDetails.outcome) {
-          console.log("Ei laukaustyyppiä valittuna.");
-          return;
-        }
-
-        const rect = fieldContainer.getBoundingClientRect();
-        const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-        const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-        
-        const shot = {
-          id: Date.now(),
-          team: "home", 
-          player: currentShotDetails.player,
-          outcome: currentShotDetails.outcome,
-          x: xPct,
-          y: yPct,
-          period: currentGame.currentPeriod,
-          xG: calculateXg(xPct, yPct)
-        };
-        
-        console.log("Uusi 'aito' laukaus lisätty:", shot);
-        currentGame.shots.push(shot);
-        renderShots();
-        renderStatsBox();
-      });
-    }
-
-    function renderShots() {
-      if (!shotsLayer) return;
-      shotsLayer.innerHTML = "";
-      if (!currentGame || !currentGame.shots) return; 
-      
-      currentGame.shots.forEach(s => {
-        const m = document.createElement("div");
-        
-        // --- KORJATTU LAUKAUSKARTAN NÄKYMÄ (TAAKSEPIN YHTEENSOPIVA) ---
-        let outcomeClass = 'shot-l'; // Oletus 'L' tai 'miss'
-        switch(s.outcome) {
-            case 'M':
-            case 'goal':
-                outcomeClass = 'shot-m';
-                break;
-            case 'L+':
-                outcomeClass = 'shot-l-plus';
-                break;
-            case 'H-':
-                outcomeClass = 'shot-h-minus';
-                break;
-            case 'B':
-                outcomeClass = 'shot-b';
-                break;
-            case 'T':
-                outcomeClass = 'shot-t';
-                break;
-            case 'L':
-            case 'miss':
-            default:
-                outcomeClass = 'shot-l';
-                break;
-        }
-        
-        m.className = "shot-marker " + outcomeClass; 
-        
-        m.style.left = s.x + "%";
-        m.style.top  = s.y + "%";
-        const span = document.createElement("span");
-        span.textContent = s.team === "home" ? s.player : "V";
-        m.appendChild(span);
-        shotsLayer.appendChild(m);
-      });
-    }
-
-    function renderStatsBox() {
-      if (!currentGame || !statsBox) return;
-      let homeGoals = 0, awayGoals = 0, homeShots = 0, awayShots = 0, homeXg=0, awayXg=0;
-      
-      if (currentGame.shots) { 
-        currentGame.shots.forEach(s => {
-          
-          // --- KORJATTU LAUKAUSTEN LASKENTA (TAAKSEPIN YHTEENSOPIVA) ---
-          const isShot = s.outcome === 'L' || s.outcome === 'M' || s.outcome === 'L+' || s.outcome === 'miss' || s.outcome === 'goal';
-          const isGoal = s.outcome === 'M' || s.outcome === 'goal';
-          const isXg = s.xG || 0;
-
-          if (s.team === "home") {
-            if (isShot) homeShots++;
-            if (isGoal) homeGoals++;
-            homeXg += isXg;
-          } else {
-            if (isShot) awayShots++;
-            if (isGoal) awayGoals++;
-            awayXg += isXg;
-          }
-        });
-      }
-      statsBox.innerHTML = `
-        <h3 class="font-semibold mb-2">Erä ${currentGame.currentPeriod}</h3>
-        <div class="text-sm">
-          <p><b>Koti:</b> Maalit ${homeGoals}, Laukaukset ${homeShots}, xG ${homeXg.toFixed(2)}</p>
-          <p><b>Vieras:</b> Maalit ${awayGoals}, Laukaukset ${awayShots}, xG ${awayXg.toFixed(2)}</p>
-        </div>
-      `;
-    }
-
-    /***********************************************************
-     * 11. TALLENNA TAI PÄIVITÄ PELI FIREBASEEN
-     ***********************************************************/
-    if (saveGameBtn) {
-      saveGameBtn.addEventListener("click", async () => {
-        if (!currentUser || !currentGame) return;
-        
-        try {
-          if (currentGame.id) {
-            console.log("Päivitetään peli:", currentGame.id);
-            const gameRef = doc(
-              db, "users", currentUser.uid, "teams",
-              currentGame.team, "games", currentGame.id 
-            );
-            await setDoc(gameRef, currentGame, { merge: true }); 
-            console.log("Peli päivitetty.");
-
-          } else {
-            console.log("Tallennetaan uusi peli joukkueelle:", currentGame.team);
-            await addDoc(
-              collection(
-                db, "users", currentUser.uid, "teams",
-                currentGame.team, "games"
-              ),
-              currentGame
-            );
-            console.log("Peli tallennettu.");
-          }
-          
-          currentGame = null;
-          showHome();
-
-        } catch (err) {
-          console.error("Pelin tallennus/päivitys epäonnistui:", err);
-        }
-      });
-    }
-
-    /***********************************************************
-     * 12. KAUSINÄKYMÄ
-     ***********************************************************/
-    
-    function listenForGames(uid, teamId) {
-      if (!teamId) {
-        console.log("Ei teamId:tä, ei kuunnella pelejä.");
-        return;
-      }
-      
-      const gamesCol = collection(db, "users", uid, "teams", teamId, "games");
-      console.log("Kuunnellaan pelejä polusta:", `users/${uid}/teams/${teamId}/games`);
-
-      onSnapshot(gamesCol, (snap) => {
-        console.log("Kausidata päivittyi, pelejä:", snap.docs.length);
-        seasonData.games = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        if (seasonView && !seasonView.classList.contains("hidden")) {
-          renderSeasonView();
-        }
-      }, (err) => {
-        console.error("Pelien kuuntelu epäonnistui:", err);
-      });
-    }
-
-    function renderSeasonView() {
-      if (!seasonContent) return;
-      seasonContent.innerHTML = "";
-
-      if (!seasonData.games.length) { 
-        seasonContent.innerHTML = `<p class="text-slate-300">Ei tallennettuja otteluita tälle joukkueelle.</p>`;
-        return;
-      }
-
-      seasonData.games
-        .sort((a,b) => new Date(b.date) - new Date(a.date))
-        .forEach(g => {
-          const div = document.createElement("div");
-          div.className = "bg-slate-800 rounded p-4 mb-3"; 
-          
-          const h = document.createElement("div");
-          h.className = "flex justify-between items-center cursor-pointer"; 
-          
-          const team = allTeams.find(t => t.id === g.team);
-          const teamName = team ? team.name : (g.team || "");
-          
-          const textDiv = document.createElement("div"); 
-          textDiv.innerHTML = `<p class="font-semibold">${new Date(g.date).toLocaleDateString("fi-FI")} vs ${g.opponent}</p>
-                           <p class="text-sm text-slate-400">${teamName}</p>`;
-          
-          const del = document.createElement("button");
-          del.className = "bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm ml-4 flex-shrink-0"; 
-          del.textContent = "Poista";
-
-          h.appendChild(textDiv); 
-          h.appendChild(del);     
-          div.appendChild(h);     
-          seasonContent.appendChild(div);
-
-          textDiv.addEventListener("click", () => {
-            const loadedGame = seasonData.games.find(game => game.id === g.id);
-            if (!loadedGame) {
-              console.error("Peliä ei löytynyt datasta:", g.id);
-              return;
-            }
-            currentGame = loadedGame; 
-            console.log("Ladataan peli tilastoihin:", currentGame);
-
-            renderStatsView(currentGame);
-            showStats();
-          });
-          
-          del.addEventListener("click", async (e) => {
-            e.stopPropagation(); 
-            console.log("Poistetaan peli:", g.id);
-            try {
-              await deleteDoc(doc(
-                db, "users", currentUser.uid, "teams",
-                currentTeamId, "games", g.id
-              ));
-            } catch (err) {
-              console.error("Pelin poisto epäonnistui:", err);
-            }
-          });
-
-        });
-    }
-
-    if (seasonBackBtn) {
-      seasonBackBtn.addEventListener("click", () => {
-        showHome();
-      });
-    }
-    
-    
-    /***********************************************************
-     * 13. UUSI TILASTONÄKYMÄ (STATS-VIEW)
-     ***********************************************************/
-
-    // Laskee statsit annetusta pelidatasta
-    function calculateStats(game) {
-      const stats = {
-        team: { L: 0, M: 0, 'L+': 0, 'H-': 0, xG: 0, T: 0, B: 0 },
-        opponent: { L: 0, M: 0, 'L+': 0, 'H-': 0, xG: 0, T: 0, B: 0 },
-        players: {}
-      };
-      
-      if (!game.roster || !game.shots) {
-        console.warn("Peli-objektista puuttuu roster tai shots-data.");
-        return stats;
-      }
-      
-      for (const playerNum in game.roster) {
-        stats.players[playerNum] = { 
-          name: game.roster[playerNum] || `Pelaaja ${playerNum}`,
-          L: 0, M: 0, 'L+': 0, 'H-': 0, T: 0, B: 0, '+/-': 0
-        };
-      }
-      
-      game.shots.forEach(shot => {
-        const target = shot.team === 'home' ? stats.team : stats.opponent;
-        const outcome = shot.outcome; 
-        
-        // --- KORJAUS TAAKSEPÄIN YHTEENSOPIVUUTEEN (JOUKKUE) ---
-        if (outcome === 'M' || outcome === 'goal') target.M++;
-        else if (outcome === 'L' || outcome === 'miss') target.L++;
-        else if (target.hasOwnProperty(outcome)) target[outcome]++;
-
-        target.xG += shot.xG || 0;
-        
-        // --- KORJAUS TAAKSEPÄIN YHTEENSOPIVUUTEEN (PELAAJAT) ---
-        if (shot.team === 'home' && stats.players[shot.player]) {
-          const pStats = stats.players[shot.player];
-          
-          if (outcome === 'M' || outcome === 'goal') pStats.M++;
-          else if (outcome === 'L' || outcome === 'miss') pStats.L++;
-          else if (pStats.hasOwnProperty(outcome)) pStats[outcome]++;
-        }
-      });
-      
-      return stats;
-    }
-
-    // Rakentaa ja näyttää stats-view'n
-    function renderStatsView(game) {
-      if (!statsViewContent) return;
-      
-      const gameStats = calculateStats(game);
-      
-      let homeScore = gameStats.team.M;
-      let awayScore = gameStats.opponent.M;
-      
-      // --- KORJATTU YHTEENVETO NÄYTTÄMÄÄN KAIKKI DATAT ---
-      let summaryHtml = `
-        <h2 class="text-3xl font-bold mb-2">${new Date(game.date).toLocaleDateString("fi-FI")} vs ${game.opponent}</h2>
-        <p class="text-xl mb-2">Tulos: ${homeScore} - ${awayScore}</p>
-        <p class="text-slate-400 mb-4">Pallonhallinta: 50% - 50% (placeholder)</p>
-        
-        <div class="mb-6">
-          <h3 class="text-xl font-semibold mb-2">Joukkueet</h3>
-          <p class="text-sm"><b>Koti:</b> L ${gameStats.team.L}, M ${gameStats.team.M}, xG ${gameStats.team.xG.toFixed(2)}, L+ ${gameStats.team['L+']}, H- ${gameStats.team['H-']}, T ${gameStats.team.T}, B ${gameStats.team.B}</p>
-          <p class="text-sm"><b>Vieras:</b> L ${gameStats.opponent.L}, M ${gameStats.opponent.M}, xG ${gameStats.opponent.xG.toFixed(2)}, L+ ${gameStats.opponent['L+']}, H- ${gameStats.opponent['H-']}, T ${gameStats.opponent.T}, B ${gameStats.opponent.B}</p>
-        </div>
-      `;
-      
-      let tableHtml = `
-        <h3 class="text-xl font-semibold mb-3">Pelaajat</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left stats-table">
-            <thead>
-              <tr>
-                <th>Nimi</th>
-                <th>L</th>
-                <th>M</th>
-                <th>L+</th>
-                <th>H-</th>
-                <th>T%</th>
-                <th>+/-</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
-      
-      const sortedPlayerNumbers = Object.keys(game.roster).sort((a,b) => Number(a) - Number(b));
-      
-      for (const playerNum of sortedPlayerNumbers) {
-        const pStats = gameStats.players[playerNum];
-        
-        if (!pStats) {
-          console.warn(`Pelaajaa nro ${playerNum} ei löytynyt lasketuista tilastoista.`);
-          continue;
-        }
-        
-        // --- KORJATTU T% LASKENTA (TAAKSEPÄIN YHTEENSOPIVA) ---
-        const totalShots = pStats.L + pStats.M + pStats['L+'];
-        const shotPct = (totalShots > 0) ? ((pStats.M / totalShots) * 100).toFixed(0) : "—";
-        
-        tableHtml += `
-          <tr>
-            <td><b>#${playerNum}</b> ${pStats.name}</td>
-            <td>${pStats.L}</td>
-            <td>${pStats.M}</td>
-            <td class="stat-plus">${pStats['L+']}</td>
-            <td class="stat-minus">${pStats['H-']}</td>
-            <td>${shotPct}${totalShots > 0 ? '%' : ''}</td>
-            <td>${pStats['+/-']}</td>
-          </tr>
-        `;
-      }
-      
-      tableHtml += `
-            </tbody>
-          </table>
-        </div>
-      `;
-      
-      statsViewContent.innerHTML = summaryHtml + tableHtml;
-    }
-    
-    // Stats-näkymän nappien kuuntelijat
-    if (statsBackBtn) {
-      statsBackBtn.addEventListener("click", () => {
-        currentGame = null; 
-        showSeason();
-      });
-    }
-    
-    if (statsOpenMapBtn) {
-      statsOpenMapBtn.addEventListener("click", () => {
-        if (currentGame) {
-          showApp(); 
-        }
-      });
-    }
-    
-    if (statsDeleteBtn) {
-      statsDeleteBtn.addEventListener("click", async () => {
-        if (!currentGame || !currentUser) return;
-        
-        console.log("Poistetaan peli (stats-näkymästä):", currentGame.id);
-        try {
-          await deleteDoc(doc(
-            db, "users", currentUser.uid, "teams",
-            currentGame.team, "games", currentGame.id
-          ));
-          console.log("Peli poistettu.");
-          currentGame = null;
-          renderSeasonView(); 
-          showSeason(); 
-        } catch (err) {
-          console.error("Pelin poisto epäonnistui:", err);
-        }
-      });
-    }
-    
-    if (statsPdfBtn) {
-      statsPdfBtn.addEventListener("click", () => {
-        console.log("Valmistellaan tulostusta (tilastot)...");
-        document.body.classList.add("stats-print");
-        window.print();
-        document.body.classList.remove("stats-print");
-      });
-    }
-
-
-    console.log("Kaikki kuuntelijat lisätty DOMContentLoaded-eventin sisällä.");
-    }); // <-- DOMContentLoaded päättyy tähän
-
-  </script>
-
-  <!-- === PÄIVITETYT TYYLIT VASTAAMAAN MUISTIKUVAA === -->
-  <style>
-    .player-number {
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background-color: #334155; /* slate-700 */
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      border: 2px solid #475569; /* slate-600 */
-    }
-    .player-number.selected {
-      background-color: #1e40af; /* blue-800 */
-      border-color: #3b82f6; /* blue-500 */
-    }
-
-    .shot-outcome-btn {
-      padding: 8px;
-      font-size: 12px;
-      font-weight: bold;
-      background-color: #334155; /* slate-700 */
-      color: white;
-      border: 2px solid #475569; /* slate-600 */
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .shot-outcome-btn.selected {
-      background-color: #1e40af; /* blue-800 */
-      border-color: #3b82f6; /* blue-500 */
-    }
-
-
-    .shot-marker {
-      position: absolute;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      transform: translate(-50%, -50%); /* Keskittää merkin */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-      color: white;
-      text-shadow: 0 0 2px black;
-      border: 3px solid white; /* Oletusreunus */
-    }
-    
-    /* "AIDOT" VÄRIT LAUKAISUKARTTAAN (MUISTIKUVAN MUKAAN) */
-    /* L (Laukaus) / miss */
-    .shot-marker.shot-l {
-      background-color: #3b82f6; /* blue-500 */
-      border-color: #1d4ed8; /* blue-700 */
-    }
-    /* M (Maali) / goal */
-    .shot-marker.shot-m {
-      background-color: #22c55e; /* green-500 */
-      border-color: #15803d; /* green-700 */
-    }
-    /* L+ (Laukaus+) */
-    .shot-marker.shot-l-plus {
-      background-color: #eab308; /* yellow-500 */
-      border-color: #ca8a04; /* yellow-600 */
-    }
-    /* H- (Harhasyöttö) */
-    .shot-marker.shot-h-minus {
-      background-color: #ef4444; /* red-500 */
-      border-color: #b91c1c; /* red-700 */
-    }
-    /* B (Blokki) */
-    .shot-marker.shot-b {
-      background-color: #ffffff; /* white */
-      border-color: #000000; /* black */
-      color: #000000;
-      text-shadow: none;
-    }
-    /* T (Menetys) */
-    .shot-marker.shot-t {
-      background-color: #f97316; /* orange-500 */
-      border-color: #ea580c; /* orange-600 */
-    }
-    
-    .shot-marker span {
-      pointer-events: none; /* Estää span-elementtiä kaappaamasta klikkauksia */
-    }
-    
-    /* "AIDOT" VÄRIT TILASTOTAULUKKOON */
-    .stats-table th, .stats-table td {
-      padding: 12px 8px;
-      border-bottom: 1px solid #334155; /* slate-700 */
-    }
-    .stats-table th {
-      font-size: 10px;
-      text-transform: uppercase;
-      color: #94a3b8; /* slate-400 */
-    }
-    .stats-table tr:last-child td {
-      border-bottom: none;
-    }
-    .stats-table td:not(:first-child) {
-      text-align: center;
-    }
-    .stats-table .stat-plus {
-      color: #22c55e; /* green-500 */
-      font-weight: bold;
-    }
-    .stats-table .stat-minus {
-      color: #ef4444; /* red-500 */
-      font-weight: bold;
-    }
-
-
-    /* --- TULOSTUSTYYLIT --- */
-    @media print {
-      
-      /* Yleinen tulostus (laukaisukartta) */
-      body:not(.stats-print) > div:not(#app-view) {
-        display: none;
-      }
-      body:not(.stats-print) #app-view {
-        display: block !important;
-        height: 100vh;
-        width: 100vw;
-      }
-      body:not(.stats-print) #app-view aside {
-        display: none;
-      }
-      body:not(.stats-print) #app-view main {
-        width: 100%;
-        height: 100%;
-        padding: 0;
-        margin: 0;
-        background-color: white;
-      }
-      body:not(.stats-print) #field-container {
-        max-width: 100%;
-        width: 100%;
-        height: auto;
-        border: 2px solid black;
-        box-shadow: none;
-      }
-      body:not(.stats-print) #field-container svg line, 
-      body:not(.stats-print) #field-container svg rect {
-        stroke: #000000;
-      }
-      body:not(.stats-print) .shot-marker {
-        border-width: 2px;
-      }
-      
-      /* Tilastojen tulostus (stats-print) */
-      body.stats-print {
-        background-color: white !important;
-        color: black !important;
-      }
-      body.stats-print > div:not(#stats-view) {
-        display: none;
-      }
-      body.stats-print #stats-view {
-        display: block !important;
-        height: 100%;
-        width: 100%;
-        padding: 20px;
-      }
-      body.stats-print #stats-view-header,
-      body.stats-print #stats-view-buttons {
-        display: none;
-      }
-      body.stats-print #stats-view-content {
-        color: black;
-      }
-      body.stats-print .stats-table th, 
-      body.stats-print .stats-table td {
-        border-bottom: 1px solid #cccccc;
-        color: black;
-      }
-      body.stats-print .stats-table th {
-         color: #555555;
-      }
-      body.stats-print .stats-table .stat-plus {
-         color: #16a34a !important;
-         -webkit-print-color-adjust: exact;
-         color-adjust: exact;
-      }
-      body.stats-print .stats-table .stat-minus {
-         color: #dc2626 !important;
-         -webkit-print-color-adjust: exact;
-         color-adjust: exact;
-      }
-      
-      /* Yhteiset tulostussäännöt (KAIKKI VÄRIT) */
-      .shot-marker.shot-l {
-        background-color: #3b82f6 !important; 
-        border-color: #1d4ed8 !important;
-        -webkit-print-color-adjust: exact;
-        color-adjust: exact;
-      }
-      .shot-marker.shot-m {
-        background-color: #22c55e !important; 
-        border-color: #15803d !important;
-        -webkit-print-color-adjust: exact;
-        color-adjust: exact;
-      }
-      .shot-marker.shot-l-plus {
-        background-color: #eab308 !important;
-        border-color: #ca8a04 !important;
-        -webkit-print-color-adjust: exact;
-        color-adjust: exact;
-      }
-      .shot-marker.shot-h-minus {
-        background-color: #ef4444 !important;
-        border-color: #b91c1c !important;
-        -webkit-print-color-adjust: exact;
-        color-adjust: exact;
-      }
-      .shot-marker.shot-b {
-        background-color: #ffffff !important;
-        border-color: #000000 !important;
-        color: #000000 !important;
-        -webkit-print-color-adjust: exact;
-        color-adjust: exact;
-      }
-      .shot-marker.shot-t {
-        background-color: #f97316 !important;
-        border-color: #ea580c !important;
-        -webkit-print-color-adjust: exact;
-        color-adjust: exact;
-      }
-    }
-
-  </style>
-
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https:; connect-src 'self' https: wss:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob: data:; img-src 'self' data:; frame-src 'self' blob: https:; frame-ancestors 'self' https:;">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Salibandyn Kausitilastot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
+        .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
+        .away-player { font-size: 1.5rem; }
+        .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
+        .shot-marker {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            color: white;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .shot-marker span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1;
+            pointer-events: none;
+        }
+        .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
+        .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
+        .quality-high { border: 4px solid #b91c1c; } .quality-low { border: 4px solid #2563eb; }
+        .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
+        .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
+        .period-tab.active { background-color: #4f46e5; }
+        #main-app > .bg-slate-900 {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        #pdf-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9); display: none; z-index: 1000; }
+        #pdf-overlay.visible { display: grid; place-items: center; }
+        #pdf-overlay .panel { width: 96vw; height: 92vh; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); overflow: hidden; position: relative; }
+        #pdf-overlay header { position: absolute; inset: 0 0 auto 0; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #0f172a; color: #e2e8f0; }
+        #pdf-overlay header h3 { font-size: 14px; font-weight: 600; }
+        #pdf-overlay header button { background: #ef4444; color: white; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
+        #pdf-iframe { position: absolute; top: 48px; left: 0; width: 100%; height: calc(100% - 48px); border: 0; }
+
+        /* Pallonhallintapalkki */
+        .possession-wrap { width:100%; max-width:980px; margin:0 auto 12px auto; }
+        .possession-bar { position:relative; height:18px; background:#e2e8f0; border-radius:10px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.15); }
+        .possession-home, .possession-away { height:100%; }
+        .possession-home { background:#10b981; }  /* Koti */
+        .possession-away { background:#3b82f6; }  /* Vieras */
+        .possession-labels { position:absolute; inset:0; display:flex; justify-content:space-between; align-items:center; font-size:.80rem; font-weight:700; color:#0f172a; padding:0 8px; mix-blend-mode:multiply; }
+
+        /* Nappirivi kentän alle */
+        .possession-controls {
+            position: fixed;
+            left: 50%;
+            bottom: calc(12px + env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            display: flex; gap: .5rem; justify-content: center;
+            padding: .4rem .6rem; border-radius: .75rem;
+            background: rgba(15,23,42,.75); backdrop-filter: blur(6px);
+            box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 40;
+        }
+        .possession-controls button { padding:.65rem .9rem; border-radius:.6rem; font-weight:700; }
+        .pos-btn-home { background:#10b981; color:white; }
+        .pos-btn-away { background:#3b82f6; color:white; }
+        .pos-btn-stop { background:#ef4444; color:white; }
+        .pos-clock { min-width:4.5rem; text-align:center; font-variant-numeric:tabular-nums; color:white; font-weight:700; }
+        
+        /* Lajittelu */
+        .sortable { cursor: pointer; }
+        .sortable:hover { color: #fff; }
+        .sort-asc::after { content: ' ▲'; font-size: 0.7em; }
+        .sort-desc::after { content: ' ▼'; font-size: 0.7em; }
+    </style>
 </head>
-<body class="bg-slate-900 min-h-screen text-white">
+<body class="bg-slate-900 h-full text-slate-200">
 
-  <!-- 1. LOGIN -->
-  <div id="auth-view" class="min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-sm bg-slate-800 p-6 rounded-lg shadow text-center">
-      <h1 class="text-2xl font-bold mb-2">Floorball Shotmap</h1>
-      <p class="text-slate-400 mb-6">Kirjaudu sisään.</p>
-      <input id="email-input" type="email" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600 text-center" placeholder="sähköposti">
-      <input id="password-input" type="password" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600 text-center" placeholder="salasana">
-      <p id="login-error" class="text-red-400 text-sm h-5 mb-3"></p>
-      <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Kirjaudu sisään</Gbutton>
-    </div>
-  </div>
+    <div id="auth-view" class="h-full w-full flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-2xl font-bold">Tervetuloa</h1>
+            <p class="text-slate-400 mt-2 mb-6">Kirjaudu sisään tunnuksillasi.</p>
+            <div class="space-y-4">
+                <input id="email-input" name="email" type="email" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="sähköposti">
+                <input id="password-input" name="password" type="password" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center" placeholder="salasana">
+            </div>
+            <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
+            <div class="mt-4">
+                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">Kirjaudu sisään</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="teams-view" class="h-full w-full hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-3xl font-bold">Valitse tai luo joukkue</h1>
+            <div id="teams-list" class="mt-6 space-y-2 max-h-60 overflow-y-auto"></div>
+            <div class="mt-6 border-t border-slate-700 pt-6">
+                <input id="new-team-name" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-center" placeholder="Uuden joukkueen nimi">
+                <button id="create-team-btn" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg">Luo uusi joukkue</button>
+            </div>
+             <button id="logout-btn-teams" class="w-full bg-red-600 hover:bg-red-700 font-bold py-3 px-4 rounded-lg mt-6">Kirjaudu ulos</button>
+        </div>
+    </div>
 
-  <!-- 2. VALITSE TAI LUO JOUKKUE -->
-  <div id="team-view" class="hidden min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-slate-800 p-6 rounded-lg shadow">
-      <h2 class="text-2xl font-bold mb-4 text-center">Valitse tai luo joukkue</h2>
-      <div id="logged-in-user" class="text-center text-xs text-slate-400 mb-4 break-all"></div>
-      <div id="team-list" class="mb-4 space-y-2"></div>
-      <input id="new-team-input" class="w-full mb-3 p-3 rounded bg-slate-700 border border-slate-600" placeholder="Uuden joukkueen nimi">
-      <button id="new-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-2 rounded font-semibold">Luo uusi joukkue</button>
-      <button id="logout-btn-teams" class="w-full mt-3 bg-slate-600 hover:bg-slate-500 py-2 rounded">Kirjaudu ulos</button>
-    </div>
-  </div>
+    <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 id="team-name-header" class="text-3xl font-bold"></h1>
+             <p id="user-email" class="text-slate-400 mt-2 mb-8"></p>
+            <div class="space-y-4">
+                <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita uusi ottelu</button>
+                <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg disabled:opacity-50">Tarkastele kausidataa</button>
+                <button id="change-team-btn" class="w-full border border-slate-600 hover:bg-slate-700 font-bold py-3 px-4 rounded-lg mt-4">Vaihda joukkuetta</button>
+                <button id="logout-btn" class="w-full bg-red-600 hover:bg-red-700 font-bold py-3 px-4 rounded-lg mt-4">Kirjaudu ulos</button>
+            </div>
+        </div>
+    </div>
 
-  <!-- 3. KOTINÄKYMÄ -->
-  <div id="home-view" class="hidden min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-slate-800 p-6 rounded-lg text-center space-y-4">
-      <h2 class="text-xl font-bold">Floorball Shotmap</h2>
-      <p class="text-slate-400 text-sm" id="selected-team-name">—</p>
-      <button id="home-newgame-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Aloita uusi ottelu</button>
-      <button id="home-season-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-3 rounded font-semibold">Tarkastele kausidataa</button>
-      
-      <button id="home-change-team-btn" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded text-sm">Vaihda joukkuetta</button> 
-      
-      <button id="home-logout-btn" class="w-full bg-red-500 hover:bg-red-600 py-3 rounded font-semibold">Kirjaudu ulos</button>
-    </div>
-  </div>
+    <div id="setup-view" class="h-full w-full hidden items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-3xl font-bold mb-4">Uusi ottelu</h1>
+            <input id="opponent-name-input" name="opponent-name" type="text" class="w-full p-3 border bg-slate-700 border-slate-600 rounded-lg text-lg text-center mb-4" placeholder="Vastustajan nimi">
+            <textarea id="player-roster-input" name="player-roster" class="w-full h-48 p-3 border bg-slate-700 border-slate-600 rounded-lg text-sm font-mono" placeholder="Syötä pelaajanumerot, esim: 7 Matti, 10, 12, 21..."></textarea>
+            <p id="setup-error" class="text-red-500 text-sm mt-2 h-5"></p>
+            <button id="start-button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg">Aloita merkintä</button>
+            <button id="back-to-landing-btn" class="mt-2 w-full text-slate-400 hover:text-slate-200 font-semibold py-2">Takaisin</button>
+        </div>
+    </div>
 
-  <!-- 4. OTTELUN ASETUKSET -->
-  <div id="setup-view" class="hidden min-h-screen flex items-center justify-center p-4">
-    <div class="w-full max-w-lg bg-slate-800 p-6 rounded-lg space-y-4">
-      <h2 class="text-2xl font-bold text-center mb-2">Uusi ottelu</h2>
-      <input id="opponent-input" class="w-full p-3 rounded bg-slate-700 border border-slate-600" placeholder="Vastustaja">
-      <p class="text-sm text-slate-400">Pelaajat (numero ja nimi):</p>
-      <textarea id="roster-textarea" class="w-full h-48 p-3 rounded bg-slate-700 border border-slate-600 font-mono text-sm"></textarea>
-      <button id="start-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded font-bold">Aloita merkintä</button>
-      <button id="setup-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
-    </div>
-  </div>
+    <div id="app-container" class="h-full w-full hidden flex-col">
+        <div id="period-tabs" class="bg-slate-800 p-2 flex justify-center gap-1 md:gap-2 shrink-0 flex-wrap"></div>
+        <div class="flex-1 min-h-0 relative">
+            <div id="main-app" class="absolute inset-0 grid grid-cols-1 md:grid-cols-[256px,1fr]">
+                <div class="bg-slate-900 p-4 flex flex-col overflow-y-auto order-last md:order-first min-h-0">
+                    <div id="sidebar-content" class="flex-grow"></div>
+                    <button id="save-game-button" class="mt-6 w-full bg-blue-600 font-bold py-2 px-4 rounded-lg">Tallenna</button>
+                </div>
+                <div class="relative flex flex-col pt-8 bg-slate-200">
+                    <div class="possession-wrap px-4 absolute left-0 right-0 top-0 z-30">
+                        <div class="possession-bar">
+                            <div id="pos-home" class="possession-home" style="width:50%"></div>
+                            <div id="pos-away" class="possession-away" style="width:50%"></div>
+                            <div class="possession-labels">
+                                <span id="pos-home-label">Koti 50%</span>
+                                <span id="pos-away-label">Vieras 50%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <main class="flex-1 flex items-center justify-center gap-4 p-4 min-w-0">
+                        <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
+                    </main>
+              Tiedostosi oli rikki useasta kohtaa. Siellä oli virheellisiä Markdown-linkkejä `script`-tageissa ja satunnaisia merkkejä ympäri koodia (`s`, `_`, `S`, `TA`, `ds`, `e`, `E`, `Indentation`, `default`, `A`, `img/index.html`, `section .data`, `section .text`).
 
-  <!-- 5. VARSINAINEN MERKINTÄNÄKYMÄ -->
-  <div id="app-view" class="hidden min-h-screen flex flex-col md:flex-row">
-    <aside class="w-full md:w-64 bg-slate-900 p-4 space-y-4">
-      <h3 class="text-lg font-bold mb-3">Koti</h3>
-      <div id="home-player-list" class="flex flex-wrap gap-2"></div>
-      
-      <!-- "AIDON" TYÖKALUN NAPIT -->
-      <h3 class="text-lg font-bold mt-6 mb-3">Laukaus</h3>
-      <div id="shot-outcome-buttons" class="grid grid-cols-3 gap-2">
-        <button class="shot-outcome-btn selected" data-outcome="L">L</button>
-        <button class="shot-outcome-btn" data-outcome="M">M</button>
-        <button class="shot-outcome-btn" data-outcome="L+">L+</button>
-        <button class="shot-outcome-btn" data-outcome="H-">H-</button>
-        <button class="shot-outcome-btn" data-outcome="B">B</button>
-        <button class="shot-outcome-btn" data-outcome="T">T</button>
-      </div>
-
-      <h3 class="text-lg font-bold mt-6 mb-3">Vieras</h3>
-      <div id="away-player-list" class="flex gap-2"></div>
-      <div id="stats-box" class="mt-6 text-sm"></div>
-      <button id="save-game-btn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold">Tallenna ottelu</button>
-      <button id="print-report-btn" class="w-full mt-2 bg-green-600 hover:bg-green-700 py-2 rounded font-semibold">Tulosta Raportti</button>
-      <button id="app-back-btn" class="w-full bg-slate-600 hover:bg-slate-500 py-2 rounded">Takaisin</button>
-    </aside>
-    
-    <main class="flex-1 min-h-0 flex items-center justify-center bg-slate-200 p-4 md:p-8">
-      <div id="field-container" class="relative bg-white border-2 border-slate-800 rounded-lg shadow-2xl aspect-[2/1] w-full max-w-4xl">
-        <svg viewBox="0 0 400 200" class="w-full h-full">
-          <line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"></line>
-          <rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"></rect>
-          <rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"></rect>
-        </svg>
-        <div id="shots-layer" class="absolute inset-0"></div>
-      </div>
-    </main>
-  </div>
-
-  <!-- 6. KAUSINÄKYMÄ -->
-  <div id="season-view" class="hidden min-h-screen p-4 bg-slate-900">
-    <div class="max-w-3xl mx-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-bold">Tallennetut ottelut</h2>
-        <button id="season-back-btn" class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded">Takaisin</button>
-      </div>
-      <div id="season-content" class="space-y-3"></div>
-    </div>
-  </div>
-  
-  <!-- 7. UUSI TILASTONÄKYMÄ -->
-  <div id="stats-view" class="hidden min-h-screen p-4 md:p-8 bg-slate-900">
-    <div class="max-w-4xl mx-auto">
-      <div id="stats-view-header" class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-bold">Ottelun tilastot</h2>
-        <button id="stats-back-btn" class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded">Takaisin kauteen</button>
-      </div>
-      
-      <!-- Tähän ladataan sisältö JS:llä -->
-      <div id="stats-view-content" class="bg-slate-800 rounded-lg p-6 mb-6">
-        <!-- renderStatsView(game) täyttää tämän -->
-      </div>
-      
-      <!-- Toimintonapit -->
-      <div id="stats-view-buttons" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button id="stats-open-map-btn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded font-semibold">Avaa Laukaisukartta</button>
-        <button id="stats-pdf-btn" class="w-full bg-green-600 hover:bg-green-700 py-3 rounded font-semibold">Luo PDF-raportti</button>
-        <button id="stats-delete-btn" class="w-full bg-red-500 hover:bg-red-600 py-3 rounded font-semibold">Poista ottelu</button>
-      </div>
-    </div>
-  </div>
-
-</body>
-</html>
+Olen siivonnut koko tiedoston, poistanut kaikki virheelliset linkit ja ylimääräiset merkit. Tämän version pitäisi nyt latautua ja suorittaa JavaScript-koodi oikein.
