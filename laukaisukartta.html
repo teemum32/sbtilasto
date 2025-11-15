@@ -1217,26 +1217,9 @@
                 doc.text(subtitle, pageW / 2, yPos, { align: 'center' });
                 yPos += 15;
 
-                // --- ERÄIDEN MÄÄRITYS (KORJATTU) ---
-                const allShots = Array.isArray(game.shots) ? game.shots : [];
-                
-                // Tarkistetaan, onko pelissä YHTÄÄN laukausta, jolla on period-kenttä
-                const hasPeriodInfo = allShots.some(s => s.period != null);
-                let periodsToRender = [];
-
-                if (!hasPeriodInfo) {
-                    // "Vanha data": näytetään vain koko ottelu
-                    periodsToRender = ['summary'];
-                } else {
-                    // "Uusi data": Kerätään kaikki olemassaolevat eränumerot
-                    const distinctPeriods = [...new Set(
-                        allShots
-                            .map(s => Number(s.period))
-                            .filter(p => Number.isFinite(p) && p > 0) // Varmistetaan, että saadaan vain numerot 1, 2, 3...
-                    )].sort((a, b) => a - b);
-                    
-                    periodsToRender = [...distinctPeriods, 'summary'];
-                }
+                // --- ERÄIDEN MÄÄRITYS (KORJATTU VANHAN MALLIN MUKAAN) ---
+                // Käydään aina läpi kaikki erät ja 'summary'
+                const periodsToRender = [1, 2, 3, 'summary'];
 
                 // --- Silmukka erien läpi ---
                 for (const period of periodsToRender) {
@@ -1327,7 +1310,8 @@
                 }
                 
                 // --- Pelaajatilastot (vain koko ottelun raportissa) ---
-                if (!isPlayerReport && periodsToRender.length > 1) { // Näytä vain jos oli erädataa
+                // TARKISTUS POISTETTU: Näytetään pelaajatilastot aina summaryn jälkeen
+                if (!isPlayerReport) { 
                     doc.addPage();
                     yPos = margin;
                     doc.setFontSize(16);
