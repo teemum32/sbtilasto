@@ -1267,8 +1267,9 @@
 
         /**
          * RAPORTTI (c): JOUKKUEEN OTTELURAPORTTI
-         * LOPULLINEN KORJAUS: Pallonhallinnan haku on käämitty omaan
-         * try-catch-lohkoon, jotta se ei kaada koko renderöintiä.
+         * LOPULLINEN KORJAUS: Poistettu 'try-catch' silmukan sisältä
+         * ja korvattu buginen 'hasData'-tarkistus samalla toimivalla
+         * tarkistuksella, joka on pelaajaraportissa.
          */
         async function generatePdfReport(gameId, buttonElement) {
             const originalText = buttonElement.textContent;
@@ -1306,81 +1307,85 @@
                 const periodsToRender = isOldData ? ['summary'] : [1, 2, 3, 'summary'];
 
                 for (const period of periodsToRender) {
-                    // KÄÄRITÄÄN KOKO ERIEN KÄSITTELY TRY-CATCH-LOHKOON
-                    // Jos Erä 2 kaatuu, Erä 3 ja Summary yrittävät silti
-                    try {
-                        const isSummary = period === 'summary';
-                        const sectionTitle = (isSummary || isOldData) ? 'Koko ottelu' : `Erä ${period}`;
-
-                        const shotsForPeriod = getShotsForPeriod(game, period);
-                        const stats = getStatsForPeriod(game, period);
-                        
-                        // LOPULLINEN KORJAUS: Kääritään AINOA eroavaisuus (pallonhallinta)
-                        // omaan try-catch-lohkoon. Jos tämä kaatuu, näytetään 50/50.
-                        let poss;
-                        try {
-                            poss = getPossessionPctFor(game, period);
-                        } catch (possErr) {
-                            console.error(`Pallonhallinnan haku kaatui erälle ${period}:`, possErr);
-                            poss = { homePct: 50, awayPct: 50 }; // Oletusarvot, jotta raportti jatkuu
-                        }
-
-                        // Luodaan canvas vain tämän erän laukauksista
-                        const canvasGame = { ...game, shots: shotsForPeriod };
-                        const canvas = createShotmapCanvas(canvasGame, 'summary'); // laukaukset on jo suodatettu
-                        const imgData = canvas.toDataURL('image/png');
-
-                        const imgMaxWidth = pageW - margin * 2;
-                        const aspect = canvas.height / canvas.width;
-                        const imgWidth = imgMaxWidth;
-                        const imgHeight = imgWidth * aspect;
-
-                        const sectionHeight = imgHeight + 75; // n. 75px taulukolle
-                        if (yPos + sectionHeight > pageH - margin) {
-                            doc.addPage();
-                            yPos = margin;
-                        }
-
-                        doc.setFontSize(14);
-                        doc.text(sectionTitle, margin, yPos);
-                        yPos += 8;
-
-                        doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
-                        yPos += imgHeight + 5;
-
-                        callAutoTable(doc, {
-                            startY: yPos,
-                            margin: { left: margin },
-                            theme: 'grid',
-                            head: [['Tapahtuma', 'Koti', 'Vieras']],
-                            body: [
-                                ['Maalit', stats.home.goals, stats.away.goals],
-                                ['Laukaukset', stats.home.shots, stats.away.shots],
-                                ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
-                                ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
-                                ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
-                                ['Torjunnat', stats.home.saves, stats.away.saves],
-                                ['Blokit', stats.home.blocks, stats.away.blocks],
-                                ['Pallonhallinta %', `${poss.homePct}%`, `${poss.awayPct}%`],
-                            ],
-                            styles: { font: 'helvetica', fontSize: 10 },
-                            headStyles: { fillColor: [41, 52, 72], textColor: 255 },
-                            columnStyles: {
-                                0: { cellWidth: 40 },
-                                1: { cellWidth: 20, halign: 'right' },
-                                2: { cellWidth: 20, halign: 'right' }
-                            }
-                        });
-
-                        yPos = doc.lastAutoTable.finalY + 15;
-                        
-                        // Jos vanha data, renderöidään vain summary
-                        if (isOldData) break;
                     
-                    } catch (err) {
-                        console.error(`Virhe erän ${period} renderöinnissä:`, err);
-                        // Yritetään jatkaa seuraavaan erään, vaikka tämä kaatui
+                    const isSummary = period === 'summary';
+                    const sectionTitle = (isSummary || isOldData) ? 'Koko ottelu' : `Erä ${period}`;
+
+                    // Hae laukaukset ja tilastot tälle erälle
+                    const shotsForPeriod = getShotsForPeriod(game, period);
+                    
+                    // KORJAUS: Käytetään samaa, toimivaa logiikkaa kuin pelaajaraportissa
+                    // tyhjien erien ohittamiseen.
+                    if (!shotsForPeriod.length && !isSummary) {
+                        continue; // Ohitetaan tyhjät erät (mutta ei summarya)
                     }
+                    
+                    const stats = getStatsForPeriod(game, period);
+
+                    // Pallonhallinta – jos tulee virhe, näytetään 50/50
+                    let poss = { homePct: 50, awayPct: 50 };
+                    try {
+                        poss = getPossessionPctFor(game, period);
+                    } catch (possErr) {
+                        console.error(`Pallonhallinnan haku kaatui erälle ${period}:`, possErr);
+                    }
+
+                    // Luo tilapäinen peli-objekti, jossa vain tämän erän laukaukset
+                    const canvasGame = { ...game, shots: shotsForPeriod };
+                    const canvas = createShotmapCanvas(canvasGame, 'summary');
+                    const imgData = canvas.toDataURL('image/png');
+
+                    const imgMaxWidth = pageW - margin * 2;
+                    const aspect = canvas.height / canvas.width;
+                    const imgWidth = imgMaxWidth;
+                    const imgHeight = imgWidth * aspect;
+
+                    const sectionHeight = imgHeight + 75; // n. 75 mm taulukolle
+                    if (yPos + sectionHeight > pageH - margin) {
+                        doc.addPage();
+                        yPos = margin;
+                    }
+
+                    // Otsikko
+                    doc.setFontSize(14);
+                    doc.text(sectionTitle, margin, yPos);
+                    yPos += 8;
+
+                    // Laukaisukartta
+                    doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
+                    yPos += imgHeight + 5;
+
+                    // Taulukko
+                    callAutoTable(doc, {
+                        startY: yPos,
+                        margin: { left: margin },
+                        theme: 'grid',
+                        head: [['Tapahtuma', 'Koti', 'Vieras']],
+                        body: [
+                            ['Maalit', stats.home.goals, stats.away.goals],
+                            ['Laukaukset', stats.home.shots, stats.away.shots],
+                            ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
+                            ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
+                            ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow],
+                            ['Torjunnat', stats.home.saves, stats.away.saves],
+                            ['Blokit', stats.home.blocks, stats.away.blocks],
+                            ['Pallonhallinta %', `${poss.homePct}%`, `${poss.awayPct}%`],
+                        ],
+                        styles: { font: 'helvetica', fontSize: 10 },
+                        headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                        columnStyles: {
+                            0: { cellWidth: 40 },
+                            1: { cellWidth: 20, halign: 'right' },
+                            2: { cellWidth: 20, halign: 'right' }
+                        }
+                    });
+
+                    yPos = (doc.lastAutoTable && doc.lastAutoTable.finalY)
+                        ? doc.lastAutoTable.finalY + 15
+                        : yPos + 15;
+                    
+                    // Jos vanha data, renderöidään vain summary
+                    if (isOldData) break;
                 }
 
                 // --- Pelaajakohtaiset tilastot omalle sivulle ---
@@ -1391,7 +1396,7 @@
                 yPos += 10;
                 generatePlayerStatsForPdf(doc, game, yPos);
 
-                // Näytetään PDF (overlay)
+                // Näytetään PDF (overlayssä nykyikkunassa)
                 const blob = doc.output('blob');
                 const blobUrl = URL.createObjectURL(blob);
                 document.getElementById('pdf-iframe').src = blobUrl;
