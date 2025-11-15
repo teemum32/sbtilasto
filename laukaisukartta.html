@@ -826,13 +826,15 @@
             if (period === 'summary') {
                 // Käydään läpi vain merkkijonoavaimet
                 ['1', '2', '3'].forEach(p => {
-                    if (pos[p]) { // <-- TARKISTUS
+                    // KORJAUS: Varmistetaan, että pos[p] on olemassa JA se on objekti
+                    if (pos[p] && typeof pos[p] === 'object') {
                         homeMs += pos[p].home || 0;
                         awayMs += pos[p].away || 0;
                     }
                 });
             } else if (['1', '2', '3'].includes(periodKey)) {
-                if (pos[periodKey]) { // <-- TARKISTUS
+                // KORJAUS: Varmistetaan, että pos[periodKey] on olemassa JA se on objekti
+                if (pos[periodKey] && typeof pos[periodKey] === 'object') {
                     homeMs = pos[periodKey].home || 0;
                     awayMs = pos[periodKey].away || 0;
                 }
@@ -845,7 +847,8 @@
             } else {
                 // Muissa näkymissä (kuten 'plus-minus') näytetään summat
                 ['1', '2', '3'].forEach(p => {
-                    if (pos[p]) { // <-- TARKISTUS
+                    // KORJAUS: Varmistetaan, että pos[p] on olemassa JA se on objekti
+                    if (pos[p] && typeof pos[p] === 'object') {
                         homeMs += pos[p].home || 0;
                         awayMs += pos[p].away || 0;
                     }
