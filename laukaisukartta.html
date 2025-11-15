@@ -642,7 +642,7 @@
         }
 
         /**
-         * LISÄTTY: Apufunktio: Hakee YHDEN pelaajan tilastot (PDF-raporttia varten)
+         * Apufunktio: Hakee YHDEN pelaajan tilastot (PDF-raporttia varten)
          */
         function getPlayerStatsForPeriod(game, playerNum, period) {
             const pNum = Number(playerNum);
@@ -812,7 +812,7 @@
         }
         
         /**
-         * VIIMEISIN KORJAUS TÄSSÄ: Varmistetaan, että 'pos[period]' tarkistetaan
+         * KORJATTU: Varmistetaan, että 'pos[period]' tarkistetaan
          * ennen kuin yritetään lukea 'pos[period].home'.
          */
         function getPossessionPctFor(game, period) {
@@ -891,7 +891,7 @@
                     return sortDir === 'asc' ? valA - valB : valB - valA;
                 });
 
-                // VINKKI 1: Päivitetty 10 sarakkeeseen
+                // KORJAUS (a): Lisätty "Kausi-PDF" -sarake
                 let playerTable = `<div class="flex justify-between items-center"><h3 class="text-xl font-bold text-slate-100 mb-3">Pelaajatilastot</h3><button id="share-players-btn" class="bg-emerald-600 text-sm font-semibold py-2 px-4 rounded-lg">Jaa</button></div>
                 <div class="grid grid-cols-10 text-center font-semibold text-xs text-slate-400 mb-2 px-1">
                     <span class="col-span-2 sortable" data-sort="name">Pelaaja</span>
@@ -902,14 +902,14 @@
                     <span class="sortable" data-sort="plus">L+</span>
                     <span class="sortable" data-sort="minus">H-</span>
                     <span class="sortable" data-sort="pm">+/-</span>
-                    <span>PDF</span>
+                    <span>Kausi-PDF</span>
                 </div>`;
 
                 sortedPlayers.forEach(pNum => { 
                     const stats = playerStats[pNum] || { games:0, shots:0, goals:0, plus:0, minus:0, qualityHigh:0, qualityLow:0, xg: 0 }; 
                     const bal = (stats.plus || 0) - (stats.minus || 0); 
                     const name = fullRoster[pNum] || ''; 
-                    // VINKKI 1: Päivitetty rivi 10 sarakkeeseen + PDF-nappi
+                    // KORJAUS (a): Lisätty "Kausi-PDF" -nappi
                     playerTable += `<div class="grid grid-cols-10 text-center text-sm py-1.5 border-b border-slate-700 items-center">
                         <span class="font-bold text-left col-span-2 truncate">#${pNum} ${name}</span>
                         <span>${stats.games}</span>
@@ -920,9 +920,9 @@
                         <span class="text-blue-400 font-semibold">${stats.qualityLow || 0}</span>
                         <span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span>
                         <button 
-                            class="player-season-report-btn text-xs bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded"
+                            class="player-season-report-btn text-xs bg-green-600 hover:bg-green-700 px-2 py-1 rounded"
                             data-player-num="${pNum}">
-                            PDF
+                            Kausi
                         </button>
                     </div>`; 
                 });
@@ -953,7 +953,7 @@
                     });
                 });
 
-                // VINKKI 2: Päivitetty klikkauskuuntelija
+                // KORJAUS (a) ja (b): Päivitetty klikkauskuuntelija
                 seasonView.addEventListener('click', (e) => {
                     const newGameBtn = e.target.closest('#new-game-from-season-btn');
                     const sharePlayersBtn = e.target.closest('#share-players-btn');
@@ -961,44 +961,50 @@
                     const deleteGameBtn = e.target.closest('.delete-game-btn');
                     const pdfBtn = e.target.closest('.generate-pdf-btn');
                     
-                    // Nämä olivat olemassa
-                    const playerReportBtnInDetails = e.target.closest('.player-report-btn'); // Vanha pelaajanappi (ottelunäkymässä)
-                    const game = pdfBtn ? seasonData.games.find(g => g.id === pdfBtn.dataset.gameId) :
-                                 playerReportBtnInDetails ? seasonData.games.find(g => g.id === playerReportBtnInDetails.dataset.gameId) : null;
-                    
-                    // TÄMÄ ON UUSI (VINKKI 2)
-                    const playerSeasonReportBtn = e.target.closest('.player-season-report-btn');
+                    // UUDET: Pelaajanapit
+                    const playerSeasonReportBtn = e.target.closest('.player-season-report-btn'); // Kausilistasta (a)
+                    const playerGameReportBtn = e.target.closest('.player-game-report-btn');     // Otteludetailista (b)
 
                     if (newGameBtn) { showMainView('setup'); prefillRosterInput(); } 
                     else if (sharePlayersBtn) { shareDataByEmail('players'); } 
                     else if (shareGameBtn) { shareDataByEmail('game', shareGameBtn.dataset.gameId); } 
                     else if (deleteGameBtn) { e.preventDefault(); showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa tämän ottelun?', 'Kyllä, poista', 'bg-red-600', () => deleteGameFromFirestore(deleteGameBtn.dataset.gameId)); }
-                    else if (pdfBtn && game) { 
+                    
+                    // JOUKKUEEN OTTELURAPORTTI (c)
+                    else if (pdfBtn) { 
                         e.preventDefault(); 
                         window.__allowBlobNavFor();
-                        generatePdfReport(game.id, pdfBtn); // KUTSUU UUTTA PUHDASTA FUNKTIOTA
+                        generatePdfReport(pdfBtn.dataset.gameId, pdfBtn);
                     }
-                    else if (playerReportBtnInDetails && game) { 
-                        // Tämä on vanha nappi (details-näkymässä), jätetään se
-                        e.preventDefault(); 
-                        window.__allowBlobNavFor();
-                        // openGamePdf(game, playerReportBtnInDetails.dataset.playerNum, playerReportBtnInDetails);
-                        alert('Tämän pelaajaraportin generointi ei ole tuettu. Käytä kausitilaston pelaajalistauksen PDF-nappia.');
-                    }
-                    // TÄMÄ ON UUSI LOHKO (VINKKI 2)
+                    
+                    // PELAAJAN KAUSIRAPORTTI (a)
                     else if (playerSeasonReportBtn) {
                         e.preventDefault();
                         const playerNum = playerSeasonReportBtn.dataset.playerNum;
-                        // Hae uusin peli, jossa tämä pelaaja oli mukana
-                        const latestGame = (seasonData.games || []).slice()
-                            .sort((a, b) => safeDateValue(b) - safeDateValue(a))
-                            .find(g => g.players && g.players.includes(Number(playerNum)));
+                        const { playerStats, fullRoster } = calculateSeasonStats();
+                        const stats = playerStats[playerNum];
+                        const playerName = fullRoster[playerNum] || '';
                         
-                        if (latestGame) {
+                        if (stats) {
                             window.__allowBlobNavFor();
-                            generatePlayerPdfReport(latestGame, playerNum, playerSeasonReportBtn);
+                            generatePlayerSeasonPdfReport(playerNum, playerName, stats, playerSeasonReportBtn);
                         } else {
-                            alert('Pelaajalle ei löytynyt otteluita kausidatasta.');
+                            alert('Pelaajalle ei löytynyt kausitilastoja.');
+                        }
+                    }
+                    
+                    // PELAAJAN OTTELURAPORTTI (b)
+                    else if (playerGameReportBtn) {
+                        e.preventDefault();
+                        const playerNum = playerGameReportBtn.dataset.playerNum;
+                        const gameId = playerGameReportBtn.dataset.gameId;
+                        const game = seasonData.games.find(g => g.id === gameId);
+                        
+                        if (game) {
+                            window.__allowBlobNavFor();
+                            generatePlayerPdfReport(game, playerNum, playerGameReportBtn);
+                        } else {
+                            alert('Peliä ei löytynyt.');
                         }
                     }
                 });
@@ -1050,24 +1056,9 @@
                 return sortDir === 'asc' ? valA - valB : valB - valA;
             });
 
-            playerStats.forEach(stats => {
-                const { pNum, name, shots, goals, xg, qH, qL, bal } = stats;
-                // POISTETTU VANHA player-report-btn TÄSTÄ, KOSKA SE KORVATTIIN KAUSILISTAUKSELLA
-                const playerButton = `<span class="font-semibold text-left col-span-2 truncate text-indigo-400">#${pNum} ${name}</span>`;
-                html += `<div class="grid grid-cols-9 text-center text-xs py-1 border-b border-slate-700 items-center">
-                    ${playerButton}
-                    <span>${shots}</span>
-                    <span>${goals}</span>
-                    <span>${xg.toFixed(2)}</span>
-                    <span class="text-red-400">${qH}</span>
-                    <span class="text-blue-400">${qL}</span>
-                    <span>${shots > 0 ? `${Math.round((goals/shots)*100)}%` : '—'}</span>
-                    <span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span>
-                </div>`;
-            });
-
+            // KORJAUS (b): Lisätty sarake "Ottelu-PDF"
             const headerHTML = `
-                <div class="grid grid-cols-9 text-center font-bold text-xs text-slate-400 mt-2 px-1">
+                <div class="grid grid-cols-10 text-center font-bold text-xs text-slate-400 mt-2 px-1">
                     <span class="col-span-2 sortable" data-sort-game="name">Nimi</span>
                     <span class="sortable" data-sort-game="shots">L</span>
                     <span class="sortable" data-sort-game="goals">M</span>
@@ -1076,7 +1067,31 @@
                     <span class="sortable" data-sort-game="qL">H-</span>
                     <span>T%</span>
                     <span class="sortable" data-sort-game="bal">+/-</span>
+                    <span>Ottelu-PDF</span>
                 </div>`;
+            
+            playerStats.forEach(stats => {
+                const { pNum, name, shots, goals, xg, qH, qL, bal } = stats;
+                // KORJAUS (b): Lisätty "Ottelu-PDF" -nappi
+                const playerButton = `
+                    <button 
+                        class="player-game-report-btn text-xs bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded"
+                        data-game-id="${game.id}"
+                        data-player-num="${pNum}">
+                        Ottelu
+                    </button>`;
+                html += `<div class="grid grid-cols-10 text-center text-xs py-1 border-b border-slate-700 items-center">
+                    <span class="font-semibold text-left col-span-2 truncate text-indigo-400">#${pNum} ${name}</span>
+                    <span>${shots}</span>
+                    <span>${goals}</span>
+                    <span>${xg.toFixed(2)}</span>
+                    <span class="text-red-400">${qH}</span>
+                    <span class="text-blue-400">${qL}</span>
+                    <span>${shots > 0 ? `${Math.round((goals/shots)*100)}%` : '—'}</span>
+                    <span class="font-semibold">${bal > 0 ? '+' : ''}${bal}</span>
+                    ${playerButton}
+                </div>`;
+            });
 
             const container = document.createElement('div');
             container.innerHTML = `<div class="space-y-3"><div><p class="font-semibold text-sm">Joukkueet</p><div class="text-xs text-slate-400 mt-1"><p><b>Koti:</b> L ${gameStats.home.shots}, xG ${gameStats.home.xg.toFixed(2)}, L+ ${gameStats.home.qualityHigh}, H- ${gameStats.home.qualityLow}, T ${gameStats.home.saves}, B ${gameStats.home.blocks}</p><p><b>Vieras:</b> L ${gameStats.away.shots}, xG ${gameStats.away.xg.toFixed(2)}, L+ ${gameStats.away.qualityHigh}, H- ${gameStats.away.qualityLow}, T ${gameStats.away.saves}, B ${gameStats.away.blocks}</p></div></div><div><p class="font-semibold text-sm mt-3">Pelaajat</p>${headerHTML}${html || `<div class="text-center text-slate-400 py-2">Ei pelaajakohtaisia tilastoja.</div>`}</div></div>`;
@@ -1201,7 +1216,6 @@
 
         /**
          * Apufunktio: Piirtää laukaisukartan suoraan canvas-elementille
-         * KORJATTU: Tämä oli aiemmin nimellä createShotmapCanvasForPdf
          */
         function createShotmapCanvas(game, period) {
             const canvas = document.createElement('canvas');
@@ -1244,8 +1258,9 @@
         }
 
         /**
-         * PUHDISTETTU OTTELURAPORTTI-FUNKTIO (VINKKI)
-         * Korvaa kaikki aiemmat "openGamePdf" ja "generatePdfReport" -versiot.
+         * RAPORTTI (c): JOUKKUEEN OTTELURAPORTTI
+         * KORJATTU: Poistettu "älykäs" erien ohitus, joka rikkoi raportin.
+         * Nyt renderöi aina kaikki 4 osiota.
          */
         async function generatePdfReport(gameId, buttonElement) {
             const originalText = buttonElement.textContent;
@@ -1278,7 +1293,7 @@
                 doc.text(dateStr, pageW / 2, yPos, { align: 'center' });
                 yPos += 15;
 
-                // Käydään läpi erät 1, 2, 3 ja koko ottelu
+                // KORJAUS (c): Käydään AINA läpi kaikki erät
                 const periodsToRender = [1, 2, 3, 'summary'];
 
                 for (const period of periodsToRender) {
@@ -1290,16 +1305,8 @@
                     const stats = getStatsForPeriod(game, period);
                     const poss = getPossessionPctFor(game, period);
 
-                    // Ei piirretä tyhjiä eriä (paitsi summary, joka on koko ottelu)
-                    const hasData =
-                        stats.home.shots > 0 ||
-                        stats.away.shots > 0 ||
-                        poss.homeMs > 0 ||
-                        poss.awayMs > 0;
-
-                    if (!isSummary && !hasData) {
-                        continue;
-                    }
+                    // KORJAUS (c): VIRHEELLINEN "hasData" -TARKISTUS ON POISTETTU.
+                    // Renderöidään osio, vaikka se olisi tyhjä (0 laukausta).
 
                     // Luodaan canvas vain tämän erän laukauksista
                     const canvasGame = { ...game, shots: shotsForPeriod };
@@ -1312,7 +1319,7 @@
                     const imgHeight = imgWidth * aspect;
 
                     // Arvioidaan paljonko tilaa osio vie
-                    const sectionHeight = imgHeight + 75;
+                    const sectionHeight = imgHeight + 75; // n. 75px taulukolle
                     if (yPos + sectionHeight > pageH - margin) {
                         doc.addPage();
                         yPos = margin;
@@ -1379,8 +1386,7 @@
         }
 
         /**
-         * VINKKI 3: LISÄTTY PELAAJARAPORTTIFUNKTIO
-         * Pelaajakohtainen PDF-raportti yhdestä ottelusta.
+         * RAPORTTI (b): PELAAJAN OTTELURAPORTTI
          */
         async function generatePlayerPdfReport(game, playerNum, buttonElement) {
             const originalText = buttonElement.textContent;
@@ -1492,7 +1498,76 @@
                 console.error('Pelaajaraportin luonti epäonnistui:', err);
                 alert(`Pelaajaraportin luonti epäonnistui: ${err?.message || err}`);
             } finally {
-                buttonElement.textContent = 'PDF'; // Palautetaan alkuperäinen
+                buttonElement.textContent = 'Ottelu'; // Palautetaan alkuperäinen
+                buttonElement.disabled = false;
+            }
+        }
+
+        /**
+         * UUSI RAPORTTI (a): PELAAJAN KAUSIRAPORTTI
+         * Luo yksinkertaisen PDF-yhteenvedon pelaajan koko kauden tilastoista.
+         */
+        async function generatePlayerSeasonPdfReport(playerNum, playerName, stats, buttonElement) {
+            const originalText = buttonElement.textContent;
+            buttonElement.textContent = '...';
+            buttonElement.disabled = true;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                
+                const margin = 15;
+                const pageW = doc.internal.pageSize.getWidth();
+                let yPos = margin;
+                
+                const playerDisplay = playerName ? `#${playerNum} ${playerName}` : `#${playerNum}`;
+                
+                // Otsikko
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(18);
+                doc.text(`Pelaajan kausiraportti`, pageW / 2, yPos, { align: 'center' });
+                yPos += 12;
+                doc.setFontSize(22);
+                doc.text(playerDisplay, pageW / 2, yPos, { align: 'center' });
+                yPos += 15;
+
+                const bal = (stats.plus || 0) - (stats.minus || 0);
+                const tehoPct = stats.shots > 0 ? `${Math.round((stats.goals / stats.shots) * 100)}%` : '—';
+                
+                // Tilastotaulukko
+                callAutoTable(doc, {
+                    startY: yPos,
+                    margin: { left: margin, right: margin },
+                    theme: 'grid',
+                    head: [['Tilasto', 'Arvo']],
+                    body: [
+                        ['Ottelut', stats.games],
+                        ['Laukaukset', stats.shots],
+                        ['Maalit', stats.goals],
+                        ['xG (Koko kausi)', stats.xg.toFixed(2)],
+                        ['Laadukkaat (L+)', stats.qualityHigh],
+                        ['Heikot (H-)', stats.qualityLow],
+                        ['Teho %', tehoPct],
+                        ['+/-', `${bal > 0 ? '+' : ''}${bal}`],
+                    ],
+                    styles: { font: 'helvetica', fontSize: 12 },
+                    headStyles: { fillColor: [41, 52, 72], textColor: 255 },
+                    columnStyles: {
+                        0: { cellWidth: 80 },
+                        1: { cellWidth: 80, halign: 'right' }
+                    }
+                });
+                
+                // Avaa PDF selaimessa (uusi välilehti)
+                const blob = doc.output('blob');
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+
+            } catch (err) {
+                 console.error('Pelaajan kausiraportin luonti epäonnistui:', err);
+                 alert(`Kausiraportin luonti epäonnistui: ${err?.message || err}`);
+            } finally {
+                buttonElement.textContent = 'Kausi';
                 buttonElement.disabled = false;
             }
         }
