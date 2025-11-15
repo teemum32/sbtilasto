@@ -1396,11 +1396,21 @@
                 yPos += 10;
                 generatePlayerStatsForPdf(doc, game, yPos);
 
-                // Näytetään PDF (overlayssä nykyikkunassa)
+                // Näytetään PDF
                 const blob = doc.output('blob');
                 const blobUrl = URL.createObjectURL(blob);
-                document.getElementById('pdf-iframe').src = blobUrl;
-                document.getElementById('pdf-overlay').classList.add('visible');
+                
+                // KORJAUS: Tarkista iPad ja avaa uuteen välilehteen
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+                if (isIOS) {
+                    // iPadille uusi välilehti
+                    window.open(blobUrl, '_blank');
+                } else {
+                    // Muut laitteet → näytä overlayssa kuten ennen
+                    document.getElementById('pdf-iframe').src = blobUrl;
+                    document.getElementById('pdf-overlay').classList.add('visible');
+                }
 
             } catch (err) {
                 console.error('PDF-raportin luonti epäonnistui:', err);
