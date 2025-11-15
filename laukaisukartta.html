@@ -425,8 +425,11 @@
             
             // ALUSTA PALLONHALLINTA ERITTÄIN YKSINKERTAISESTI PER ERÄ + summary
             currentGame.possession = {
-                1: { home:0, away:0 }, 2: { home:0, away:0 }, 3: { home:0, away:0 },
-                summary: { home:0, away:0 }
+                // KÄYTETÄÄN MERKKIJONOAVAIMIA VARMUUDEN VUOKSI
+                "1": { home:0, away:0 }, 
+                "2": { home:0, away:0 }, 
+                "3": { home:0, away:0 },
+                "summary": { home:0, away:0 }
             };
 
             players.forEach(p => { currentGame.plusMinus[p] = { plus: 0, minus: 0 }; });
@@ -659,8 +662,8 @@
                 stats.shots++;
                 stats.xg += shot.xG || calculateXg(shot.x, shot.y, shot.team);
                 if (shot.outcome === 'goal') stats.goals++;
-                if (shot.quality === 'high') stats.qualityHigh++;
-                if (shot.quality === 'low')  stats.qualityLow++;
+                if (shot.outcome === 'high') stats.qualityHigh++;
+                if (shot.outcome === 'low')  stats.qualityLow++;
             });
             return stats;
         }
@@ -780,7 +783,7 @@
         function addPossessionTime(team, ms) {
             const p = currentGame.currentPeriod;
             if (!['1','2','3',1,2,3].includes(String(p))) return; // vain erissä kerätään
-            const key = Number(p);
+            const key = String(p); // KÄYTETÄÄN AINA MERKKIJONOAVAINta
             if(currentGame.possession[key]) {
                 currentGame.possession[key][team] += ms;
             }
@@ -812,35 +815,37 @@
         }
         
         /**
-         * KORJATTU: Varmistetaan, että 'pos[period]' tarkistetaan
-         * ennen kuin yritetään lukea 'pos[period].home'.
+         * KORJATTU: Varmistetaan, että 'pos[String(period)]' tarkistetaan
+         * ennen kuin yritetään lukea 'pos[String(period)].home'.
          */
         function getPossessionPctFor(game, period) {
             const pos = game?.possession || {};
             let homeMs = 0, awayMs = 0;
+            const periodKey = String(period); // AINA MERKKIJONO
 
             if (period === 'summary') {
-                [1, 2, 3].forEach(p => {
-                    if (pos[p]) { // <-- LISÄTTY TARKISTUS
+                // Käydään läpi vain merkkijonoavaimet
+                ['1', '2', '3'].forEach(p => {
+                    if (pos[p]) { // <-- TARKISTUS
                         homeMs += pos[p].home || 0;
                         awayMs += pos[p].away || 0;
                     }
                 });
-            } else if ([1, 2, 3].includes(Number(period))) { // Varmistetaan että period on numero
-                if (pos[period]) { // <-- LISÄTTY TARKISTUS
-                    homeMs = pos[period].home || 0;
-                    awayMs = pos[period].away || 0;
+            } else if (['1', '2', '3'].includes(periodKey)) {
+                if (pos[periodKey]) { // <-- TARKISTUS
+                    homeMs = pos[periodKey].home || 0;
+                    awayMs = pos[periodKey].away || 0;
                 }
                 
                 // Käynnissä olevan kellon lisääminen
-                if (game === currentGame && Number(currentGame.currentPeriod) === Number(period) && typeof performance !== 'undefined' && posActiveTeam && posLastSwitch != null) {
+                if (game === currentGame && String(currentGame.currentPeriod) === periodKey && typeof performance !== 'undefined' && posActiveTeam && posLastSwitch != null) {
                     const delta = performance.now() - posLastSwitch;
                     if (posActiveTeam === 'home') homeMs += delta; else awayMs += delta;
                 }
             } else {
                 // Muissa näkymissä (kuten 'plus-minus') näytetään summat
-                [1, 2, 3].forEach(p => {
-                    if (pos[p]) { // <-- LISÄTTY TARKISTUS
+                ['1', '2', '3'].forEach(p => {
+                    if (pos[p]) { // <-- TARKISTUS
                         homeMs += pos[p].home || 0;
                         awayMs += pos[p].away || 0;
                     }
@@ -1259,8 +1264,8 @@
 
         /**
          * RAPORTTI (c): JOUKKUEEN OTTELURAPORTTI
-         * KORJATTU: Poistettu "älykäs" erien ohitus, joka rikkoi raportin.
-         * Nyt renderöi aina kaikki 4 osiota.
+         * KORJATTU: Lisätty 'isOldData' tarkistus ja varmistettu, että
+         * 'getPossessionPctFor' käyttää merkkijonoavaimia.
          */
         async function generatePdfReport(gameId, buttonElement) {
             const originalText = buttonElement.textContent;
@@ -1293,20 +1298,18 @@
                 doc.text(dateStr, pageW / 2, yPos, { align: 'center' });
                 yPos += 15;
 
-                // KORJAUS (c): Käydään AINA läpi kaikki erät
-                const periodsToRender = [1, 2, 3, 'summary'];
+                // KORJATTU (c): Lisätty isOldData-tarkistus
+                const allShots = Array.isArray(game.shots) ? game.shots : [];
+                const isOldData = allShots.length > 0 && allShots.every(s => s.period == null);
+                const periodsToRender = isOldData ? ['summary'] : [1, 2, 3, 'summary'];
 
                 for (const period of periodsToRender) {
                     const isSummary = period === 'summary';
-                    const sectionTitle = isSummary ? 'Koko ottelu' : `Erä ${period}`;
+                    const sectionTitle = (isSummary || isOldData) ? 'Koko ottelu' : `Erä ${period}`;
 
-                    // Haetaan tämän erän laukaukset ja tilastot
                     const shotsForPeriod = getShotsForPeriod(game, period);
                     const stats = getStatsForPeriod(game, period);
-                    const poss = getPossessionPctFor(game, period);
-
-                    // KORJAUS (c): VIRHEELLINEN "hasData" -TARKISTUS ON POISTETTU.
-                    // Renderöidään osio, vaikka se olisi tyhjä (0 laukausta).
+                    const poss = getPossessionPctFor(game, period); // KÄYTTÄÄ KORJATTUA FUNKTIOTA
 
                     // Luodaan canvas vain tämän erän laukauksista
                     const canvasGame = { ...game, shots: shotsForPeriod };
@@ -1318,23 +1321,19 @@
                     const imgWidth = imgMaxWidth;
                     const imgHeight = imgWidth * aspect;
 
-                    // Arvioidaan paljonko tilaa osio vie
                     const sectionHeight = imgHeight + 75; // n. 75px taulukolle
                     if (yPos + sectionHeight > pageH - margin) {
                         doc.addPage();
                         yPos = margin;
                     }
 
-                    // Otsikko
                     doc.setFontSize(14);
                     doc.text(sectionTitle, margin, yPos);
                     yPos += 8;
 
-                    // Laukaisukartta-kuva
                     doc.addImage(imgData, 'PNG', margin, yPos, imgWidth, imgHeight);
                     yPos += imgHeight + 5;
 
-                    // Taulukko koti/vieras
                     callAutoTable(doc, {
                         startY: yPos,
                         margin: { left: margin },
@@ -1360,6 +1359,9 @@
                     });
 
                     yPos = doc.lastAutoTable.finalY + 15;
+                    
+                    // Jos vanha data, renderöidään vain summary
+                    if (isOldData) break;
                 }
 
                 // --- Pelaajakohtaiset tilastot omalle sivulle ---
@@ -1487,6 +1489,9 @@
                     });
 
                     yPos = doc.lastAutoTable ? doc.lastAutoTable.finalY + 12 : yPos + 20;
+                    
+                    // Jos vanha data, renderöidään vain summary
+                    if (isOldData) break;
                 }
 
                 // Avaa PDF selaimessa (uusi välilehti)
