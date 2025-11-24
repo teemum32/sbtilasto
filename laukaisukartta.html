@@ -303,13 +303,10 @@
 
         async function startFirebaseApp() {
             try {
-                // TÄMÄ ON SINUN ALKUPERÄINEN FIREBASE-KONFIGURAATIOSI
                 const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
-                
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app); auth = getAuth(app);
                 try { await enableIndexedDbPersistence(db); } catch (err) {}
-                
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
@@ -360,7 +357,6 @@
         createTeamBtn.addEventListener('click', async () => {
             const teamName = newTeamNameInput.value.trim();
             if (teamName && userId) {
-                // TARKISTETTU POLKU KUVASTASI
                 await addDoc(collection(db, 'users', userId, 'teams'), { name: teamName, createdAt: serverTimestamp() });
                 newTeamNameInput.value = '';
             }
@@ -369,7 +365,6 @@
         function listenForTeams() {
             if (!userId) return;
             if (teamsUnsubscribe) teamsUnsubscribe();
-            // TARKISTETTU POLKU KUVASTASI
             teamsUnsubscribe = onSnapshot(query(collection(db, 'users', userId, 'teams')), (snap) => {
                 renderTeamsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             });
@@ -399,7 +394,6 @@
             const lines = value.split('\n').map(l => l.trim()).filter(Boolean);
             for (const line of lines) {
                 const m = line.match(/^(\d{1,3})\s*(.*)$/);
-                // KORJATTU SYNTAKSIVIRHE
                 if (!m) { throw new Error('Virheellinen syöte rivillä: ' + line); }
                 roster[Number(m[1])] = (m[2] || '').trim();
             }
@@ -450,7 +444,6 @@
             document.getElementById('field-area').innerHTML = `<div class="text-slate-500 font-bold text-lg -rotate-90">Vieras</div><div id="field-container" class="relative w-full max-w-[1200px] aspect-[2/1] bg-white rounded-lg shadow-2xl border-2 border-slate-800"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="40" y1="90" x2="40" y2="110" stroke="#94a3b8" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="2"/><line x1="360" y1="90" x2="360" y2="110" stroke="#94a3b8" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="text-slate-500 font-bold text-lg rotate-90">Koti</div>`;
             outcomeModal.innerHTML = `<button data-outcome="goal" class="w-28 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-28 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-28 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-28 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button>`;
             qualityModal.innerHTML = `<button data-quality="high" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-red-700">Laadukas</button><button data-quality="low" class="w-28 text-white font-semibold py-2 px-4 rounded-md bg-blue-700">Heikko</button>`;
-            // KORJATTU SYNTAKSIVIRHE
             editOutcomeModal.innerHTML = `<button data-outcome="goal" class="w-32 text-white font-semibold py-2 rounded-md bg-emerald-500">Maali</button> <button data-outcome="miss" class="w-32 text-white font-semibold py-2 rounded-md bg-blue-500">Ohi</button><button data-outcome="block" class="w-32 text-slate-800 font-semibold py-2 rounded-md bg-yellow-400">Blokki</button> <button data-outcome="save" class="w-32 text-white font-semibold py-2 rounded-md bg-red-500">Torjunta</button><div class="border-t my-1"></div> <button id="delete-shot-btn" class="w-32 text-white font-semibold py-2 rounded-md bg-slate-600">Poista</button>`;
         }
 
@@ -889,7 +882,7 @@
                         case 'xg': valA = statsA.xg; valB = statsB.xg; break;
                         case 'plus': valA = statsA.qualityHigh; valB = statsB.qualityHigh; break;
                         case 'minus': valA = statsA.qualityLow; valB = statsB.qualityLow; break;
-                        case 'pm': valA = statsA.plus - statsA.minus; valB = statsB.plus - statsA.minus; break;
+                        case 'pm': valA = statsA.plus - statsA.minus; valB = statsB.plus - statsB.minus; break;
                         default: return 0;
                     }
 
@@ -1153,7 +1146,7 @@
                         const p = Number(shot.player); 
                         if (seasonPlayerStats[p]) { 
                             seasonPlayerStats[p].shots++; 
-                            seasonPlayerStats[p].xg += shot.xG || calculateXg(shot.x, shot.y, shot.team);
+                            seasonPlayerStats[p].xg += calculateXg(shot.x, shot.y, shot.team);
                             if (shot.outcome === 'goal') seasonPlayerStats[p].goals++; 
                             if (shot.quality === 'high') seasonPlayerStats[p].qualityHigh++; 
                             if (shot.quality === 'low') seasonPlayerStats[p].qualityLow++; 
@@ -1403,15 +1396,18 @@
                 yPos += 10;
                 generatePlayerStatsForPdf(doc, game, yPos);
 
-                // KORJAUS: Lisätty iPad-tarkistus
+                // Näytetään PDF
                 const blob = doc.output('blob');
                 const blobUrl = URL.createObjectURL(blob);
                 
+                // Tarkista iPad
                 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
                 if (isIOS) {
+                    // iPadille uusi välilehti
                     window.open(blobUrl, '_blank');
                 } else {
+                    // Muut laitteet → näytä overlayssa kuten ennen
                     document.getElementById('pdf-iframe').src = blobUrl;
                     document.getElementById('pdf-overlay').classList.add('visible');
                 }
