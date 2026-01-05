@@ -12,12 +12,13 @@
     <style>
         body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
-        .away-player { font-size: 1.5rem; }
+        .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
-        .shot-marker { position: absolute; width: 36px; height: 36px; border-radius: 50%; font-weight: bold; font-size: 0.875rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: white; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1; }
+        /* KORJATTU: Musta teksti ja täsmällinen keskitys */
+        .shot-marker { position: absolute; width: 36px; height: 36px; border-radius: 50%; font-weight: 800; font-size: 0.875rem; box-shadow: 0 1px 3px rgba(0,0,0,0.4); color: #000000; transform: translate(-50%, -50%); transition: opacity 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 0; padding: 0; }
         .goal { background-color: #10B981; } .miss { background-color: #3B82F6; }
-        .block { background-color: #FACC15; color: black; } .save { background-color: #EF4444; }
-        .quality-high { border: 3px solid #b91c1c; } .quality-low { border: 2px solid rgba(255,255,255,0.8); }
+        .block { background-color: #FACC15; } .save { background-color: #EF4444; }
+        .quality-high { border: 3px solid #b91c1c; } .quality-low { border: 2px solid rgba(255,255,255,0.9); }
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
         .period-tab.active { background-color: #4f46e5; }
@@ -53,7 +54,7 @@
 
     <!-- Landing View -->
     <div id="landing-view" class="h-full hidden flex items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 id="team-name-header" class="text-3xl font-bold">Joukkue</h1>
             <div class="mt-8 space-y-4">
                 <button id="start-new-game-btn" class="w-full bg-indigo-600 py-3 rounded-lg font-bold text-lg">Uusi ottelu</button>
@@ -66,7 +67,7 @@
 
     <!-- Setup View -->
     <div id="setup-view" class="h-full hidden flex items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold mb-4">Uusi ottelu</h1>
             <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4" placeholder="Vastustaja">
             <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4" placeholder="7 Matti, 10 Pekka..."></textarea>
@@ -89,8 +90,9 @@
                     <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
                 </main>
             </div>
-            <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-100 overflow-y-auto p-4"></div>
-            <div id="season-view" class="absolute inset-0 hidden bg-slate-100 overflow-y-auto p-4"></div>
+            <!-- KORJATTU: Tumma tausta takaisin -->
+            <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-900 overflow-y-auto p-4"></div>
+            <div id="season-view" class="absolute inset-0 hidden bg-slate-900 overflow-y-auto p-4"></div>
         </div>
     </div>
 
@@ -115,11 +117,8 @@
         const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
 
         function showMainView(viewKey) {
-            const views = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
-            views.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
+            const ids = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
+            ids.forEach(id => document.getElementById(id).classList.add('hidden'));
             
             const targetId = { auth:'auth-view', teams:'teams-view', landing:'landing-view', setup:'setup-view', app:'app-container' }[viewKey];
             const targetEl = document.getElementById(targetId);
@@ -312,11 +311,11 @@
             m.style.left = `${Math.min(window.innerWidth - 150, x)}px`;
             m.style.top = `${Math.min(window.innerHeight - 200, y)}px`;
             if (id === 'outcome-modal') {
-                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded">Blokki</button>`;
+                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`;
             } else if (id === 'quality-modal') {
-                m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded">Laatu</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded">Heikko</button>`;
+                m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laatu</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
             } else if (id === 'edit-outcome-modal') {
-                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded">Poista</button>`;
+                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`;
             }
         }
 
@@ -363,8 +362,7 @@
                 const m = document.createElement('div');
                 m.className = `shot-marker ${s.outcome} ${s.quality === 'high' ? 'quality-high' : 'quality-low'}`;
                 m.style.left = `${s.x}%`; m.style.top = `${s.y}%`;
-                m.dataset.id = s.id; 
-                m.textContent = s.player; // Asetetaan numero suoraan ilman span-elementtiä
+                m.dataset.id = s.id; m.textContent = s.player;
                 layer.appendChild(m);
             });
         }
@@ -374,7 +372,7 @@
             const container = document.getElementById('stats-container');
             const title = currentGame.currentPeriod === 'summary' ? 'Ottelu' : `Erä ${currentGame.currentPeriod}`;
             container.innerHTML = `
-                <h3 class="font-bold text-center mb-3 text-slate-400">${title}</h3>
+                <h3 class="font-bold text-center mb-3 text-slate-400 uppercase">${title}</h3>
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div><p class="font-bold text-emerald-400 uppercase">Koti</p><p>Maalit: ${stats.home.goals}</p><p>xG: ${stats.home.xg.toFixed(2)}</p></div>
                     <div><p class="font-bold text-slate-400 uppercase">Vieras</p><p>Maalit: ${stats.away.goals}</p><p>Lauk: ${stats.away.shots}</p></div>
@@ -388,7 +386,7 @@
 
         function updatePlayerStatsUI() {
             const container = document.getElementById('player-stats-container');
-            let html = `<h3 class="font-bold text-center mb-2">Pelaajat</h3>`;
+            let html = `<h3 class="font-bold text-center mb-2 uppercase">Pelaajat</h3>`;
             (currentGame.players || []).forEach(p => {
                 const pShots = (currentGame.shots || []).filter(s => s.player == p && s.team === 'home');
                 if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
@@ -398,17 +396,17 @@
 
         function renderSeasonStats() {
             const view = document.getElementById('season-view');
-            let html = `<div class="max-w-3xl mx-auto"><h2 class="text-2xl font-bold mb-6 text-slate-800 text-center">Tallennetut ottelut</h2>`;
+            let html = `<div class="max-w-3xl mx-auto"><h2 class="text-2xl font-bold mb-6 text-white text-center uppercase tracking-wider">Tallennetut ottelut</h2>`;
             const games = [...seasonData.games].sort((a,b) => new Date(b.date) - new Date(a.date));
             if (games.length === 0) html += `<p class="text-center text-slate-500">Ei tallennettuja otteluita.</p>`;
             games.forEach(game => {
                 const s = getStatsForPeriod(game, 'summary');
-                html += `<div class="bg-white text-slate-900 p-4 rounded-lg shadow mb-4"><div class="flex justify-between items-center"><div><p class="font-bold">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-sm">vs ${game.opponent}</p></div><div class="text-xl font-bold">${s.home.goals} - ${s.away.goals}</div><div class="flex gap-2"><button data-id="${game.id}" class="pdf-btn bg-purple-600 text-white px-4 py-2 rounded font-bold">PDF-raportti</button><button data-id="${game.id}" class="del-btn bg-red-500 text-white p-2 rounded text-xs">Poista</button></div></div></div>`;
+                html += `<div class="bg-slate-800 text-white p-4 rounded-lg shadow-xl border border-slate-700 mb-4"><div class="flex justify-between items-center"><div><p class="font-bold text-indigo-400">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-sm opacity-80 uppercase">vs ${game.opponent}</p></div><div class="text-2xl font-bold tracking-widest">${s.home.goals} - ${s.away.goals}</div><div class="flex gap-2"><button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded font-bold transition-colors">PDF-raportti</button><button data-id="${game.id}" class="del-btn bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3 py-1 rounded text-xs transition-all border border-red-600/30">Poista</button></div></div></div>`;
             });
             view.innerHTML = html + `</div>`;
             view.onclick = (e) => {
                 const pdfBtn = e.target.closest('.pdf-btn'); if (pdfBtn) generatePdfReport(pdfBtn.dataset.id, pdfBtn);
-                const delBtn = e.target.closest('.del-btn'); if (delBtn) showConfirmation('Poista?', 'Poistetaanko ottelu?', 'Poista', 'bg-red-600', () => deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', delBtn.dataset.id)));
+                const delBtn = e.target.closest('.del-btn'); if (delBtn) showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa ottelun kaudesta lopullisesti?', 'Poista', 'bg-red-600', () => deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', delBtn.dataset.id)));
             };
         }
 
@@ -422,9 +420,9 @@
                 const margin = 10; const pageW = doc.internal.pageSize.getWidth(); const pageH = doc.internal.pageSize.getHeight();
                 let yPos = margin;
 
-                doc.setFontSize(20); doc.text(`Otteluraportti: ${game.opponent}`, pageW/2, yPos, {align:'center'});
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text(`Otteluraportti: ${game.opponent}`, pageW/2, yPos, {align:'center'});
                 yPos += 10;
-                doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW/2, yPos, {align:'center'});
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW/2, yPos, {align:'center'});
                 yPos += 15;
 
                 for (const period of [1, 2, 3, 'summary']) {
@@ -446,21 +444,10 @@
                     yPos += imgH + 8;
 
                     callAutoTable(doc, {
-                        startY: yPos,
-                        margin: { left: margin, right: margin },
-                        tableWidth: pageW - margin*2,
-                        theme: 'grid',
+                        startY: yPos, margin: { left: margin, right: margin }, tableWidth: pageW - margin*2, theme: 'grid',
                         head: [['Tapahtuma', 'Koti', 'Vieras']],
-                        body: [
-                            ['Maalit', stats.home.goals, stats.away.goals],
-                            ['Laukaukset', stats.home.shots, stats.away.shots],
-                            ['xG (Maaliodottama)', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)],
-                            ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh],
-                            ['Torjunnat', stats.home.saves, stats.away.saves],
-                            ['Blokit', stats.home.blocks, stats.away.blocks],
-                        ],
-                        styles: { fontSize: 10 },
-                        headStyles: { fillColor: [41, 52, 72] },
+                        body: [['Maalit', stats.home.goals, stats.away.goals], ['Laukaukset', stats.home.shots, stats.away.shots], ['xG (Maaliodottama)', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh], ['Torjunnat', stats.home.saves, stats.away.saves], ['Blokit', stats.home.blocks, stats.away.blocks]],
+                        styles: { fontSize: 10 }, headStyles: { fillColor: [41, 52, 72] },
                         columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' } }
                     });
                     yPos = doc.lastAutoTable.finalY + 14;
@@ -483,18 +470,9 @@
                 });
 
                 callAutoTable(doc, {
-                    startY: yPos,
-                    theme: 'grid',
-                    head: [['Pelaaja', 'Lauk.', 'Maalit', 'L+', 'H-', '+/-', 'T%']],
-                    body: rows.map(r => {
-                        const pct = r[1] ? Math.round((r[2]/r[1])*100) + '%' : '—';
-                        return [...r, pct];
-                    }),
-                    columnStyles: {
-                        0: { cellWidth: 60 }, 1: { cellWidth: 20, halign: 'right' }, 2: { cellWidth: 20, halign: 'right' },
-                        3: { cellWidth: 18, halign: 'right' }, 4: { cellWidth: 18, halign: 'right' },
-                        5: { cellWidth: 22, halign: 'right' }, 6: { cellWidth: 22, halign: 'right' }
-                    }
+                    startY: yPos, theme: 'grid', head: [['Pelaaja', 'Lauk.', 'Maalit', 'L+', 'H-', '+/-', 'T%']],
+                    body: rows.map(r => { const pct = r[1] ? Math.round((r[2]/r[1])*100) + '%' : '—'; return [...r, pct]; }),
+                    columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 20, halign: 'right' }, 2: { cellWidth: 20, halign: 'right' }, 3: { cellWidth: 18, halign: 'right' }, 4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 22, halign: 'right' }, 6: { cellWidth: 22, halign: 'right' } }
                 });
                 doc.save(`Raportti_${game.opponent}.pdf`);
             } catch (err) { console.error(err); } finally { btn.textContent = origText; btn.disabled = false; }
@@ -518,13 +496,13 @@
                 const dot = document.createElement('div');
                 const leftPct = 2.5 + (s.x / 100) * 95;
                 const topPct = 5 + (s.y / 100) * 90;
-                // PDF-merkinnän tyylit ja tekstin keskitys
+                // PDF-merkinnän tyylit: musta teksti ja Flex-keskitys
                 Object.assign(dot.style, {
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome],
                     borderRadius:'50%', left: leftPct + '%', top: topPct + '%',
                     transform:'translate(-50%,-50%)', border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white',
-                    color:'white', fontSize:'12px', fontWeight:'bold', 
-                    display:'block', textAlign:'center', lineHeight:'24px' // lineHeight on tässä varmin tapa keskittää teksti html2canvasille
+                    color:'#000000', fontSize:'12px', fontWeight:'800', 
+                    display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', lineWeight: '0'
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
@@ -581,19 +559,19 @@
         function saveLocal() { if (userId) sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); }
         function showConfirmation(title, text, btnTxt, btnClass, cb) {
             const m = document.getElementById('confirm-modal'); m.classList.remove('hidden');
-            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2">${title}</h3><p class="text-sm mb-6">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 rounded font-bold">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold">${btnTxt}</button></div></div>`;
+            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2">${title}</h3><p class="text-sm mb-6 font-medium">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 rounded font-bold transition-colors">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold transition-colors">${btnTxt}</button></div></div>`;
             document.getElementById('conf-cancel').onclick = () => m.classList.add('hidden');
             document.getElementById('conf-ok').onclick = () => { cb(); m.classList.add('hidden'); };
         }
         function renderPlusMinusView() {
             const v = document.getElementById('plus-minus-view');
-            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-100 p-6 rounded-xl text-slate-900"><h2 class="text-2xl font-bold text-center mb-6">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200"><h3 class="font-bold text-emerald-700 text-center mb-4 uppercase">Oma maali (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-50 p-4 rounded-lg border-2 border-red-200"><h3 class="font-bold text-red-700 text-center mb-4 uppercase">Vastustajan maali (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8"></div></div>`;
+            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-800 p-6 rounded-xl text-white border border-slate-700 shadow-2xl"><h2 class="text-2xl font-bold text-center mb-6 uppercase tracking-wider">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/30"><h3 class="font-bold text-emerald-400 text-center mb-4 uppercase">Oma maali (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-900/20 p-4 rounded-lg border border-red-500/30"><h3 class="font-bold text-red-400 text-center mb-4 uppercase">Vastustajan maali (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`;
             const plusG = v.querySelector('#pm-plus-grid'), minusG = v.querySelector('#pm-minus-grid');
             (currentGame.players || []).forEach(p => {
-                const bP = document.createElement('button'); bP.className = "p-2 bg-emerald-500 text-white font-bold rounded"; bP.textContent = p;
+                const bP = document.createElement('button'); bP.className = "p-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded transition-colors"; bP.textContent = p;
                 bP.onclick = () => { currentGame.plusMinus[p].plus++; saveLocal(); renderPMTable(); };
                 plusG.appendChild(bP);
-                const bM = document.createElement('button'); bM.className = "p-2 bg-red-500 text-white font-bold rounded"; bM.textContent = p;
+                const bM = document.createElement('button'); bM.className = "p-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded transition-colors"; bM.textContent = p;
                 bM.onclick = () => { currentGame.plusMinus[p].minus++; saveLocal(); renderPMTable(); };
                 minusG.appendChild(bM);
             });
@@ -601,10 +579,10 @@
         }
         function renderPMTable() {
             const summ = document.getElementById('pm-summary');
-            let html = `<table class="w-full text-left text-sm mt-4 text-slate-700"><thead><tr><th class="p-2">Pelaaja</th><th class="p-2 text-center">+</th><th class="p-2 text-center">-</th><th class="p-2 text-center">Yht.</th></tr></thead><tbody>`;
+            let html = `<table class="w-full text-left text-sm mt-4 text-slate-300"><thead><tr class="text-slate-500 uppercase text-xs"><th class="p-2">Pelaaja</th><th class="p-2 text-center">+</th><th class="p-2 text-center">-</th><th class="p-2 text-center">Yht.</th></tr></thead><tbody>`;
             (currentGame.players || []).forEach(p => {
                 const s = currentGame.plusMinus[p]; const bal = s.plus - s.minus;
-                html += `<tr class="border-t border-slate-300"><td class="p-2">#${p} ${currentGame.roster[p]||''}</td><td class="p-2 text-center">${s.plus}</td><td class="p-2 text-center">${s.minus}</td><td class="p-2 text-center font-bold"> ${bal>0?'+':''}${bal}</td></tr>`;
+                html += `<tr class="border-t border-slate-700"><td class="p-2 font-bold text-slate-200">#${p} ${currentGame.roster[p]||''}</td><td class="p-2 text-center text-emerald-400">${s.plus}</td><td class="p-2 text-center text-red-400">${s.minus}</td><td class="p-2 text-center font-black ${bal>0?'text-emerald-500':bal<0?'text-red-500':'text-slate-400'}"> ${bal>0?'+':''}${bal}</td></tr>`;
             });
             summ.innerHTML = html + `</tbody></table>`;
         }
