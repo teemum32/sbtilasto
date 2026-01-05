@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* Grid-keskitys takaa numeron osumisen pallon keskelle */
+        /* KORJATTU: Flex-keskitys ja line-height reset numeron valumisen estämiseksi */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -27,10 +27,11 @@
             transform: translate(-50%, -50%); 
             transition: opacity 0.2s; 
             cursor: pointer; 
-            display: grid; 
-            place-items: center; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
             padding: 0;
-            line-height: 0;
+            line-height: 1;
         }
         
         .goal { background-color: #10B981; color: #ffffff; } 
@@ -46,11 +47,11 @@
         .period-tab.active { background-color: #4f46e5; }
 
         details summary::-webkit-details-marker { display: none; }
-        details summary { list-style: none; cursor: pointer; }
+        details summary { list-style: none; cursor: pointer; outline: none; }
 
-        .sortable-header { cursor: pointer; transition: color 0.2s; position: relative; }
+        .sortable-header { cursor: pointer; transition: color 0.2s; }
         .sortable-header:hover { color: #818cf8; }
-        .sort-icon { font-size: 0.6rem; margin-left: 2px; }
+        .sort-icon { font-size: 0.7rem; margin-left: 2px; vertical-align: middle; }
     </style>
 </head>
 <body class="bg-slate-900 h-full text-slate-200">
@@ -62,7 +63,7 @@
             <div class="mt-6 space-y-4">
                 <input id="email-input" type="email" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center focus:outline-none focus:border-indigo-500" placeholder="Sähköposti">
                 <input id="password-input" type="password" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center focus:outline-none focus:border-indigo-500" placeholder="Salasana">
-                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition-colors">Kirjaudu</button>
+                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold">Kirjaudu</button>
             </div>
             <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
         </div>
@@ -86,8 +87,8 @@
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 id="team-name-header" class="text-3xl font-bold text-white uppercase tracking-wide">Joukkue</h1>
             <div class="mt-8 space-y-4">
-                <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Uusi ottelu</button>
-                <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Kausitilastot</button>
+                <button id="start-new-game-btn" class="w-full bg-indigo-600 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Uusi ottelu</button>
+                <button id="view-season-data-btn" class="w-full bg-slate-600 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Kausitilastot</button>
                 <button id="change-team-btn" class="w-full border border-slate-600 hover:bg-slate-700 py-2 rounded-lg text-slate-400 mt-4">Vaihda joukkuetta</button>
                 <button id="logout-btn" class="w-full text-red-400 py-2 mt-2 hover:underline">Kirjaudu ulos</button>
             </div>
@@ -98,8 +99,8 @@
     <div id="setup-view" class="h-full hidden flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold mb-4 text-white">Uusi ottelu</h1>
-            <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4 focus:border-indigo-500 outline-none" placeholder="Vastustaja">
-            <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4 focus:border-indigo-500 outline-none" placeholder="7 Matti, 10 Pekka..."></textarea>
+            <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4" placeholder="Vastustaja">
+            <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4" placeholder="7 Matti, 10 Pekka..."></textarea>
             <p id="setup-error" class="text-red-500 text-sm mb-4 h-5"></p>
             <button id="start-button" class="w-full bg-indigo-600 py-3 rounded-lg font-bold">Aloita merkintä</button>
             <button id="back-to-landing-btn" class="mt-4 text-slate-400">Takaisin</button>
@@ -142,7 +143,7 @@
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
 
         // Sorting State
-        let seasonSort = { key: 'number', dir: 0 }; // 0: number, 1: desc, 2: asc
+        let seasonSort = { key: 'number', dir: 0 }; 
         let matchSort = { key: 'number', dir: 0 };
 
         const COLORS = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
@@ -414,7 +415,7 @@
                 state.dir = (state.dir + 1) % 3;
             } else {
                 state.key = key;
-                state.dir = 1; // Start with descending
+                state.dir = 1;
             }
             renderSeasonStats();
         }
@@ -493,7 +494,7 @@
         function renderSeasonStats() {
             const view = document.getElementById('season-view');
             const { playerStats, fullRoster } = calculateSeasonStats();
-            const sortedPlayers = sortPlayers(playerStats, seasonSort);
+            const sortedPlayers = sortPlayers([...playerStats], seasonSort);
             
             let playerHtml = `
                 <div class="max-w-4xl mx-auto px-2 mb-10 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-2xl">
@@ -521,27 +522,27 @@
             let gamesHtml = `<div class="max-w-4xl mx-auto px-2 pb-10"><h2 class="text-2xl font-bold mb-6 text-white text-center uppercase tracking-wider">Tallennetut ottelut</h2>`;
             const sortedGames = [...seasonData.games].sort((a,b) => new Date(b.date) - new Date(a.date));
             if (sortedGames.length === 0) gamesHtml += `<p class="text-center text-slate-500">Ei tallennettuja otteluita.</p>`;
+            
             sortedGames.forEach(game => {
-                const s = getStatsForPeriod(game, 'summary');
+                const s = getGameStats(game);
                 gamesHtml += `
-                    <details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden group">
+                    <details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden">
                         <summary class="p-4 flex justify-between items-center transition-all hover:bg-slate-700/50">
-                            <div><p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p></div>
+                            <div>
+                                <p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p>
+                                <p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p>
+                            </div>
                             <div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div>
-                            <div class="flex gap-2" onclick="event.stopPropagation()">
+                            <div class="flex gap-2">
                                 <button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold">PDF</button>
-                                <button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button>
+                                <button data-id="${game.id}" class="del-btn bg-red-600/20 hover:bg-red-600 text-red-400 px-3 py-1 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button>
                             </div>
                         </summary>
                         <div class="px-4 pb-4">${generateGameDetailsHTML(game)}</div>
                     </details>`;
             });
+            
             view.innerHTML = playerHtml + gamesHtml + `</div>`;
-            view.onclick = (e) => {
-                const pdfBtn = e.target.closest('.pdf-btn'), delBtn = e.target.closest('.del-btn');
-                if (pdfBtn) generatePdfReport(pdfBtn.dataset.id, pdfBtn);
-                if (delBtn) showConfirmation('Poista?', 'Poistetaanko ottelu kaudesta lopullisesti?', 'Poista', 'bg-red-600', () => deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', delBtn.dataset.id)));
-            };
         }
 
         async function generatePdfReport(gameId, btn) {
@@ -611,11 +612,13 @@
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
                 const dot = document.createElement('div'), leftPct = 2.5 + (s.x / 100) * 95, topPct = 5 + (s.y / 100) * 90;
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
-                Object.assign(dot.style, { position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white', color: textColor, fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '0' });
+                Object.assign(dot.style, { position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white', color: textColor, fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', lineHeight: '1' });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
             return wrap;
         }
+
+        function getGameStats(game) { return getStatsForPeriod(game, 'summary'); }
 
         function getStatsForPeriod(game, p) {
             const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qH:0, qL:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qH:0, qL:0} };
@@ -689,6 +692,22 @@
             });
             summ.innerHTML = html + `</tbody></table>`;
         }
+
+        // Global handlers for season view buttons to avoid propagation issues
+        document.getElementById('season-view').addEventListener('click', (e) => {
+            const pdfBtn = e.target.closest('.pdf-btn');
+            const delBtn = e.target.closest('.del-btn');
+            
+            if (pdfBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                generatePdfReport(pdfBtn.dataset.id, pdfBtn);
+            } else if (delBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                showConfirmation('Poista?', 'Poistetaanko ottelu lopullisesti?', 'Poista', 'bg-red-600', () => deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', delBtn.dataset.id)));
+            }
+        });
 
         window.onload = initApp;
     </script>
