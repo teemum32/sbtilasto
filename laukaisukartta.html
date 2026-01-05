@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* KORJATTU: Flex-keskitys ja line-height reset numeron valumisen estämiseksi */
+        /* KORJATTU: Grid-keskitys on vakain tapa pystysuuntaiseen keskitykseen iPadilla */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -27,11 +27,11 @@
             transform: translate(-50%, -50%); 
             transition: opacity 0.2s; 
             cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+            display: grid; 
+            place-items: center; 
             padding: 0;
-            line-height: 1;
+            line-height: 0; 
+            text-align: center;
         }
         
         .goal { background-color: #10B981; color: #ffffff; } 
@@ -76,7 +76,7 @@
             <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto mb-6 px-2"></div>
             <div class="border-t border-slate-700 pt-6 px-2">
                 <input id="new-team-name" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-2" placeholder="Uuden joukkueen nimi">
-                <button id="create-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold">Luo uusi joukkue</button>
+                <button id="create-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold">Luo joukkue</button>
             </div>
             <button id="logout-btn-teams" class="w-full mt-6 text-slate-400 font-semibold hover:text-white">Kirjaudu ulos</button>
         </div>
@@ -411,12 +411,7 @@
 
         function handleHeaderClick(type, key) {
             const state = type === 'season' ? seasonSort : matchSort;
-            if (state.key === key) {
-                state.dir = (state.dir + 1) % 3;
-            } else {
-                state.key = key;
-                state.dir = 1;
-            }
+            if (state.key === key) { state.dir = (state.dir + 1) % 3; } else { state.key = key; state.dir = 1; }
             renderSeasonStats();
         }
 
@@ -443,8 +438,7 @@
                 return {
                     number: Number(pNum),
                     name: (game.roster[pNum] || game.roster[String(pNum)] || '').split(' ')[0],
-                    shots: shots.length,
-                    goals: goals,
+                    shots: shots.length, goals: goals,
                     qH: shots.filter(s => s.quality === 'high').length,
                     qL: shots.filter(s => s.quality === 'low').length,
                     bal: pm.plus - pm.minus
@@ -554,8 +548,8 @@
                             </div>
                             <div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div>
                             <div class="flex gap-2">
-                                <button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95">PDF</button>
-                                <button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-3 py-1 rounded-md text-xs transition-all border border-red-600/20">Poista</button>
+                                <button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg">PDF</button>
+                                <button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button>
                             </div>
                         </summary>
                         <div class="px-4 pb-4">
@@ -563,7 +557,6 @@
                         </div>
                     </details>`;
             });
-            
             view.innerHTML = playerHtml + gamesHtml + `</div>`;
         }
 
@@ -641,14 +634,15 @@
             const layer = wrap.querySelector('#shot-layer-pdf');
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
                 const dot = document.createElement('div');
-                // KORJATTU PDF-kohdistus: Käytetään samoja koordinaatteja kuin sovelluksessa
+                // KORJATTU: Mappaus piirrettyjen viivojen sisään (2.5% - 97.5% X, 5% - 95% Y)
+                const leftPct = 2.5 + (s.x * 0.95);
+                const topPct = 5.0 + (s.y * 0.90);
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
-                    left: s.x + '%', top: s.y + '%', transform:'translate(-50%,-50%)', 
+                    left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', 
                     border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white', 
                     color: s.outcome === 'block' ? '#000000' : '#ffffff', 
-                    fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', 
-                    textAlign:'center', lineHeight: '0' 
+                    fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '0' 
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
@@ -702,7 +696,7 @@
         function saveLocal() { if (userId) sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); }
         function showConfirmation(title, text, btnTxt, btnClass, cb) {
             const m = document.getElementById('confirm-modal'); m.classList.remove('hidden');
-            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2">${title}</h3><p class="text-sm mb-6 font-medium">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 rounded font-bold transition-colors">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold transition-colors">${btnTxt}</button></div></div>`;
+            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2">${title}</h3><p class="text-sm mb-6 font-medium text-slate-600">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 text-slate-800 rounded font-bold transition-colors">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold transition-colors">${btnTxt}</button></div></div>`;
             document.getElementById('conf-cancel').onclick = () => m.classList.add('hidden');
             document.getElementById('conf-ok').onclick = () => { cb(); m.classList.add('hidden'); };
         }
