@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* KORJATTU: Kiinteä line-height on varmin tapa pystysuuntaiseen keskitykseen */
+        /* Grid-keskitys takaa numeron osumisen pallon keskelle */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -27,11 +27,11 @@
             transform: translate(-50%, -50%); 
             transition: opacity 0.2s; 
             cursor: pointer; 
-            text-align: center;
-            line-height: 36px; 
-            display: block;
+            display: grid; 
+            place-items: center; 
             padding: 0;
-            overflow: hidden;
+            line-height: 0; 
+            text-align: center;
         }
         
         .goal { background-color: #10B981; color: #ffffff; } 
@@ -40,7 +40,8 @@
         .save { background-color: #EF4444; color: #ffffff; }
         
         .quality-high { border: 3px solid #b91c1c; } 
-        .quality-low { border: 2px solid rgba(255,255,255,0.9); }
+        /* MUUTETTU: Heikon laukauksen reunus tumman siniseksi erottuvuuden parantamiseksi */
+        .quality-low { border: 2px solid #1e3a8a; }
         
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
@@ -151,10 +152,7 @@
 
         function showMainView(viewKey) {
             const ids = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
+            ids.forEach(id => document.getElementById(id).classList.add('hidden'));
             const targetId = { auth:'auth-view', teams:'teams-view', landing:'landing-view', setup:'setup-view', app:'app-container' }[viewKey];
             const targetEl = document.getElementById(targetId);
             if (targetEl) {
@@ -452,7 +450,7 @@
 
             let html = `
                 <div class="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                    <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-700">
+                    <div class="grid grid-cols-2 gap-6 mb-4 pb-4 border-b border-slate-700">
                         <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
                             <p class="text-xs uppercase text-emerald-500 font-black mb-2">KOTI</p>
                             <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
@@ -568,7 +566,6 @@
             try {
                 const game = seasonData.games.find(g => g.id === gameId); if (!game) return;
                 const { jsPDF } = window.jspdf;
-                // Lisätty compress: true tiedostokoon pienentämiseksi
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
                 const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
                 let yPos = margin;
@@ -583,10 +580,9 @@
                     const mapEl = createShotmapElement(game, period);
                     document.body.appendChild(mapEl);
                     await new Promise(r => requestAnimationFrame(r));
-                    const canvas = await html2canvas(mapEl, { scale: 1.5 }); // Pudotettu scale hieman koon säästämiseksi
+                    const canvas = await html2canvas(mapEl, { scale: 1.5 });
                     document.body.removeChild(mapEl);
 
-                    // Käytetään JPEG-muotoa ja pakkausta (0.75) koon pienentämiseksi
                     const imgData = canvas.toDataURL('image/jpeg', 0.75);
                     const imgW = 180, imgH = 90, approxTableH = 62;
                     if (yPos + 6 + imgH + approxTableH > pageH - margin) { doc.addPage(); yPos = margin; }
@@ -639,15 +635,18 @@
             wrap.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 400 200" style="position:absolute;inset:0"><rect x="10" y="10" width="380" height="180" fill="none" stroke="#1e293b" stroke-width="2"/><line x1="200" y1="10" x2="200" y2="190" stroke="#94a3b8" stroke-width="1"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/></svg><div id="shot-layer-pdf" style="position:absolute;inset:0;width:100%;height:100%;"></div>`;
             const layer = wrap.querySelector('#shot-layer-pdf');
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
-                const dot = document.createElement('div'), leftPct = 2.5 + (s.x * 0.95), topPct = 5.0 + (s.y * 0.90);
-                const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
-                // KORJATTU PDF: Käytetään grid-keskitystä ja nollattua line-heightia
+                const dot = document.createElement('div');
+                const leftPct = 2.5 + (s.x * 0.95);
+                const topPct = 5.0 + (s.y * 0.90);
+                // MUUTETTU: Heikon laukauksen reunus tumman siniseksi raportissa
+                const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
+                const borderWidth = s.quality === 'high' ? '3px' : '2px';
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
                     left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', 
-                    border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white', 
-                    color: textColor, fontSize:'12px', fontWeight:'900', 
-                    display:'grid', placeItems:'center', lineHeight: '0' 
+                    border: `${borderWidth} solid ${borderColor}`, 
+                    color: s.outcome === 'block' ? '#000000' : '#ffffff', 
+                    fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '0' 
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
