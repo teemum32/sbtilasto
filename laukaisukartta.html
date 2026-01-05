@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* KORJATTU: Flex-keskitys ja line-height reset numeron valumisen estämiseksi */
+        /* KORJATTU: Pystysuuntainen keskitys varmistettu flexillä ja nollatulla line-heightilla */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -31,7 +31,8 @@
             align-items: center; 
             justify-content: center; 
             padding: 0;
-            line-height: 1;
+            line-height: 0; 
+            text-align: center;
         }
         
         .goal { background-color: #10B981; color: #ffffff; } 
@@ -63,7 +64,7 @@
             <div class="mt-6 space-y-4">
                 <input id="email-input" type="email" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center focus:outline-none focus:border-indigo-500" placeholder="Sähköposti">
                 <input id="password-input" type="password" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center focus:outline-none focus:border-indigo-500" placeholder="Salasana">
-                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold">Kirjaudu</button>
+                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition-colors">Kirjaudu</button>
             </div>
             <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
         </div>
@@ -71,7 +72,7 @@
     
     <!-- Teams Selection -->
     <div id="teams-view" class="h-full hidden flex items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold mb-6 text-white uppercase tracking-wider">Valitse joukkue</h1>
             <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto mb-6 px-2"></div>
             <div class="border-t border-slate-700 pt-6 px-2">
@@ -87,8 +88,8 @@
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 id="team-name-header" class="text-3xl font-bold text-white uppercase tracking-wide">Joukkue</h1>
             <div class="mt-8 space-y-4">
-                <button id="start-new-game-btn" class="w-full bg-indigo-600 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Uusi ottelu</button>
-                <button id="view-season-data-btn" class="w-full bg-slate-600 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Kausitilastot</button>
+                <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold text-lg">Uusi ottelu</button>
+                <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-bold text-lg">Kausitilastot</button>
                 <button id="change-team-btn" class="w-full border border-slate-600 hover:bg-slate-700 py-2 rounded-lg text-slate-400 mt-4">Vaihda joukkuetta</button>
                 <button id="logout-btn" class="w-full text-red-400 py-2 mt-2 hover:underline">Kirjaudu ulos</button>
             </div>
@@ -99,8 +100,8 @@
     <div id="setup-view" class="h-full hidden flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold mb-4 text-white">Uusi ottelu</h1>
-            <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4" placeholder="Vastustaja">
-            <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4" placeholder="7 Matti, 10 Pekka..."></textarea>
+            <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4 focus:border-indigo-500 outline-none" placeholder="Vastustaja">
+            <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4 focus:border-indigo-500 outline-none" placeholder="7 Matti, 10 Pekka..."></textarea>
             <p id="setup-error" class="text-red-500 text-sm mb-4 h-5"></p>
             <button id="start-button" class="w-full bg-indigo-600 py-3 rounded-lg font-bold">Aloita merkintä</button>
             <button id="back-to-landing-btn" class="mt-4 text-slate-400">Takaisin</button>
@@ -455,9 +456,29 @@
 
             let html = `
                 <div class="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                    <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-700">
-                        <div><p class="text-xs uppercase text-slate-500 font-bold">Koti</p><p class="text-sm">Laukaukset: ${stats.home.shots}</p><p class="text-sm">xG: ${stats.home.xg.toFixed(2)}</p></div>
-                        <div><p class="text-xs uppercase text-slate-500 font-bold">Vieras</p><p class="text-sm">Laukaukset: ${stats.away.shots}</p><p class="text-sm text-blue-400">H-: ${stats.away.qL}</p></div>
+                    <div class="grid grid-cols-2 gap-6 mb-4 pb-4 border-b border-slate-700">
+                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                            <p class="text-xs uppercase text-emerald-500 font-black mb-2">KOTI</p>
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
+                                <span>Laukaukset:</span><span class="text-white font-bold">${stats.home.shots}</span>
+                                <span>xG:</span><span class="text-white font-bold">${stats.home.xg.toFixed(2)}</span>
+                                <span class="text-red-400">L+:</span><span class="text-white font-bold">${stats.home.qH}</span>
+                                <span class="text-blue-400">H-:</span><span class="text-white font-bold">${stats.home.qL}</span>
+                                <span>Torjunnat:</span><span class="text-white font-bold">${stats.home.saves}</span>
+                                <span>Blokit:</span><span class="text-white font-bold">${stats.home.blocks}</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                            <p class="text-xs uppercase text-slate-400 font-black mb-2">VIERAS</p>
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
+                                <span>Laukaukset:</span><span class="text-white font-bold">${stats.away.shots}</span>
+                                <span>xG:</span><span class="text-white font-bold">${stats.away.xg.toFixed(2)}</span>
+                                <span class="text-red-400">L+:</span><span class="text-white font-bold">${stats.away.qH}</span>
+                                <span class="text-blue-400">H-:</span><span class="text-white font-bold">${stats.away.qL}</span>
+                                <span>Torjunnat:</span><span class="text-white font-bold">${stats.away.saves}</span>
+                                <span>Blokit:</span><span class="text-white font-bold">${stats.away.blocks}</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
@@ -526,19 +547,21 @@
             sortedGames.forEach(game => {
                 const s = getGameStats(game);
                 gamesHtml += `
-                    <details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden">
+                    <details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden group">
                         <summary class="p-4 flex justify-between items-center transition-all hover:bg-slate-700/50">
-                            <div>
+                            <div class="flex-1">
                                 <p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p>
                                 <p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p>
                             </div>
                             <div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div>
                             <div class="flex gap-2">
-                                <button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold">PDF</button>
-                                <button data-id="${game.id}" class="del-btn bg-red-600/20 hover:bg-red-600 text-red-400 px-3 py-1 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button>
+                                <button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-lg active:scale-95">PDF</button>
+                                <button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-3 py-1 rounded-md text-xs transition-all border border-red-600/20">Poista</button>
                             </div>
                         </summary>
-                        <div class="px-4 pb-4">${generateGameDetailsHTML(game)}</div>
+                        <div class="px-4 pb-4">
+                            ${generateGameDetailsHTML(game)}
+                        </div>
                     </details>`;
             });
             
@@ -576,7 +599,15 @@
                     callAutoTable(doc, {
                         startY: yPos, margin: { left: margin, right: margin }, tableWidth: pageW - margin*2, theme: 'grid',
                         head: [['Tapahtuma', 'Koti', 'Vieras']],
-                        body: [['Maalit', stats.home.goals, stats.away.goals], ['Laukaukset', stats.home.shots, stats.away.shots], ['xG (Maaliodottama)', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], ['Laadukkaat (L+)', stats.home.qH, stats.away.qH], ['Torjunnat', stats.home.saves, stats.away.saves], ['Blokit', stats.home.blocks, stats.away.blocks]],
+                        body: [
+                            ['Maalit', stats.home.goals, stats.away.goals], 
+                            ['Laukaukset', stats.home.shots, stats.away.shots], 
+                            ['xG (Maaliodottama)', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], 
+                            ['Laadukkaat (L+)', stats.home.qH, stats.away.qH], 
+                            ['Heikot (H-)', stats.home.qL, stats.away.qL], 
+                            ['Torjunnat', stats.home.saves, stats.away.saves], 
+                            ['Blokit', stats.home.blocks, stats.away.blocks]
+                        ],
                         styles: { fontSize: 10 }, headStyles: { fillColor: [41, 52, 72] },
                         columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' } }
                     });
@@ -612,7 +643,7 @@
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
                 const dot = document.createElement('div'), leftPct = 2.5 + (s.x / 100) * 95, topPct = 5 + (s.y / 100) * 90;
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
-                Object.assign(dot.style, { position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white', color: textColor, fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', lineHeight: '1' });
+                Object.assign(dot.style, { position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white', color: textColor, fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', lineHeight: '0' });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
             return wrap;
@@ -671,7 +702,7 @@
         }
         function renderPlusMinusView() {
             const v = document.getElementById('plus-minus-view');
-            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-800 p-6 rounded-xl text-white border border-slate-700 shadow-2xl"><h2 class="text-2xl font-bold text-center mb-6 uppercase tracking-wider">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/30"><h3 class="font-bold text-emerald-400 text-center mb-4 uppercase">Oma maali (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-900/20 p-4 rounded-lg border border-red-500/30"><h3 class="font-bold text-red-400 text-center mb-4 uppercase">Vastustajan maali (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`;
+            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-800 p-6 rounded-xl text-white border border-slate-700 shadow-2xl"><h2 class="text-2xl font-bold text-center mb-6 uppercase tracking-wider">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/30"><h3 class="font-bold text-emerald-400 text-center mb-4 uppercase text-xs">Oma maali (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-900/20 p-4 rounded-lg border border-red-500/30"><h3 class="font-bold text-red-400 text-center mb-4 uppercase text-xs">Vastustajan maali (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`;
             const plusG = v.querySelector('#pm-plus-grid'), minusG = v.querySelector('#pm-minus-grid');
             (currentGame.players || []).forEach(p => {
                 const bP = document.createElement('button'); bP.className = "p-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded transition-colors"; bP.textContent = p;
@@ -693,11 +724,10 @@
             summ.innerHTML = html + `</tbody></table>`;
         }
 
-        // Global handlers for season view buttons to avoid propagation issues
+        // Global handler for buttons to avoid issues
         document.getElementById('season-view').addEventListener('click', (e) => {
             const pdfBtn = e.target.closest('.pdf-btn');
             const delBtn = e.target.closest('.del-btn');
-            
             if (pdfBtn) {
                 e.preventDefault();
                 e.stopPropagation();
