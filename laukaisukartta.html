@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; overflow: auto; }
+        body { font-family: 'Inter', sans-serif; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
         .player-number { cursor: grab; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; border: 2px solid white; background-color: #020617; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); touch-action: none; }
         .away-player { font-size: 1.5rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
@@ -21,89 +21,84 @@
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
         .period-tab { padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
         .period-tab.active { background-color: #4f46e5; }
-        #pdf-overlay { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.9); display: none; z-index: 1000; }
-        #pdf-overlay.visible { display: grid; place-items: center; }
-        #pdf-overlay .panel { width: 96vw; height: 92vh; background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); overflow: hidden; position: relative; }
-        #pdf-overlay header { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #0f172a; color: #e2e8f0; }
-        #pdf-iframe { width: 100%; height: calc(100% - 48px); border: 0; }
     </style>
 </head>
-<body class="bg-slate-900 h-full text-slate-200">
+<body class="bg-slate-900 min-h-full text-slate-200 flex flex-col">
 
     <!-- Auth View -->
-    <div id="auth-view" class="h-full w-full flex items-center justify-center p-4">
-        <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center">
+    <div id="auth-view" class="flex-1 flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold">Kirjaudu sisään</h1>
             <div class="mt-6 space-y-4">
-                <input id="email-input" type="email" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center" placeholder="Sähköposti">
-                <input id="password-input" type="password" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center" placeholder="Salasana">
-                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold">Kirjaudu</button>
+                <input id="email-input" type="email" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center focus:outline-none focus:border-indigo-500" placeholder="Sähköposti">
+                <input id="password-input" type="password" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center focus:outline-none focus:border-indigo-500" placeholder="Salasana">
+                <button id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition-colors">Kirjaudu</button>
             </div>
             <p id="auth-error" class="text-red-500 text-sm mt-4 h-5"></p>
         </div>
     </div>
     
     <!-- Teams Selection -->
-    <div id="teams-view" class="h-full w-full hidden items-center justify-center p-4">
+    <div id="teams-view" class="flex-1 hidden items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-2xl font-bold mb-6">Valitse joukkue</h1>
             <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto mb-6"></div>
             <div class="border-t border-slate-700 pt-6">
                 <input id="new-team-name" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center" placeholder="Uusi joukkue">
-                <button id="create-team-btn" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold">Luo joukkue</button>
+                <button id="create-team-btn" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold transition-colors">Luo joukkue</button>
             </div>
-            <button id="logout-btn-teams" class="w-full mt-6 text-slate-400 font-semibold">Kirjaudu ulos</button>
+            <button id="logout-btn-teams" class="w-full mt-6 text-slate-400 font-semibold hover:text-slate-200">Kirjaudu ulos</button>
         </div>
     </div>
 
     <!-- Landing View -->
-    <div id="landing-view" class="h-full w-full hidden items-center justify-center p-4">
+    <div id="landing-view" class="flex-1 hidden items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
-            <h1 id="team-name-header" class="text-3xl font-bold">Joukkue</h1>
+            <h1 id="team-name-header" class="text-3xl font-bold text-white">Joukkue</h1>
             <div class="mt-8 space-y-4">
-                <button id="start-new-game-btn" class="w-full bg-indigo-600 py-3 rounded-lg font-bold text-lg">Uusi ottelu</button>
-                <button id="view-season-data-btn" class="w-full bg-slate-600 py-3 rounded-lg font-bold text-lg">Kausitilastot</button>
-                <button id="change-team-btn" class="w-full border border-slate-600 py-2 rounded-lg text-slate-400 mt-4">Vaihda joukkuetta</button>
-                <button id="logout-btn" class="w-full text-red-400 py-2 mt-2">Kirjaudu ulos</button>
+                <button id="start-new-game-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold text-lg transition-colors">Uusi ottelu</button>
+                <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-bold text-lg transition-colors">Kausitilastot</button>
+                <button id="change-team-btn" class="w-full border border-slate-600 hover:bg-slate-700 py-2 rounded-lg text-slate-400 mt-4 transition-colors">Vaihda joukkuetta</button>
+                <button id="logout-btn" class="w-full text-red-400 py-2 mt-2 hover:underline">Kirjaudu ulos</button>
             </div>
         </div>
     </div>
 
     <!-- Setup View -->
-    <div id="setup-view" class="h-full w-full hidden items-center justify-center p-4">
+    <div id="setup-view" class="flex-1 hidden items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center">
             <h1 class="text-2xl font-bold mb-4">Uusi ottelu</h1>
             <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4" placeholder="Vastustaja">
             <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4" placeholder="7 Matti, 10 Pekka..."></textarea>
             <p id="setup-error" class="text-red-500 text-sm mb-4 h-5"></p>
-            <button id="start-button" class="w-full bg-indigo-600 py-3 rounded-lg font-bold">Aloita merkintä</button>
-            <button id="back-to-landing-btn" class="mt-4 text-slate-400">Takaisin</button>
+            <button id="start-button" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold">Aloita merkintä</button>
+            <button id="back-to-landing-btn" class="mt-4 text-slate-400 hover:text-white transition-colors">Takaisin</button>
         </div>
     </div>
 
     <!-- App Container -->
-    <div id="app-container" class="h-full w-full hidden flex-col">
-        <div id="period-tabs" class="bg-slate-800 p-2 flex justify-center gap-1 shrink-0 flex-wrap"></div>
+    <div id="app-container" class="flex-1 hidden flex-col h-screen">
+        <div id="period-tabs" class="bg-slate-800 p-2 flex justify-center gap-1 shrink-0 flex-wrap border-b border-slate-700"></div>
         <div class="flex-1 min-h-0 relative">
             <div id="main-app" class="absolute inset-0 grid grid-cols-1 md:grid-cols-[256px,1fr]">
-                <aside class="bg-slate-900 p-4 flex flex-col overflow-y-auto">
+                <aside class="bg-slate-900 p-4 flex flex-col overflow-y-auto border-r border-slate-800">
                     <div id="sidebar-content"></div>
-                    <button id="save-game-button" class="mt-auto w-full bg-blue-600 py-3 rounded-lg font-bold">Tallenna ottelu</button>
+                    <button id="save-game-button" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold transition-colors">Tallenna ottelu</button>
                 </aside>
                 <main class="flex items-center justify-center p-4 bg-slate-200 overflow-hidden">
                     <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
                 </main>
             </div>
-            <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
-            <div id="season-view" class="absolute inset-0 hidden bg-slate-200 overflow-y-auto p-4"></div>
+            <div id="plus-minus-view" class="absolute inset-0 hidden bg-slate-100 overflow-y-auto p-4"></div>
+            <div id="season-view" class="absolute inset-0 hidden bg-slate-100 overflow-y-auto p-4"></div>
         </div>
     </div>
 
     <!-- Modals -->
-    <div id="outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
-    <div id="quality-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
-    <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-xl border"></div>
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4"></div>
+    <div id="outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-2xl border"></div>
+    <div id="quality-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-2xl border"></div>
+    <div id="edit-outcome-modal" class="action-modal hidden gap-2 p-2 bg-white rounded-lg shadow-2xl border"></div>
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[2000] p-4"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -116,20 +111,21 @@
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
 
-        // Colors for PDF and App
         const COLORS = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
-
         const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
 
-        const allViews = { auth: 'auth-view', teams: 'teams-view', landing: 'landing-view', setup: 'setup-view', app: 'app-container' };
-
         function showMainView(viewKey) {
-            Object.values(allViews).forEach(id => document.getElementById(id).classList.add('hidden'));
-            document.getElementById(allViews[viewKey]).classList.remove('hidden');
-            if (viewKey === 'app') document.getElementById(allViews[viewKey]).classList.add('flex');
+            const views = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
+            views.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById(idForView(viewKey)).classList.remove('hidden');
+            if (viewKey === 'app') document.getElementById('app-container').classList.add('flex');
             if (viewKey === 'landing') {
                 document.getElementById('start-new-game-btn').textContent = (currentGame && currentGame.id) ? 'Jatka ottelua' : 'Uusi ottelu';
             }
+        }
+        function idForView(key) {
+            const map = { auth:'auth-view', teams:'teams-view', landing:'landing-view', setup:'setup-view', app:'app-container' };
+            return map[key];
         }
 
         async function initApp() {
@@ -159,20 +155,19 @@
             });
         }
 
-        // Firebase Listeners
         function listenForTeams() {
             if (!userId) return;
             if (teamsUnsubscribe) teamsUnsubscribe();
             teamsUnsubscribe = onSnapshot(query(collection(db, 'users', userId, 'teams')), (snap) => {
-                const teamsList = document.getElementById('teams-list');
-                teamsList.innerHTML = '';
+                const list = document.getElementById('teams-list');
+                list.innerHTML = '';
                 snap.forEach(doc => {
                     const team = { id: doc.id, ...doc.data() };
                     const btn = document.createElement('button');
-                    btn.className = "w-full bg-slate-700 hover:bg-slate-600 p-4 rounded-lg font-bold";
+                    btn.className = "w-full bg-slate-700 hover:bg-indigo-600 p-4 rounded-lg font-bold transition-colors";
                     btn.textContent = team.name;
                     btn.onclick = () => selectTeam(team);
-                    teamsList.appendChild(btn);
+                    list.appendChild(btn);
                 });
             });
         }
@@ -195,7 +190,6 @@
             });
         }
 
-        // Game UI Logic
         function initializeGameUI() {
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `
@@ -214,8 +208,7 @@
                 <div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>
             `;
             document.getElementById('field-area').innerHTML = `
-                <div class="hidden md:block font-bold text-slate-500 -rotate-90">VIERAS</div>
-                <div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl overflow-hidden border-2 border-slate-400">
+                <div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400">
                     <svg class="w-full h-full" viewBox="0 0 400 200">
                         <line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/>
                         <rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/>
@@ -223,7 +216,6 @@
                     </svg>
                     <div id="shots-layer" class="absolute inset-0"></div>
                 </div>
-                <div class="hidden md:block font-bold text-slate-500 rotate-90">KOTI</div>
             `;
             initializePlayers();
         }
@@ -236,9 +228,7 @@
             awayList.innerHTML = `<div class="player-number away-player bg-slate-600">V</div>`;
             (currentGame.players || []).forEach(num => {
                 const div = document.createElement('div');
-                div.className = 'player-number';
-                div.textContent = num;
-                div.title = currentGame.roster[num] || '';
+                div.className = 'player-number'; div.textContent = num;
                 homeList.appendChild(div);
             });
         }
@@ -246,21 +236,19 @@
         function showView(viewId) {
             document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
             document.querySelector(`[data-period="${viewId}"]`)?.classList.add('active');
-            const sections = [document.getElementById('main-app'), document.getElementById('plus-minus-view'), document.getElementById('season-view')];
-            sections.forEach(s => s.classList.add('hidden'));
+            const mainApp = document.getElementById('main-app'), pmView = document.getElementById('plus-minus-view'), seasonView = document.getElementById('season-view');
+            [mainApp, pmView, seasonView].forEach(s => s.classList.add('hidden'));
 
             if (viewId === 'home') { showMainView('landing'); return; }
-            if (viewId === 'plus-minus') { renderPlusMinusView(); sections[1].classList.remove('hidden'); }
-            else if (viewId === 'season') { renderSeasonStats(); sections[2].classList.remove('hidden'); }
+            if (viewId === 'plus-minus') { renderPlusMinusView(); pmView.classList.remove('hidden'); }
+            else if (viewId === 'season') { renderSeasonStats(); seasonView.classList.remove('hidden'); }
             else { 
                 currentGame.currentPeriod = isNaN(viewId) ? viewId : parseInt(viewId);
-                sections[0].classList.remove('hidden');
-                renderShots();
-                updateStats();
+                mainApp.classList.remove('hidden');
+                renderShots(); updateStats();
             }
         }
 
-        // Event Listeners for Interaction
         function addEventListeners() {
             document.getElementById('period-tabs').onclick = (e) => {
                 const btn = e.target.closest('.period-tab');
@@ -268,7 +256,7 @@
             };
 
             document.getElementById('save-game-button').onclick = () => {
-                showConfirmation('Tallenna ottelu?', 'Tallennuksen jälkeen peliä ei voi muokata.', 'Tallenna', 'bg-blue-600', saveGame);
+                showConfirmation('Tallenna ottelu?', 'Peliä ei voi enää muokata.', 'Tallenna', 'bg-blue-600', saveGame);
             };
 
             ['home-player-list', 'away-player-list'].forEach(id => {
@@ -278,10 +266,7 @@
 
             document.body.addEventListener('pointermove', onPointerMove);
             document.body.addEventListener('pointerup', onPointerUp);
-            
             document.getElementById('shots-layer').addEventListener('click', onShotClick);
-            
-            // Modals
             document.getElementById('outcome-modal').onclick = onOutcomeSelect;
             document.getElementById('quality-modal').onclick = onQualitySelect;
             document.getElementById('edit-outcome-modal').onclick = onEditSelect;
@@ -337,10 +322,7 @@
                     <button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded">Heikko</button>
                 `;
             } else if (id === 'edit-outcome-modal') {
-                m.innerHTML = `
-                    <button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded">Maali</button>
-                    <button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded">Poista</button>
-                `;
+                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded">Poista</button>`;
             }
         }
 
@@ -360,8 +342,7 @@
                 xG: calcXG(tempShotData.x, tempShotData.y, tempShotData.team) 
             };
             delete shot.clientX; delete shot.clientY;
-            currentGame.shots.push(shot);
-            saveLocal();
+            currentGame.shots.push(shot); saveLocal();
             document.getElementById('quality-modal').classList.add('hidden');
             renderShots(); updateStats();
         }
@@ -377,27 +358,26 @@
             const idx = currentGame.shots.findIndex(s => s.id === shotToEditId);
             if (val === 'delete') currentGame.shots.splice(idx, 1);
             else currentGame.shots[idx].outcome = val;
-            saveLocal();
-            document.getElementById('edit-outcome-modal').classList.add('hidden');
+            saveLocal(); document.getElementById('edit-outcome-modal').classList.add('hidden');
             renderShots(); updateStats();
         }
 
         function calcXG(x, y, team) {
-            const dist = (team === 'home') ? (x / 100) : (1 - x / 100);
-            const angle = Math.abs(y - 50) / 50;
-            return parseFloat((0.5 * Math.pow(1 - dist, 2) * Math.pow(1 - angle, 1.5)).toFixed(2));
+            const MAX_XG = 0.65; const X_POWER = 3; const Y_POWER = 1.5;
+            const xNorm = x / 100; const yNorm = Math.abs(y - 50) / 50;
+            const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER);
+            const yFactor = Math.pow(1 - yNorm, Y_POWER);
+            return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2));
         }
 
         function renderShots() {
-            const layer = document.getElementById('shots-layer');
-            layer.innerHTML = '';
+            const layer = document.getElementById('shots-layer'); layer.innerHTML = '';
             const filtered = (currentGame.shots || []).filter(s => currentGame.currentPeriod === 'summary' || s.period === currentGame.currentPeriod);
             filtered.forEach(s => {
                 const m = document.createElement('div');
                 m.className = `shot-marker ${s.outcome} ${s.quality === 'high' ? 'quality-high' : 'quality-low'}`;
                 m.style.left = `${s.x}%`; m.style.top = `${s.y}%`;
-                m.dataset.id = s.id;
-                m.innerHTML = `<span>${s.player}</span>`;
+                m.dataset.id = s.id; m.innerHTML = `<span>${s.player}</span>`;
                 layer.appendChild(m);
             });
         }
@@ -407,27 +387,16 @@
             const container = document.getElementById('stats-container');
             const title = currentGame.currentPeriod === 'summary' ? 'Ottelu' : `Erä ${currentGame.currentPeriod}`;
             container.innerHTML = `
-                <h3 class="font-bold text-center mb-3">${title}</h3>
+                <h3 class="font-bold text-center mb-3 text-slate-400">${title}</h3>
                 <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p class="font-bold text-emerald-400">Koti</p>
-                        <p>Maalit: ${stats.home.goals}</p>
-                        <p>xG: ${stats.home.xg.toFixed(2)}</p>
-                        <p>Laatu: ${stats.home.qualityHigh}</p>
-                    </div>
-                    <div>
-                        <p class="font-bold text-slate-400">Vieras</p>
-                        <p>Maalit: ${stats.away.goals}</p>
-                        <p>Lauk: ${stats.away.shots}</p>
-                    </div>
+                    <div><p class="font-bold text-emerald-400">Koti</p><p>Maalit: ${stats.home.goals}</p><p>xG: ${stats.home.xg.toFixed(2)}</p></div>
+                    <div><p class="font-bold text-slate-400">Vieras</p><p>Maalit: ${stats.away.goals}</p><p>Lauk: ${stats.away.shots}</p></div>
                 </div>
             `;
             if (currentGame.currentPeriod === 'summary') {
                 document.getElementById('player-stats-container').classList.remove('hidden');
                 updatePlayerStatsUI();
-            } else {
-                document.getElementById('player-stats-container').classList.add('hidden');
-            }
+            } else document.getElementById('player-stats-container').classList.add('hidden');
         }
 
         function updatePlayerStatsUI() {
@@ -435,18 +404,14 @@
             let html = `<h3 class="font-bold text-center mb-2">Pelaajat</h3>`;
             (currentGame.players || []).forEach(p => {
                 const pShots = currentGame.shots.filter(s => s.player == p && s.team === 'home');
-                if (pShots.length > 0) {
-                    html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
-                }
+                if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
             });
             container.innerHTML = html;
         }
 
-        // Season View and PDF
         function renderSeasonStats() {
             const view = document.getElementById('season-view');
             let html = `<div class="max-w-3xl mx-auto"><h2 class="text-2xl font-bold mb-6 text-slate-800 text-center">Kausitilastot</h2>`;
-            
             const games = [...seasonData.games].sort((a,b) => new Date(b.date) - new Date(a.date));
             games.forEach(game => {
                 const s = getStatsForPeriod(game, 'summary');
@@ -456,7 +421,7 @@
                             <div><p class="font-bold">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-sm">vs ${game.opponent}</p></div>
                             <div class="text-xl font-bold">${s.home.goals} - ${s.away.goals}</div>
                             <div class="flex gap-2">
-                                <button data-id="${game.id}" class="pdf-btn bg-purple-600 text-white p-2 rounded text-xs">PDF</button>
+                                <button data-id="${game.id}" class="pdf-btn bg-purple-600 text-white px-4 py-2 rounded font-bold">PDF</button>
                                 <button data-id="${game.id}" class="del-btn bg-red-500 text-white p-2 rounded text-xs">Poista</button>
                             </div>
                         </div>
@@ -464,64 +429,46 @@
                 `;
             });
             view.innerHTML = html + `</div>`;
-            
             view.onclick = (e) => {
                 const pdfBtn = e.target.closest('.pdf-btn');
                 const delBtn = e.target.closest('.del-btn');
                 if (pdfBtn) generatePdfReport(pdfBtn.dataset.id, pdfBtn);
-                if (delBtn) showConfirmation('Poista ottelu?', 'Haluatko varmasti poistaa ottelun kaudesta?', 'Poista', 'bg-red-600', () => deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', delBtn.dataset.id)));
+                if (delBtn) showConfirmation('Poista?', 'Poistetaanko ottelu?', 'Poista', 'bg-red-600', () => deleteDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'games', delBtn.dataset.id)));
             };
         }
 
-        // --- PDF GENERATION CORE ---
         async function generatePdfReport(gameId, btn) {
-            const origText = btn.textContent;
-            btn.textContent = 'Luodaan...'; btn.disabled = true;
-            
+            const origText = btn.textContent; btn.textContent = 'Luodaan...'; btn.disabled = true;
             try {
-                const game = seasonData.games.find(g => g.id === gameId);
-                if (!game) return;
-
+                const game = seasonData.games.find(g => g.id === gameId); if (!game) return;
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-                const margin = 10;
-                const pageW = doc.internal.pageSize.getWidth();
-                const pageH = doc.internal.pageSize.getHeight();
+                const margin = 10; const pageW = doc.internal.pageSize.getWidth(); const pageH = doc.internal.pageSize.getHeight();
                 let yPos = margin;
 
-                // Header
                 doc.setFontSize(20); doc.text(`Otteluraportti: ${game.opponent}`, pageW/2, yPos, {align:'center'});
                 yPos += 10;
                 doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW/2, yPos, {align:'center'});
                 yPos += 15;
 
-                // Periods loop
                 for (const period of [1, 2, 3, 'summary']) {
                     const stats = getStatsForPeriod(game, period);
                     const title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
 
-                    // Create chart element
                     const mapEl = createShotmapElement(game, period);
                     document.body.appendChild(mapEl);
                     await new Promise(r => requestAnimationFrame(r));
                     const canvas = await html2canvas(mapEl, { scale: 2 });
                     document.body.removeChild(mapEl);
 
-                    const imgW = 180;
-                    const imgH = 90;
-                    const approxTableH = 60;
-
-                    // Paging check
-                    if (yPos + 10 + imgH + approxTableH > pageH - margin) {
-                        doc.addPage(); yPos = margin;
-                    }
+                    const imgW = 180; const imgH = 90; const approxTableH = 62;
+                    if (yPos + 6 + imgH + approxTableH > pageH - margin) { doc.addPage(); yPos = margin; }
 
                     doc.setFontSize(14); doc.text(title, margin, yPos);
                     yPos += 6;
                     doc.addImage(canvas.toDataURL('image/png'), 'PNG', (pageW-imgW)/2, yPos, imgW, imgH);
                     yPos += imgH + 8;
 
-                    // Table
                     callAutoTable(doc, {
                         startY: yPos,
                         margin: { left: margin, right: margin },
@@ -538,15 +485,12 @@
                         ],
                         styles: { fontSize: 10 },
                         headStyles: { fillColor: [41, 52, 72] },
-                        columnStyles: { 0: { cellWidth: 110 }, 1: { halign: 'right' }, 2: { halign: 'right' } }
+                        columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' } }
                     });
-                    
                     yPos = doc.lastAutoTable.finalY + 14;
                 }
 
-                // Player Stats Page
-                doc.addPage();
-                yPos = margin;
+                doc.addPage(); yPos = margin;
                 doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot', pageW/2, yPos, {align:'center'});
                 yPos += 10;
 
@@ -571,38 +515,13 @@
                         return [...r, pct];
                     }),
                     columnStyles: {
-                        0: { cellWidth: 60 },
-                        1: { cellWidth: 20, halign: 'right' },
-                        2: { cellWidth: 20, halign: 'right' },
-                        3: { cellWidth: 18, halign: 'right' },
-                        4: { cellWidth: 18, halign: 'right' },
-                        5: { cellWidth: 22, halign: 'right' },
-                        6: { cellWidth: 22, halign: 'right' }
+                        0: { cellWidth: 60 }, 1: { cellWidth: 20, halign: 'right' }, 2: { cellWidth: 20, halign: 'right' },
+                        3: { cellWidth: 18, halign: 'right' }, 4: { cellWidth: 18, halign: 'right' },
+                        5: { cellWidth: 22, halign: 'right' }, 6: { cellWidth: 22, halign: 'right' }
                     }
                 });
-
-                doc.save(`Raportti_${game.opponent}_${game.id}.pdf`);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                btn.textContent = origText; btn.disabled = false;
-            }
-        }
-
-        // Helpers
-        function getStatsForPeriod(game, p) {
-            const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0} };
-            (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
-                const t = s.team;
-                const o = t === 'home' ? 'away' : 'home';
-                agg[t].shots++;
-                agg[t].xg += Number(s.xG) || 0;
-                if (s.outcome === 'goal') agg[t].goals++;
-                if (s.outcome === 'save') agg[o].saves++;
-                if (s.outcome === 'block') agg[o].blocks++;
-                if (s.quality === 'high') agg[t].qualityHigh++;
-            });
-            return agg;
+                doc.save(`Raportti_${game.opponent}.pdf`);
+            } catch (err) { console.error(err); } finally { btn.textContent = origText; btn.disabled = false; }
         }
 
         function createShotmapElement(game, p) {
@@ -627,10 +546,22 @@
                     transform:'translate(-50%,-50%)', border: s.quality === 'high' ? '3px solid #b91c1c' : '2px solid white',
                     color:'white', fontSize:'12px', fontWeight:'bold', display:'flex', alignItems:'center', justifyContent:'center'
                 });
-                dot.textContent = s.player;
-                layer.appendChild(dot);
+                dot.textContent = s.player; layer.appendChild(dot);
             });
             return wrap;
+        }
+
+        function getStatsForPeriod(game, p) {
+            const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0} };
+            (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
+                const t = s.team; const o = t === 'home' ? 'away' : 'home';
+                agg[t].shots++; agg[t].xg += Number(s.xG) || 0;
+                if (s.outcome === 'goal') agg[t].goals++;
+                if (s.outcome === 'save') agg[o].saves++;
+                if (s.outcome === 'block') agg[o].blocks++;
+                if (s.quality === 'high') agg[t].qualityHigh++;
+            });
+            return agg;
         }
 
         function callAutoTable(doc, opts) {
@@ -639,91 +570,51 @@
             throw new Error('AutoTable not found');
         }
 
-        // Logic for Landing & Setup
+        // Navigation & Logic
         document.getElementById('login-btn').onclick = async () => {
             const e = document.getElementById('email-input').value, p = document.getElementById('password-input').value;
             try { await signInWithEmailAndPassword(auth, e, p); } catch(err) { document.getElementById('auth-error').textContent = 'Virhe kirjautumisessa.'; }
         };
         document.getElementById('logout-btn').onclick = () => { sessionStorage.clear(); signOut(auth); };
         document.getElementById('logout-btn-teams').onclick = () => signOut(auth);
-        
-        document.getElementById('start-new-game-btn').onclick = () => {
-            if (currentGame && currentGame.id) showMainView('app');
-            else showMainView('setup');
-        };
+        document.getElementById('start-new-game-btn').onclick = () => { if (currentGame?.id) showMainView('app'); else showMainView('setup'); };
+        document.getElementById('view-season-data-btn').onclick = () => { showMainView('app'); showView('season'); };
+        document.getElementById('change-team-btn').onclick = () => showMainView('teams');
+        document.getElementById('back-to-landing-btn').onclick = () => showMainView('landing');
 
         document.getElementById('start-button').onclick = async () => {
             const opp = document.getElementById('opponent-name-input').value.trim();
             const rosterStr = document.getElementById('player-roster-input').value;
-            if (!opp) { document.getElementById('setup-error').textContent = 'Syötä vastustaja.'; return; }
-            
-            const roster = {};
-            const matches = rosterStr.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
+            if (!opp) return;
+            const roster = {}; const matches = rosterStr.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
             for (const m of matches) roster[Number(m[1])] = m[2].trim();
-            
-            if (Object.keys(roster).length === 0) { document.getElementById('setup-error').textContent = 'Syötä pelaajia.'; return; }
-
+            if (Object.keys(roster).length === 0) return;
             currentGame = {
                 id: Date.now(), date: new Date().toISOString(), opponent: opp, roster, teamId: currentTeamId, teamName: document.getElementById('team-name-header').textContent,
                 players: Object.keys(roster).map(Number), shots: [], plusMinus: {}, currentPeriod: 1
             };
             currentGame.players.forEach(p => currentGame.plusMinus[p] = {plus:0, minus:0});
-            
             await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster });
-            saveLocal();
-            initializeGameUI();
-            addEventListeners();
-            showMainView('app');
-            showView(1);
+            saveLocal(); initializeGameUI(); addEventListeners(); showMainView('app'); showView(1);
         };
 
         async function saveGame() {
-            try {
-                const saveObj = {...currentGame}; delete saveObj.id;
-                await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), saveObj);
-                sessionStorage.removeItem(`inProgressGame-${userId}`);
-                currentGame = {};
-                showMainView('landing');
-            } catch(e) {}
+            const saveObj = {...currentGame}; delete saveObj.id;
+            await addDoc(collection(db, 'users', userId, 'teams', currentTeamId, 'games'), saveObj);
+            sessionStorage.removeItem(`inProgressGame-${userId}`); currentGame = {}; showMainView('landing');
         }
-
-        function saveLocal() { sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); }
+        function saveLocal() { if (userId) sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); }
 
         function showConfirmation(title, text, btnTxt, btnClass, cb) {
-            const m = document.getElementById('confirm-modal');
-            m.classList.remove('hidden');
-            m.innerHTML = `
-                <div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center">
-                    <h3 class="text-xl font-bold mb-2">${title}</h3>
-                    <p class="text-sm mb-6">${text}</p>
-                    <div class="flex gap-2">
-                        <button id="conf-cancel" class="flex-1 py-2 bg-slate-200 rounded font-bold">Peruuta</button>
-                        <button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold">${btnTxt}</button>
-                    </div>
-                </div>
-            `;
+            const m = document.getElementById('confirm-modal'); m.classList.remove('hidden');
+            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2">${title}</h3><p class="text-sm mb-6">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 rounded font-bold">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold">${btnTxt}</button></div></div>`;
             document.getElementById('conf-cancel').onclick = () => m.classList.add('hidden');
             document.getElementById('conf-ok').onclick = () => { cb(); m.classList.add('hidden'); };
         }
 
         function renderPlusMinusView() {
             const v = document.getElementById('plus-minus-view');
-            v.innerHTML = `
-                <div class="max-w-4xl mx-auto bg-slate-100 p-6 rounded-xl text-slate-900">
-                    <h2 class="text-2xl font-bold text-center mb-6">+/- Merkintä</h2>
-                    <div class="grid grid-cols-2 gap-8">
-                        <div class="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200">
-                            <h3 class="font-bold text-emerald-700 text-center mb-4">OMA MAALI (+)</h3>
-                            <div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div>
-                        </div>
-                        <div class="bg-red-50 p-4 rounded-lg border-2 border-red-200">
-                            <h3 class="font-bold text-red-700 text-center mb-4">VASTUSTAJAN MAALI (-)</h3>
-                            <div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div>
-                        </div>
-                    </div>
-                    <div id="pm-summary" class="mt-8"></div>
-                </div>
-            `;
+            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-100 p-6 rounded-xl text-slate-900"><h2 class="text-2xl font-bold text-center mb-6">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200"><h3 class="font-bold text-emerald-700 text-center mb-4">OMA MAALI (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-50 p-4 rounded-lg border-2 border-red-200"><h3 class="font-bold text-red-700 text-center mb-4">VASTUSTAJAN MAALI (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8"></div></div>`;
             const plusG = v.querySelector('#pm-plus-grid'), minusG = v.querySelector('#pm-minus-grid');
             (currentGame.players || []).forEach(p => {
                 const bP = document.createElement('button'); bP.className = "p-2 bg-emerald-500 text-white font-bold rounded"; bP.textContent = p;
@@ -735,26 +626,15 @@
             });
             renderPMTable();
         }
-
         function renderPMTable() {
             const summ = document.getElementById('pm-summary');
             let html = `<table class="w-full text-left text-sm mt-4"><thead><tr><th class="p-2">Pelaaja</th><th class="p-2 text-center">+</th><th class="p-2 text-center">-</th><th class="p-2 text-center">Yht.</th></tr></thead><tbody>`;
             (currentGame.players || []).forEach(p => {
-                const s = currentGame.plusMinus[p];
-                const bal = s.plus - s.minus;
-                html += `<tr class="border-t border-slate-300">
-                    <td class="p-2">#${p} ${currentGame.roster[p]||''}</td>
-                    <td class="p-2 text-center"><button onclick="window.modPM(${p},'plus',-1)" class="text-xs text-slate-400 mr-2"> - </button>${s.plus}</td>
-                    <td class="p-2 text-center"><button onclick="window.modPM(${p},'minus',-1)" class="text-xs text-slate-400 mr-2"> - </button>${s.minus}</td>
-                    <td class="p-2 text-center font-bold ${bal>0?'text-emerald-600':bal<0?'text-red-600':''}"> ${bal>0?'+':''}${bal}</td>
-                </tr>`;
+                const s = currentGame.plusMinus[p]; const bal = s.plus - s.minus;
+                html += `<tr class="border-t border-slate-300"><td class="p-2">#${p} ${currentGame.roster[p]||''}</td><td class="p-2 text-center">${s.plus}</td><td class="p-2 text-center">${s.minus}</td><td class="p-2 text-center font-bold"> ${bal>0?'+':''}${bal}</td></tr>`;
             });
             summ.innerHTML = html + `</tbody></table>`;
         }
-        window.modPM = (p, type, val) => {
-            currentGame.plusMinus[p][type] = Math.max(0, currentGame.plusMinus[p][type] + val);
-            saveLocal(); renderPMTable();
-        };
 
         window.onload = initApp;
     </script>
