@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* Grid-keskitys takaa numeron osumisen pallon keskelle */
+        /* KORJATTU: Grid-keskitys on vakain tapa pystysuuntaiseen keskitykseen iPadilla ja raporteissa */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -40,7 +40,6 @@
         .save { background-color: #EF4444; color: #ffffff; }
         
         .quality-high { border: 3px solid #b91c1c; } 
-        /* MUUTETTU: Heikon laukauksen reunus tumman siniseksi erottuvuuden parantamiseksi */
         .quality-low { border: 2px solid #1e3a8a; }
         
         .action-modal { position: absolute; transform: translate(-50%, -50%); z-index: 50; display: flex; flex-direction: column; }
@@ -89,7 +88,7 @@
             <h1 id="team-name-header" class="text-3xl font-bold text-white uppercase tracking-wide">Joukkue</h1>
             <div class="mt-8 space-y-4">
                 <button id="start-new-game-btn" class="w-full bg-indigo-600 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Uusi ottelu</button>
-                <button id="view-season-data-btn" class="w-full bg-slate-600 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Kausitilastot</button>
+                <button id="view-season-data-btn" class="w-full bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-bold text-lg transition-transform active:scale-95">Kausitilastot</button>
                 <button id="change-team-btn" class="w-full border border-slate-600 hover:bg-slate-700 py-2 rounded-lg text-slate-400 mt-4">Vaihda joukkuetta</button>
                 <button id="logout-btn" class="w-full text-red-400 py-2 mt-2 hover:underline">Kirjaudu ulos</button>
             </div>
@@ -150,9 +149,20 @@
         const COLORS = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
         const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
 
+        // Helper for decrementing PM markings
+        window.modPM = (p, type, val) => {
+            if (!currentGame.plusMinus || !currentGame.plusMinus[p]) return;
+            currentGame.plusMinus[p][type] = Math.max(0, (currentGame.plusMinus[p][type] || 0) + val);
+            saveLocal();
+            renderPMTable();
+        };
+
         function showMainView(viewKey) {
             const ids = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
-            ids.forEach(id => document.getElementById(id).classList.add('hidden'));
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
             const targetId = { auth:'auth-view', teams:'teams-view', landing:'landing-view', setup:'setup-view', app:'app-container' }[viewKey];
             const targetEl = document.getElementById(targetId);
             if (targetEl) {
@@ -222,7 +232,19 @@
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
             document.getElementById('sidebar-content').innerHTML = `<div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div><div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
-            document.getElementById('field-area').innerHTML = `<div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div>`;
+            
+            document.getElementById('field-area').innerHTML = `
+                <div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm">Vieras</div>
+                <div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400">
+                    <svg class="w-full h-full" viewBox="0 0 400 200">
+                        <line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/>
+                        <rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+                        <rect x="330" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+                    </svg>
+                    <div id="shots-layer" class="absolute inset-0"></div>
+                </div>
+                <div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm">Koti</div>
+            `;
             initializePlayers();
         }
 
@@ -305,7 +327,8 @@
             if (id === 'outcome-modal') {
                 m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`;
             } else if (id === 'quality-modal') {
-                m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laatu</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
+                // MUUTETTU: "Laatu" -> "Laadukas"
+                m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laadukas</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
             } else if (id === 'edit-outcome-modal') {
                 m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`;
             }
@@ -635,18 +658,15 @@
             wrap.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 400 200" style="position:absolute;inset:0"><rect x="10" y="10" width="380" height="180" fill="none" stroke="#1e293b" stroke-width="2"/><line x1="200" y1="10" x2="200" y2="190" stroke="#94a3b8" stroke-width="1"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/></svg><div id="shot-layer-pdf" style="position:absolute;inset:0;width:100%;height:100%;"></div>`;
             const layer = wrap.querySelector('#shot-layer-pdf');
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
-                const dot = document.createElement('div');
-                const leftPct = 2.5 + (s.x * 0.95);
-                const topPct = 5.0 + (s.y * 0.90);
-                // MUUTETTU: Heikon laukauksen reunus tumman siniseksi raportissa
+                const dot = document.createElement('div'), leftPct = 2.5 + (s.x * 0.95), topPct = 5.0 + (s.y * 0.90);
+                const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
                 const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
                 const borderWidth = s.quality === 'high' ? '3px' : '2px';
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
                     left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', 
                     border: `${borderWidth} solid ${borderColor}`, 
-                    color: s.outcome === 'block' ? '#000000' : '#ffffff', 
-                    fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '0' 
+                    color: textColor, fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '0' 
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
@@ -723,7 +743,12 @@
             let html = `<table class="w-full text-left text-sm mt-4 text-slate-300"><thead><tr class="text-slate-500 uppercase text-xs"><th class="p-2">Pelaaja</th><th class="p-2 text-center">+</th><th class="p-2 text-center">-</th><th class="p-2 text-center">Yht.</th></tr></thead><tbody>`;
             (currentGame.players || []).forEach(p => {
                 const s = currentGame.plusMinus[p], bal = s.plus - s.minus;
-                html += `<tr class="border-t border-slate-700"><td class="p-2 font-bold text-slate-200">#${p} ${currentGame.roster[p]||''}</td><td class="p-2 text-center text-emerald-400">${s.plus}</td><td class="p-2 text-center text-red-400">${s.minus}</td><td class="p-2 text-center font-black ${bal>0?'text-emerald-500':bal<0?'text-red-500':'text-slate-400'}"> ${bal>0?'+':''}${bal}</td></tr>`;
+                html += `<tr class="border-t border-slate-700">
+                    <td class="p-2 font-bold text-slate-200">#${p} ${currentGame.roster[p]||''}</td>
+                    <td onclick="window.modPM(${p}, 'plus', -1)" class="p-2 text-center text-emerald-400 cursor-pointer hover:bg-emerald-500/10 rounded transition-colors">${s.plus}</td>
+                    <td onclick="window.modPM(${p}, 'minus', -1)" class="p-2 text-center text-red-400 cursor-pointer hover:bg-red-500/10 rounded transition-colors">${s.minus}</td>
+                    <td class="p-2 text-center font-black ${bal>0?'text-emerald-500':bal<0?'text-red-500':'text-slate-400'}"> ${bal>0?'+':''}${bal}</td>
+                </tr>`;
             });
             summ.innerHTML = html + `</tbody></table>`;
         }
