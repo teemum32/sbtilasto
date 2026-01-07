@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* KORJATTU: Flex-keskitys ja pieni padding-top tekstin laskemiseksi alemmas */
+        /* KORJATTU: Lisätty padding-top: 4px numeron laskemiseksi entistä alemmas */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -31,8 +31,8 @@
             align-items: center; 
             justify-content: center; 
             padding: 0;
-            padding-top: 2px; /* Laskee numeroa hieman alemmas pallon sisällä */
-            line-height: 1; 
+            padding-top: 4px; /* Laskee numeroa selvästi alemmas pallon sisällä */
+            line-height: 0; 
             text-align: center;
         }
         
@@ -138,20 +138,17 @@
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global State
         let db, auth, userId, currentTeamId;
         let seasonData = { games: [] }, rosterData = {}, currentGame = {};
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
 
-        // Sorting State
         let seasonSort = { key: 'number', dir: 0 }; 
         let matchSort = { key: 'number', dir: 0 };
 
         const COLORS = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
         const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
 
-        // Helper for decrementing PM markings
         window.modPM = (p, type, val) => {
             if (!currentGame.plusMinus || !currentGame.plusMinus[p]) return;
             currentGame.plusMinus[p][type] = Math.max(0, (currentGame.plusMinus[p][type] || 0) + val);
@@ -383,7 +380,6 @@
             });
         }
 
-        // KORJATTU: Laajennetut tilastot sivupalkkiin
         function updateStats() {
             const stats = getStatsForPeriod(currentGame, currentGame.currentPeriod);
             const container = document.getElementById('stats-container');
@@ -392,7 +388,6 @@
             container.innerHTML = `
                 <h3 class="font-bold text-center mb-3 text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1">${title}</h3>
                 <div class="space-y-4 text-[10px]">
-                    <!-- Koti -->
                     <div class="bg-slate-800/50 p-2 rounded border border-slate-700/50">
                         <p class="font-black text-emerald-500 uppercase mb-1">Koti</p>
                         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
@@ -405,7 +400,6 @@
                             <span class="text-slate-400 uppercase">Torjunnat:</span><span class="text-right font-bold text-white">${stats.home.saves}</span>
                         </div>
                     </div>
-                    <!-- Vieras -->
                     <div class="bg-slate-800/50 p-2 rounded border border-slate-700/50">
                         <p class="font-black text-slate-400 uppercase mb-1">Vieras</p>
                         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
@@ -560,9 +554,6 @@
             return html;
         }
 
-        window.sortSeason = (key) => handleHeaderClick('season', key);
-        window.sortMatch = (key) => handleHeaderClick('match', key);
-
         function renderSeasonStats() {
             const view = document.getElementById('season-view');
             const { playerStats, fullRoster } = calculateSeasonStats();
@@ -696,14 +687,13 @@
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
                 const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
                 const borderWidth = s.quality === 'high' ? '3px' : '2px';
-                // PDF:ssa kaytetaan flex-asettelua ja pystysuuntaista hienosaatoa raportin kuvakaappausta varten
+                // PDF:ssa käytetään entistä isompaa paddingTop arvoa keskittämisen varmistamiseksi kuvakaappauksessa
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
                     left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', 
                     border: `${borderWidth} solid ${borderColor}`, 
-                    color: textColor, fontSize:'12px', fontWeight:'900', 
-                    display:'flex', alignItems:'center', justifyContent:'center', 
-                    paddingTop: '2px', lineHeight: '1', textAlign: 'center'
+                    color: textColor, fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', 
+                    paddingTop: '4px', lineHeight: '1', textAlign: 'center'
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
