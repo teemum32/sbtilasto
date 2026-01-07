@@ -15,7 +15,6 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* Käyttöliittymän keskitys span-elementillä */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -79,7 +78,7 @@
     <div id="teams-view" class="h-full hidden flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold mb-6 text-white uppercase tracking-wider">Valitse joukkue</h1>
-            <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto mb-6 px-2"></div>
+            <div id="teams-list" class="mt-6 space-y-2 max-h-60 overflow-y-auto mb-6 px-2"></div>
             <div class="border-t border-slate-700 pt-6 px-2">
                 <input id="new-team-name" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-2" placeholder="Uuden joukkueen nimi">
                 <button id="create-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold">Luo joukkue</button>
@@ -249,7 +248,11 @@
         function initializeGameUI() {
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
-            document.getElementById('sidebar-content').innerHTML = `<div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div><div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
+            document.getElementById('sidebar-content').innerHTML = `
+                <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div>
+                <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div>
+                <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
+            `;
             document.getElementById('field-area').innerHTML = `<div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm text-center">Vieras</div><div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm text-center">Koti</div>`;
             initializePlayers();
         }
@@ -330,8 +333,8 @@
                             <span class="text-slate-400 uppercase tracking-tighter">Maalit:</span><span class="text-right font-bold text-white">${stats.home.goals}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">xG:</span><span class="text-right font-bold text-white">${stats.home.xg.toFixed(2)}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">Laukaukset:</span><span class="text-right font-bold text-white">${stats.home.shots}</span>
-                            <span class="text-red-400 uppercase font-semibold">L+:</span><span class="text-right font-bold text-white">${stats.home.qH}</span>
-                            <span class="text-blue-400 uppercase font-semibold">H-:</span><span class="text-right font-bold text-white">${stats.home.qL}</span>
+                            <span class="text-red-400 uppercase font-semibold">L+:</span><span class="text-right font-bold text-white">${stats.home.qualityHigh}</span>
+                            <span class="text-blue-400 uppercase font-semibold">H-:</span><span class="text-right font-bold text-white">${stats.home.qualityLow}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">Blokit:</span><span class="text-right font-bold text-white">${stats.home.blocks}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">Torjunnat:</span><span class="text-right font-bold text-white">${stats.home.saves}</span>
                         </div>
@@ -342,8 +345,8 @@
                             <span class="text-slate-400 uppercase tracking-tighter">Maalit:</span><span class="text-right font-bold text-white">${stats.away.goals}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">xG:</span><span class="text-right font-bold text-white">${stats.away.xg.toFixed(2)}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">Laukaukset:</span><span class="text-right font-bold text-white">${stats.away.shots}</span>
-                            <span class="text-red-400 uppercase font-semibold">L+:</span><span class="text-right font-bold text-white">${stats.away.qH}</span>
-                            <span class="text-blue-400 uppercase font-semibold">H-:</span><span class="text-right font-bold text-white">${stats.away.qL}</span>
+                            <span class="text-red-400 uppercase font-semibold">L+:</span><span class="text-right font-bold text-white">${stats.away.qualityHigh}</span>
+                            <span class="text-blue-400 uppercase font-semibold">H-:</span><span class="text-right font-bold text-white">${stats.away.qualityLow}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">Blokit:</span><span class="text-right font-bold text-white">${stats.away.blocks}</span>
                             <span class="text-slate-400 uppercase tracking-tighter">Torjunnat:</span><span class="text-right font-bold text-white">${stats.away.saves}</span>
                         </div>
@@ -356,23 +359,13 @@
             } else document.getElementById('player-stats-container').classList.add('hidden');
         }
 
-        function updatePlayerStatsUI() {
-            const container = document.getElementById('player-stats-container');
-            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest text-xs">Pelaajat</h3>`;
-            (currentGame.players || []).forEach(p => {
-                const pShots = (currentGame.shots || []).filter(s => s.team === 'home' && Number(s.player) === p);
-                if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700 text-slate-300"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
-            });
-            container.innerHTML = html;
-        }
-
         function calculateSeasonStats() {
             const fullRoster = {}, playerStats = {};
             (seasonData.games || []).forEach(g => Object.assign(fullRoster, g.roster || {}));
             const allPlayers = [...new Set((seasonData.games || []).flatMap(g => g.players || []))].map(Number).sort((a,b)=>a-b);
             allPlayers.forEach(p => { playerStats[p] = { number: p, games: 0, shots: 0, goals: 0, plus: 0, minus: 0, qH: 0, qL: 0, xg: 0 }; });
             (seasonData.games || []).forEach(game => {
-                (game.players || []).forEach(p => { if(playerStats[p]) playerStats[p].games++; });
+                (game.players || []).forEach(pNum => { const p = Number(pNum); if(playerStats[p]) playerStats[p].games++; });
                 (game.shots || []).forEach(s => {
                     if (s.team === 'home') {
                         const p = Number(s.player);
@@ -418,17 +411,21 @@
         }
 
         window.sortSeason = (key) => handleHeaderClick('season', key);
-        window.sortMatch = (key) => renderSeasonStats(); 
+        window.sortMatch = (key) => {
+            if (matchSort.key === key) { matchSort.dir = (matchSort.dir + 1) % 3; } else { matchSort.key = key; matchSort.dir = 1; }
+            renderSeasonStats(); 
+        };
 
         function generateGameDetailsHTML(game) {
             const stats = getStatsForPeriod(game, 'summary');
             const gamePlayers = (game.players || []).map(pNum => {
-                const shots = (game.shots || []).filter(s => s.team === 'home' && Number(s.player) === Number(pNum));
+                const p = Number(pNum);
+                const shots = (game.shots || []).filter(s => s.team === 'home' && Number(s.player) === p);
                 const goals = shots.filter(s => s.outcome === 'goal').length;
-                const pm = (game.plusMinus && (game.plusMinus[pNum] || game.plusMinus[String(pNum)])) || {plus:0, minus:0};
+                const pm = (game.plusMinus && (game.plusMinus[p] || game.plusMinus[String(p)])) || {plus:0, minus:0};
                 return {
-                    number: Number(pNum),
-                    name: (game.roster[pNum] || game.roster[String(pNum)] || '').split(' ')[0],
+                    number: p,
+                    name: (game.roster[p] || game.roster[String(p)] || '').split(' ')[0],
                     shots: shots.length, goals: goals, xg: shots.reduce((a, b) => a + (Number(b.xG) || calculateXg(b.x, b.y, b.team)), 0),
                     qH: shots.filter(s => s.quality === 'high').length,
                     qL: shots.filter(s => s.quality === 'low').length,
@@ -445,8 +442,8 @@
                     <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
                         <span>Laukaukset:</span><span class="text-right text-white font-bold">${team.s.shots}</span>
                         <span>xG:</span><span class="text-right text-white font-bold">${team.s.xg.toFixed(2)}</span>
-                        <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${team.s.qH}</span>
-                        <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${team.s.qL}</span>
+                        <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${team.s.qualityHigh}</span>
+                        <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${team.s.qualityLow}</span>
                         <span>Torjunnat:</span><span class="text-right text-white font-bold">${team.s.saves}</span>
                         <span>Blokit:</span><span class="text-right text-white font-bold">${team.s.blocks}</span>
                     </div>
@@ -491,7 +488,6 @@
                 yPos += 15;
                 for (const period of [1, 2, 3, 'summary']) {
                     const stats = getStatsForPeriod(game, period), title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
-                    // TÄMÄ ON KORJATTU OSA: Käytetään Canvas-piirtoa HTML-elementtien sijaan
                     const canvas = createShotmapCanvas(game, period);
                     const imgData = canvas.toDataURL('image/jpeg', 0.85);
                     const imgW = 180, imgH = 90, approxTableH = 62;
@@ -511,11 +507,12 @@
                 doc.addPage(); yPos = margin; doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot', pageW/2, yPos, {align:'center'}); yPos += 10;
                 const rows = [];
                 (game.players || []).sort((a,b)=>a-b).forEach(pNum => {
-                    const pShots = getShotsForPeriod(game, 'summary').filter(s => s.team === 'home' && Number(s.player) === Number(pNum)), goals = pShots.filter(s => s.outcome === 'goal').length;
-                    const pm = (game.plusMinus && (game.plusMinus[pNum] || game.plusMinus[String(pNum)])) || { plus:0, minus:0 }, bal = pm.plus - pm.minus;
+                    const p = Number(pNum);
+                    const pShots = getShotsForPeriod(game, 'summary').filter(s => s.team === 'home' && Number(s.player) === p), goals = pShots.filter(s => s.outcome === 'goal').length;
+                    const pm = (game.plusMinus && (game.plusMinus[p] || game.plusMinus[String(p)])) || { plus:0, minus:0 }, bal = pm.plus - pm.minus;
                     if (pShots.length > 0 || pm.plus > 0 || pm.minus > 0) {
-                        const name = (game.roster[pNum] || game.roster[String(pNum)] || '').trim();
-                        rows.push([`#${pNum} ${name}`, pShots.length, goals, pShots.filter(s=>s.quality==='high').length, pShots.filter(s=>s.quality==='low').length, `${bal > 0 ? '+' : ''}${bal}`]);
+                        const name = (game.roster[p] || game.roster[String(p)] || '').trim();
+                        rows.push([`#${p} ${name}`, pShots.length, goals, pShots.filter(s=>s.quality==='high').length, pShots.filter(s=>s.quality==='low').length, `${bal > 0 ? '+' : ''}${bal}`]);
                     }
                 });
                 callAutoTable(doc, {
@@ -527,14 +524,12 @@
             } catch (err) { console.error(err); } finally { btn.textContent = origText; btn.disabled = false; }
         }
 
-        // --- UUDET CANVAS-PIIRTOFUNKTIOT PDF-RAPORTTIA VARTEN ---
-
         function drawFieldBackground(ctx, w, h) {
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
             ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, w, h);
             ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
-            ctx.strokeRect(w * 0.075, h * 0.375, w * 0.1, h * 0.25); // Vieras maali
-            ctx.strokeRect(w - (w * 0.175), h * 0.375, w * 0.1, h * 0.25); // Koti maali
+            ctx.strokeRect(w * 0.075, h * 0.375, w * 0.1, h * 0.25); 
+            ctx.strokeRect(w - (w * 0.175), h * 0.375, w * 0.1, h * 0.25); 
         }
 
         function getShotStyle(shot) {
@@ -559,7 +554,6 @@
                 ctx.fillStyle = style.fill; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.fill();
                 ctx.strokeStyle = style.stroke; ctx.lineWidth = (shot.quality === 'high' ? 3 : 2); ctx.beginPath(); ctx.arc(px, py, 13, 0, Math.PI * 2); ctx.stroke();
                 ctx.fillStyle = style.text; ctx.font = 'bold 11pt Inter, sans-serif'; ctx.textAlign = 'center';
-                // TÄMÄ ON RATKAISU: Canvas-keskitys middlen avulla
                 ctx.textBaseline = 'middle';
                 const label = (shot.team === 'away') ? 'V' : shot.player;
                 ctx.fillText(label, px, py);
@@ -577,17 +571,22 @@
             const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0, qualityLow:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0, qualityLow:0} };
             const shots = getShotsForPeriod(game, period);
             shots.forEach(s => {
-                const t = s.team, o = t === 'home' ? 'away' : 'home';
-                agg[t].shots++; agg[t].xg += Number(s.xG) || calculateXg(s.x, s.y, s.team);
-                if (s.outcome === 'goal') agg[t].goals++;
-                if (s.outcome === 'save') agg[o].saves++;
-                if (s.outcome === 'block') agg[o].blocks++;
-                if (s.quality === 'high') agg[t].qualityHigh++;
-                if (s.quality === 'low') agg[t].qualityLow++;
+                const t = s.team;
+                if (t !== 'home' && t !== 'away') return;
+                const shooter = agg[t];
+                const opponent = agg[t === 'home' ? 'away' : 'home'];
+                shooter.shots++; 
+                shooter.xg += Number(s.xG) || calculateXg(s.x, s.y, s.team);
+                if (s.outcome === 'goal') shooter.goals++;
+                if (s.outcome === 'save') opponent.saves++;
+                if (s.outcome === 'block') opponent.blocks++;
+                if (s.quality === 'high') shooter.qualityHigh++;
+                if (s.quality === 'low') shooter.qualityLow++;
             });
             return agg;
         }
 
+        function getGameStats(game) { return getStatsForPeriod(game, 'summary'); }
         function callAutoTable(doc, opts) { if (window.jspdfAutoTable) return window.jspdfAutoTable(doc, opts); if (doc.autoTable) return doc.autoTable(opts); throw new Error('AutoTable not found'); }
 
         document.getElementById('login-btn').onclick = async () => {
@@ -644,11 +643,11 @@
             const summ = document.getElementById('pm-summary');
             let html = `<table class="w-full text-left text-sm mt-4 text-slate-300"><thead><tr class="text-slate-500 uppercase text-xs"><th class="p-2">Pelaaja</th><th class="p-2 text-center">+</th><th class="p-2 text-center">-</th><th class="p-2 text-center">Yht.</th></tr></thead><tbody>`;
             (currentGame.players || []).forEach(p => {
-                const s = currentGame.plusMinus[p], bal = s.plus - s.minus;
+                const stats = currentGame.plusMinus[p], bal = stats.plus - stats.minus;
                 html += `<tr class="border-t border-slate-700">
                     <td class="p-2 font-bold text-slate-200">#${p} ${currentGame.roster[p]||''}</td>
-                    <td onclick="window.modPM(${p}, 'plus', -1)" class="p-2 text-center text-emerald-400 cursor-pointer hover:bg-emerald-500/10 rounded transition-colors">${s.plus}</td>
-                    <td onclick="window.modPM(${p}, 'minus', -1)" class="p-2 text-center text-red-400 cursor-pointer hover:bg-red-500/10 rounded transition-colors">${s.minus}</td>
+                    <td onclick="window.modPM(${p}, 'plus', -1)" class="p-2 text-center text-emerald-400 cursor-pointer hover:bg-emerald-500/10 rounded transition-colors">${stats.plus}</td>
+                    <td onclick="window.modPM(${p}, 'minus', -1)" class="p-2 text-center text-red-400 cursor-pointer hover:bg-red-500/10 rounded transition-colors">${stats.minus}</td>
                     <td class="p-2 text-center font-black ${bal>0?'text-emerald-500':bal<0?'text-red-500':'text-slate-400'}"> ${bal>0?'+':''}${bal}</td>
                 </tr>`;
             });
