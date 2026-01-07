@@ -15,23 +15,29 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* LOPULLINEN KESKITYS: Grid on vakain tapa sijoittaa numero palloihin */
+        /* LOPULLINEN KESKITYS: Käytetään aiemman version span-kikkaa, joka on varmin tapa */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
             height: 36px; 
             border-radius: 50%; 
-            font-weight: 900; 
-            font-size: 0.875rem; 
             box-shadow: 0 1px 4px rgba(0,0,0,0.5); 
             transform: translate(-50%, -50%); 
             transition: opacity 0.2s; 
             cursor: pointer; 
-            display: grid; 
-            place-items: center; 
-            padding: 0;
+            overflow: visible;
+        }
+        
+        .shot-marker span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 900;
+            font-size: 0.875rem;
             line-height: 1;
-            text-align: center;
+            pointer-events: none;
+            white-space: nowrap;
         }
         
         .goal { background-color: #10B981; color: #ffffff; } 
@@ -149,6 +155,7 @@
         const COLORS = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
         const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
 
+        // Helper for decrementing PM markings
         window.modPM = (p, type, val) => {
             if (!currentGame.plusMinus || !currentGame.plusMinus[p]) return;
             currentGame.plusMinus[p][type] = Math.max(0, (currentGame.plusMinus[p][type] || 0) + val);
@@ -158,7 +165,10 @@
 
         function showMainView(viewKey) {
             const ids = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
-            ids.forEach(id => document.getElementById(id).classList.add('hidden'));
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
             const targetId = { auth:'auth-view', teams:'teams-view', landing:'landing-view', setup:'setup-view', app:'app-container' }[viewKey];
             const targetEl = document.getElementById(targetId);
             if (targetEl) {
@@ -179,7 +189,7 @@
                     userId = user.uid;
                     const saved = sessionStorage.getItem(`inProgressGame-${userId}`);
                     if (saved) {
-                        currentGame = JSON.parse(saved);
+                        currentGame = JSON.parse(savedGameJSON || saved);
                         currentTeamId = currentGame.teamId;
                         document.getElementById('team-name-header').textContent = currentGame.teamName;
                         initializeGameUI(); addEventListeners(); showMainView('app'); showView(1);
@@ -309,32 +319,30 @@
                     y: ((e.clientY - rect.top) / rect.height) * 100,
                     clientX: e.clientX, clientY: e.clientY
                 };
-                showModal('outcome-modal', e.clientX, e.clientY);
+                showOutcomeModal(e.clientX, e.clientY);
             }
             document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null;
         }
         function updateGhost(x, y) { ghostElement.style.left = `${x-20}px`; ghostElement.style.top = `${y-20}px`; }
 
-        function showModal(id, x, y) {
-            const m = document.getElementById(id);
+        function showOutcomeModal(x, y) {
+            const m = document.getElementById('outcome-modal');
             m.classList.remove('hidden');
             m.style.left = `${Math.min(window.innerWidth - 150, x)}px`;
             m.style.top = `${Math.min(window.innerHeight - 200, y)}px`;
-            if (id === 'outcome-modal') {
-                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`;
-            } else if (id === 'quality-modal') {
-                m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laadukas</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
-            } else if (id === 'edit-outcome-modal') {
-                m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`;
-            }
+            m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`;
         }
 
         function onOutcomeSelect(e) {
             const val = e.target.dataset.val; if (!val) return;
             tempShotData.outcome = val;
             document.getElementById('outcome-modal').classList.add('hidden');
-            showModal('quality-modal', tempShotData.clientX, tempShotData.clientY);
+            const m = document.getElementById('quality-modal');
+            m.classList.remove('hidden');
+            m.style.left = `${tempShotData.clientX}px`; m.style.top = `${tempShotData.clientY}px`;
+            m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laadukas</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
         }
+
         function onQualitySelect(e) {
             const val = e.target.dataset.val; if (!val) return;
             const shot = { id: Date.now(), ...tempShotData, quality: val, period: currentGame.currentPeriod, xG: calcXG(tempShotData.x, tempShotData.y, tempShotData.team) };
@@ -343,11 +351,16 @@
             document.getElementById('quality-modal').classList.add('hidden');
             renderShots(); updateStats();
         }
+
         function onShotClick(e) {
             const marker = e.target.closest('.shot-marker'); if (!marker || currentGame.isReadOnly) return;
             shotToEditId = Number(marker.dataset.id);
-            showModal('edit-outcome-modal', e.clientX, e.clientY);
+            const m = document.getElementById('edit-outcome-modal');
+            m.classList.remove('hidden');
+            m.style.left = `${e.clientX}px`; m.style.top = `${e.clientY}px`;
+            m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`;
         }
+
         function onEditSelect(e) {
             const val = e.target.dataset.val; if (!val) return;
             const idx = currentGame.shots.findIndex(s => s.id === shotToEditId);
@@ -372,42 +385,43 @@
                 const m = document.createElement('div');
                 m.className = `shot-marker ${s.outcome} ${s.quality === 'high' ? 'quality-high' : 'quality-low'}`;
                 m.style.left = `${s.x}%`; m.style.top = `${s.y}%`;
-                m.dataset.id = s.id; m.textContent = s.player;
+                m.dataset.id = s.id;
+                // KORJATTU: Käytetään span-elementtiä keskityksen varmistamiseksi
+                m.innerHTML = `<span>${s.player}</span>`;
                 layer.appendChild(m);
             });
         }
 
-        // KORJATTU: Laajennetut tilastot sivupalkkiin
         function updateStats() {
             const stats = getStatsForPeriod(currentGame, currentGame.currentPeriod);
             const container = document.getElementById('stats-container');
             const title = currentGame.currentPeriod === 'summary' ? 'Ottelu' : `Erä ${currentGame.currentPeriod}`;
             
             container.innerHTML = `
-                <h3 class="font-bold text-center mb-3 text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1">${title}</h3>
+                <h3 class="font-bold text-center mb-3 text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1 text-sm">${title}</h3>
                 <div class="space-y-4 text-[10px]">
                     <div class="bg-slate-800/50 p-2 rounded border border-slate-700/50">
                         <p class="font-black text-emerald-500 uppercase mb-1 text-center">Koti</p>
                         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                            <span class="text-slate-400 uppercase">Maalit:</span><span class="text-right font-bold text-white">${stats.home.goals}</span>
-                            <span class="text-slate-400 uppercase">xG:</span><span class="text-right font-bold text-white">${stats.home.xg.toFixed(2)}</span>
-                            <span class="text-slate-400 uppercase">Laukaukset:</span><span class="text-right font-bold text-white">${stats.home.shots}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Maalit:</span><span class="text-right font-bold text-white">${stats.home.goals}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">xG:</span><span class="text-right font-bold text-white">${stats.home.xg.toFixed(2)}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Laukaukset:</span><span class="text-right font-bold text-white">${stats.home.shots}</span>
                             <span class="text-red-400 uppercase font-semibold">L+:</span><span class="text-right font-bold text-white">${stats.home.qH}</span>
                             <span class="text-blue-400 uppercase font-semibold">H-:</span><span class="text-right font-bold text-white">${stats.home.qL}</span>
-                            <span class="text-slate-400 uppercase">Blokit:</span><span class="text-right font-bold text-white">${stats.home.blocks}</span>
-                            <span class="text-slate-400 uppercase">Torjunnat:</span><span class="text-right font-bold text-white">${stats.home.saves}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Blokit:</span><span class="text-right font-bold text-white">${stats.home.blocks}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Torjunnat:</span><span class="text-right font-bold text-white">${stats.home.saves}</span>
                         </div>
                     </div>
                     <div class="bg-slate-800/50 p-2 rounded border border-slate-700/50">
                         <p class="font-black text-slate-400 uppercase mb-1 text-center">Vieras</p>
                         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                            <span class="text-slate-400 uppercase">Maalit:</span><span class="text-right font-bold text-white">${stats.away.goals}</span>
-                            <span class="text-slate-400 uppercase">xG:</span><span class="text-right font-bold text-white">${stats.away.xg.toFixed(2)}</span>
-                            <span class="text-slate-400 uppercase">Laukaukset:</span><span class="text-right font-bold text-white">${stats.away.shots}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Maalit:</span><span class="text-right font-bold text-white">${stats.away.goals}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">xG:</span><span class="text-right font-bold text-white">${stats.away.xg.toFixed(2)}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Laukaukset:</span><span class="text-right font-bold text-white">${stats.away.shots}</span>
                             <span class="text-red-400 uppercase font-semibold">L+:</span><span class="text-right font-bold text-white">${stats.away.qH}</span>
                             <span class="text-blue-400 uppercase font-semibold">H-:</span><span class="text-right font-bold text-white">${stats.away.qL}</span>
-                            <span class="text-slate-400 uppercase">Blokit:</span><span class="text-right font-bold text-white">${stats.away.blocks}</span>
-                            <span class="text-slate-400 uppercase">Torjunnat:</span><span class="text-right font-bold text-white">${stats.away.saves}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Blokit:</span><span class="text-right font-bold text-white">${stats.away.blocks}</span>
+                            <span class="text-slate-400 uppercase tracking-tighter">Torjunnat:</span><span class="text-right font-bold text-white">${stats.away.saves}</span>
                         </div>
                     </div>
                 </div>
@@ -421,7 +435,7 @@
 
         function updatePlayerStatsUI() {
             const container = document.getElementById('player-stats-container');
-            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest">Pelaajat</h3>`;
+            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest text-xs">Pelaajat</h3>`;
             (currentGame.players || []).forEach(p => {
                 const pShots = (currentGame.shots || []).filter(s => s.player == p && s.team === 'home');
                 if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700 text-slate-300"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
@@ -460,26 +474,6 @@
             return { playerStats: Object.values(playerStats), fullRoster, allPlayers };
         }
 
-        function handleHeaderClick(type, key) {
-            const state = type === 'season' ? seasonSort : matchSort;
-            if (state.key === key) { state.dir = (state.dir + 1) % 3; } else { state.key = key; state.dir = 1; }
-            renderSeasonStats();
-        }
-
-        function sortPlayers(players, state) {
-            if (state.dir === 0) return players.sort((a,b) => a.number - b.number);
-            return players.sort((a,b) => {
-                const valA = a[state.key] || 0;
-                const valB = b[state.key] || 0;
-                return state.dir === 1 ? valB - valA : valA - valB;
-            });
-        }
-
-        function getSortIcon(state, key) {
-            if (state.key !== key || state.dir === 0) return '';
-            return state.dir === 1 ? '<span class="sort-icon">▼</span>' : '<span class="sort-icon">▲</span>';
-        }
-
         function generateGameDetailsHTML(game) {
             const stats = getStatsForPeriod(game, 'summary');
             const gamePlayers = (game.players || []).map(pNum => {
@@ -497,91 +491,35 @@
             }).filter(p => p.shots > 0 || p.bal !== 0);
 
             const sorted = sortPlayers(gamePlayers, matchSort);
-
-            let html = `
-                <div class="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                    <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-700">
-                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50 text-[10px]">
-                            <p class="text-xs uppercase text-emerald-500 font-black mb-2">KOTI</p>
-                            <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                                <span>Laukaukset:</span><span class="text-right text-white font-bold">${stats.home.shots}</span>
-                                <span>xG:</span><span class="text-right text-white font-bold">${stats.home.xg.toFixed(2)}</span>
-                                <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${stats.home.qH}</span>
-                                <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${stats.home.qL}</span>
-                                <span>Torjunnat:</span><span class="text-right text-white font-bold">${stats.home.saves}</span>
-                                <span>Blokit:</span><span class="text-right text-white font-bold">${stats.home.blocks}</span>
-                            </div>
-                        </div>
-                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50 text-[10px]">
-                            <p class="text-xs uppercase text-slate-400 font-black mb-2">VIERAS</p>
-                            <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                                <span>Laukaukset:</span><span class="text-right text-white font-bold">${stats.away.shots}</span>
-                                <span>xG:</span><span class="text-right text-white font-bold">${stats.away.xg.toFixed(2)}</span>
-                                <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${stats.away.qH}</span>
-                                <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${stats.away.qL}</span>
-                                <span>Torjunnat:</span><span class="text-right text-white font-bold">${stats.away.saves}</span>
-                                <span>Blokit:</span><span class="text-right text-white font-bold">${stats.away.blocks}</span>
-                            </div>
-                        </div>
+            let html = `<div class="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700">`;
+            html += `<div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-700">`;
+            [ {t: 'KOTI', s: stats.home, c: 'text-emerald-500'}, {t: 'VIERAS', s: stats.away, c: 'text-slate-400'} ].forEach(team => {
+                html += `<div class="bg-slate-800/40 p-3 rounded border border-slate-700/50 text-[10px]">
+                    <p class="text-xs uppercase ${team.c} font-black mb-2">${team.t}</p>
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                        <span>Laukaukset:</span><span class="text-right text-white font-bold">${team.s.shots}</span>
+                        <span>xG:</span><span class="text-right text-white font-bold">${team.s.xg.toFixed(2)}</span>
+                        <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${team.s.qH}</span>
+                        <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${team.s.qL}</span>
+                        <span>Torjunnat:</span><span class="text-right text-white font-bold">${team.s.saves}</span>
+                        <span>Blokit:</span><span class="text-right text-white font-bold">${team.s.blocks}</span>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead class="text-slate-500 uppercase font-bold">
-                                <tr>
-                                    <th class="py-2">Pelaaja</th>
-                                    <th onclick="window.sortMatch('shots')" class="py-2 text-center sortable-header">L${getSortIcon(matchSort, 'shots')}</th>
-                                    <th onclick="window.sortMatch('goals')" class="py-2 text-center sortable-header">M${getSortIcon(matchSort, 'goals')}</th>
-                                    <th onclick="window.sortMatch('xg')" class="py-2 text-center sortable-header">xG${getSortIcon(matchSort, 'xg')}</th>
-                                    <th onclick="window.sortMatch('qH')" class="py-2 text-center sortable-header">L+${getSortIcon(matchSort, 'qH')}</th>
-                                    <th onclick="window.sortMatch('qL')" class="py-2 text-center sortable-header">H-${getSortIcon(matchSort, 'qL')}</th>
-                                    <th onclick="window.sortMatch('bal')" class="py-2 text-center sortable-header">+/-${getSortIcon(matchSort, 'bal')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>`;
-            
-            sorted.forEach(p => {
-                html += `
-                    <tr class="border-t border-slate-800">
-                        <td class="py-2 font-bold text-slate-300">#${p.number} ${p.name}</td>
-                        <td class="py-2 text-center">${p.shots}</td>
-                        <td class="py-2 text-center text-emerald-400 font-bold">${p.goals}</td>
-                        <td class="py-2 text-center text-slate-400">${p.xg.toFixed(2)}</td>
-                        <td class="py-2 text-center text-red-300">${p.qH}</td>
-                        <td class="py-2 text-center text-blue-300">${p.qL}</td>
-                        <td class="py-2 text-center font-bold ${p.bal > 0 ? 'text-emerald-500' : p.bal < 0 ? 'text-red-500' : 'text-slate-600'}">${p.bal > 0 ? '+' : ''}${p.bal}</td>
-                    </tr>`;
+                </div>`;
             });
-            html += `</tbody></table></div></div>`;
-            return html;
+            html += `</div><div class="overflow-x-auto"><table class="w-full text-left text-xs">`;
+            html += `<thead class="text-slate-500 uppercase font-bold"><tr><th class="py-2">Pelaaja</th><th onclick="window.sortMatch('shots')" class="py-2 text-center sortable-header">L${getSortIcon(matchSort, 'shots')}</th><th onclick="window.sortMatch('goals')" class="py-2 text-center sortable-header">M${getSortIcon(matchSort, 'goals')}</th><th onclick="window.sortMatch('xg')" class="py-2 text-center sortable-header">xG${getSortIcon(matchSort, 'xg')}</th><th onclick="window.sortMatch('qH')" class="py-2 text-center sortable-header">L+${getSortIcon(matchSort, 'qH')}</th><th onclick="window.sortMatch('qL')" class="py-2 text-center sortable-header">H-${getSortIcon(matchSort, 'qL')}</th><th onclick="window.sortMatch('bal')" class="py-2 text-center sortable-header">+/-${getSortIcon(matchSort, 'bal')}</th></tr></thead><tbody>`;
+            sorted.forEach(p => {
+                html += `<tr class="border-t border-slate-800"><td class="py-2 font-bold text-slate-300">#${p.number} ${p.name}</td><td class="py-2 text-center">${p.shots}</td><td class="py-2 text-center text-emerald-400 font-bold">${p.goals}</td><td class="py-2 text-center text-slate-400">${p.xg.toFixed(2)}</td><td class="py-2 text-center text-red-300">${p.qH}</td><td class="py-2 text-center text-blue-300">${p.qL}</td><td class="py-2 text-center font-bold ${p.bal > 0 ? 'text-emerald-500' : p.bal < 0 ? 'text-red-500' : 'text-slate-600'}">${p.bal > 0 ? '+' : ''}${p.bal}</td></tr>`;
+            });
+            return html + `</tbody></table></div></div>`;
         }
-
-        window.sortSeason = (key) => handleHeaderClick('season', key);
-        window.sortMatch = (key) => handleHeaderClick('match', key);
 
         function renderSeasonStats() {
             const view = document.getElementById('season-view');
             const { playerStats, fullRoster } = calculateSeasonStats();
             const sortedPlayers = sortPlayers([...playerStats], seasonSort);
             
-            let playerHtml = `
-                <div class="max-w-4xl mx-auto px-2 mb-10 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-2xl">
-                    <div class="bg-slate-700/50 p-4 border-b border-slate-700 text-center"><h3 class="font-bold text-white uppercase tracking-wider">Kauden pelaajakohtainen yhteenveto</h3></div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-900/50 text-slate-400 uppercase text-xs">
-                                <tr>
-                                    <th class="p-3">Pelaaja</th>
-                                    <th onclick="window.sortSeason('games')" class="p-3 text-center sortable-header">O${getSortIcon(seasonSort, 'games')}</th>
-                                    <th onclick="window.sortSeason('shots')" class="p-3 text-center sortable-header">L${getSortIcon(seasonSort, 'shots')}</th>
-                                    <th onclick="window.sortSeason('goals')" class="p-3 text-center sortable-header">M${getSortIcon(seasonSort, 'goals')}</th>
-                                    <th onclick="window.sortSeason('xg')" class="p-3 text-center sortable-header">xG${getSortIcon(seasonSort, 'xg')}</th>
-                                    <th onclick="window.sortSeason('qH')" class="p-3 text-center text-red-400 sortable-header">L+${getSortIcon(seasonSort, 'qH')}</th>
-                                    <th onclick="window.sortSeason('qL')" class="p-3 text-center text-blue-400 sortable-header">H-${getSortIcon(seasonSort, 'qL')}</th>
-                                    <th onclick="window.sortSeason('bal')" class="p-3 text-center sortable-header">+/-${getSortIcon(seasonSort, 'bal')}</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-700">`;
-            
+            let playerHtml = `<div class="max-w-4xl mx-auto px-2 mb-10 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-2xl"><div class="bg-slate-700/50 p-4 border-b border-slate-700 text-center"><h3 class="font-bold text-white uppercase tracking-wider">Kauden pelaajakohtainen yhteenveto</h3></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-900/50 text-slate-400 uppercase text-xs"><tr><th class="p-3">Pelaaja</th><th onclick="window.sortSeason('games')" class="p-3 text-center sortable-header">O${getSortIcon(seasonSort, 'games')}</th><th onclick="window.sortSeason('shots')" class="p-3 text-center sortable-header">L${getSortIcon(seasonSort, 'shots')}</th><th onclick="window.sortSeason('goals')" class="p-3 text-center sortable-header">M${getSortIcon(seasonSort, 'goals')}</th><th onclick="window.sortSeason('xg')" class="p-3 text-center sortable-header">xG${getSortIcon(seasonSort, 'xg')}</th><th onclick="window.sortSeason('qH')" class="p-3 text-center text-red-400 sortable-header">L+${getSortIcon(seasonSort, 'qH')}</th><th onclick="window.sortSeason('qL')" class="p-3 text-center text-blue-400 sortable-header">H-${getSortIcon(seasonSort, 'qL')}</th><th onclick="window.sortSeason('bal')" class="p-3 text-center sortable-header">+/-${getSortIcon(seasonSort, 'bal')}</th></tr></thead><tbody class="divide-y divide-slate-700">`;
             sortedPlayers.forEach(s => {
                 playerHtml += `<tr class="hover:bg-slate-700/30 transition-colors"><td class="p-3 font-bold text-slate-200">#${s.number} ${fullRoster[s.number] || ''}</td><td class="p-3 text-center">${s.games}</td><td class="p-3 text-center">${s.shots}</td><td class="p-3 text-center font-bold text-emerald-400">${s.goals}</td><td class="p-3 text-center text-slate-400">${s.xg.toFixed(2)}</td><td class="p-3 text-center text-red-300">${s.qH}</td><td class="p-3 text-center text-blue-300">${s.qL}</td><td class="p-3 text-center font-bold ${s.bal>0?'text-emerald-500':s.bal<0?'text-red-500':'text-slate-500'}">${s.bal>0?'+':''}${s.bal}</td></tr>`;
             });
@@ -589,27 +527,9 @@
 
             let gamesHtml = `<div class="max-w-4xl mx-auto px-2 pb-10"><h2 class="text-2xl font-bold mb-6 text-white text-center uppercase tracking-wider">Tallennetut ottelut</h2>`;
             const sortedGames = [...seasonData.games].sort((a,b) => new Date(b.date) - new Date(a.date));
-            if (sortedGames.length === 0) gamesHtml += `<p class="text-center text-slate-400">Ei tallennettuja otteluita.</p>`;
-            
             sortedGames.forEach(game => {
                 const s = getGameStats(game);
-                gamesHtml += `
-                    <details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden group">
-                        <summary class="p-4 flex justify-between items-center transition-all hover:bg-slate-700/50">
-                            <div class="flex-1">
-                                <p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p>
-                                <p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p>
-                            </div>
-                            <div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div>
-                            <div class="flex gap-2">
-                                <button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg">PDF</button>
-                                <button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button>
-                            </div>
-                        </summary>
-                        <div class="px-4 pb-4">
-                            ${generateGameDetailsHTML(game)}
-                        </div>
-                    </details>`;
+                gamesHtml += `<details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden group"><summary class="p-4 flex justify-between items-center transition-all hover:bg-slate-700/50"><div class="flex-1"><p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p></div><div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div><div class="flex gap-2"><button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg">PDF</button><button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button></div></summary><div class="px-4 pb-4">${generateGameDetailsHTML(game)}</div></details>`;
             });
             view.innerHTML = playerHtml + gamesHtml + `</div>`;
         }
@@ -622,46 +542,32 @@
                 const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
                 const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
                 let yPos = margin;
-
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text(`Otteluraportti: ${game.opponent}`, pageW/2, yPos, {align:'center'});
                 yPos += 10;
                 doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW/2, yPos, {align:'center'});
                 yPos += 15;
-
                 for (const period of [1, 2, 3, 'summary']) {
                     const stats = getStatsForPeriod(game, period), title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
                     const mapEl = createShotmapElement(game, period);
                     document.body.appendChild(mapEl);
                     await new Promise(r => requestAnimationFrame(r));
-                    // LOPULLINEN KORJAUS: scale 1.5 ja JPEG pienentää kokoa huomattavasti
                     const canvas = await html2canvas(mapEl, { scale: 1.5 });
                     document.body.removeChild(mapEl);
-
                     const imgData = canvas.toDataURL('image/jpeg', 0.75);
                     const imgW = 180, imgH = 90, approxTableH = 62;
                     if (yPos + 6 + imgH + approxTableH > pageH - margin) { doc.addPage(); yPos = margin; }
                     doc.setFontSize(14); doc.text(title, margin, yPos); yPos += 6;
                     doc.addImage(imgData, 'JPEG', (pageW-imgW)/2, yPos, imgW, imgH);
                     yPos += imgH + 8;
-
                     callAutoTable(doc, {
                         startY: yPos, margin: { left: margin, right: margin }, tableWidth: pageW - margin*2, theme: 'grid',
                         head: [['Tapahtuma', 'Koti', 'Vieras']],
-                        body: [
-                            ['Maalit', stats.home.goals, stats.away.goals], 
-                            ['Laukaukset', stats.home.shots, stats.away.shots], 
-                            ['xG (Maaliodottama)', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], 
-                            ['Laadukkaat (L+)', stats.home.qH, stats.away.qH], 
-                            ['Heikot (H-)', stats.home.qL, stats.away.qL], 
-                            ['Torjunnat', stats.home.saves, stats.away.saves], 
-                            ['Blokit', stats.home.blocks, stats.away.blocks]
-                        ],
+                        body: [['Maalit', stats.home.goals, stats.away.goals], ['Laukaukset', stats.home.shots, stats.away.shots], ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], ['Laadukkaat (L+)', stats.home.qH, stats.away.qH], ['Heikot (H-)', stats.home.qL, stats.away.qL], ['Torjunnat', stats.home.saves, stats.away.saves], ['Blokit', stats.home.blocks, stats.away.blocks]],
                         styles: { fontSize: 10 }, headStyles: { fillColor: [41, 52, 72] },
                         columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' } }
                     });
                     yPos = doc.lastAutoTable.finalY + 14;
                 }
-
                 doc.addPage(); yPos = margin;
                 doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot', pageW/2, yPos, {align:'center'}); yPos += 10;
                 const rows = [];
@@ -673,7 +579,6 @@
                         rows.push([`#${pNum} ${name}`, shots.length, goals, shots.filter(s=>s.quality==='high').length, shots.filter(s=>s.quality==='low').length, `${bal > 0 ? '+' : ''}${bal}`]);
                     }
                 });
-
                 callAutoTable(doc, {
                     startY: yPos, theme: 'grid', head: [['Pelaaja', 'Lauk.', 'Maalit', 'L+', 'H-', '+/-', 'T%']],
                     body: rows.map(r => { const pct = r[1] ? Math.round((r[2]/r[1])*100) + '%' : '—'; return [...r, pct]; }),
@@ -686,7 +591,6 @@
         function createShotmapElement(game, p) {
             const w = 900, h = 450, wrap = document.createElement('div');
             Object.assign(wrap.style, { position:'fixed', left:'-9999px', width:w+'px', height:h+'px', background:'#fff' });
-            // LOPULLINEN KORJAUS: Käytetään koko 0-400 alueella olevia viivoja, jotta kohdistus osuu täsmälleen pisteisiin
             wrap.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 400 200" style="position:absolute;inset:0"><rect x="0" y="0" width="400" height="200" fill="none" stroke="#1e293b" stroke-width="2"/><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="1"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/></svg><div id="shot-layer-pdf" style="position:absolute;inset:0;width:100%;height:100%;"></div>`;
             const layer = wrap.querySelector('#shot-layer-pdf');
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
@@ -694,13 +598,15 @@
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
                 const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
                 const borderWidth = s.quality === 'high' ? '3px' : '2px';
+                // PDF-asetteluun span-keskitys
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
                     left: s.x + '%', top: s.y + '%', transform:'translate(-50%,-50%)', 
                     border: `${borderWidth} solid ${borderColor}`, 
-                    color: textColor, fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '1' 
+                    color: textColor, fontSize:'12px', fontWeight:'900'
                 });
-                dot.textContent = s.player; layer.appendChild(dot);
+                dot.innerHTML = `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">${s.player}</span>`;
+                layer.appendChild(dot);
             });
             return wrap;
         }
@@ -752,13 +658,13 @@
         function saveLocal() { if (userId) sessionStorage.setItem(`inProgressGame-${userId}`, JSON.stringify(currentGame)); }
         function showConfirmation(title, text, btnTxt, btnClass, cb) {
             const m = document.getElementById('confirm-modal'); m.classList.remove('hidden');
-            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2">${title}</h3><p class="text-sm mb-6 font-medium text-slate-600">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 text-slate-800 rounded font-bold transition-colors">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold transition-colors">${btnTxt}</button></div></div>`;
+            m.innerHTML = `<div class="bg-white p-6 rounded-lg max-w-sm w-full text-slate-900 text-center"><h3 class="text-xl font-bold mb-2 text-slate-800">${title}</h3><p class="text-sm mb-6 font-medium text-slate-600">${text}</p><div class="flex gap-2"><button id="conf-cancel" class="flex-1 py-2 bg-slate-200 text-slate-800 rounded font-bold transition-colors">Peruuta</button><button id="conf-ok" class="flex-1 py-2 ${btnClass} text-white rounded font-bold transition-colors">${btnTxt}</button></div></div>`;
             document.getElementById('conf-cancel').onclick = () => m.classList.add('hidden');
             document.getElementById('conf-ok').onclick = () => { cb(); m.classList.add('hidden'); };
         }
         function renderPlusMinusView() {
             const v = document.getElementById('plus-minus-view');
-            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-800 p-6 rounded-xl text-white border border-slate-700 shadow-2xl"><h2 class="text-2xl font-bold text-center mb-6 uppercase tracking-wider">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/30"><h3 class="font-bold text-emerald-400 text-center mb-4 uppercase text-xs">Oma maali (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-900/20 p-4 rounded-lg border border-red-500/30"><h3 class="font-bold text-red-400 text-center mb-4 uppercase text-xs">Vastustajan maali (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`;
+            v.innerHTML = `<div class="max-w-4xl mx-auto bg-slate-800 p-6 rounded-xl text-white border border-slate-700 shadow-2xl"><h2 class="text-2xl font-bold text-center mb-6 uppercase tracking-wider">+/- Merkintä</h2><div class="grid grid-cols-2 gap-8"><div class="bg-emerald-900/20 p-4 rounded-lg border border-emerald-500/30"><h3 class="font-bold text-emerald-400 text-center mb-4 uppercase text-xs text-center">Oma maali (+)</h3><div id="pm-plus-grid" class="grid grid-cols-4 gap-2"></div></div><div class="bg-red-900/20 p-4 rounded-lg border border-red-500/30"><h3 class="font-bold text-red-400 text-center mb-4 uppercase text-xs text-center">Vastustajan maali (-)</h3><div id="pm-minus-grid" class="grid grid-cols-4 gap-2"></div></div></div><div id="pm-summary" class="mt-8 border-t border-slate-700 pt-4"></div></div>`;
             const plusG = v.querySelector('#pm-plus-grid'), minusG = v.querySelector('#pm-minus-grid');
             (currentGame.players || []).forEach(p => {
                 const bP = document.createElement('button'); bP.className = "p-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded transition-colors"; bP.textContent = p;
