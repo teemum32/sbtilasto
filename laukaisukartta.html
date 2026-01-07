@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* LOPULLINEN KESKITYS: Käytetään varminta span + absolute kikkaa aiemmasta versiosta */
+        /* Käyttöliittymän keskitys span-elementillä */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -249,25 +249,8 @@
         function initializeGameUI() {
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
-            
-            document.getElementById('sidebar-content').innerHTML = `
-                <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div>
-                <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div>
-                <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
-            `;
-            
-            document.getElementById('field-area').innerHTML = `
-                <div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm text-center">Vieras</div>
-                <div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400">
-                    <svg class="w-full h-full" viewBox="0 0 400 200">
-                        <line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/>
-                        <rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/>
-                        <rect x="330" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/>
-                    </svg>
-                    <div id="shots-layer" class="absolute inset-0"></div>
-                </div>
-                <div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm text-center">Koti</div>
-            `;
+            document.getElementById('sidebar-content').innerHTML = `<div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div><div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
+            document.getElementById('field-area').innerHTML = `<div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm text-center">Vieras</div><div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm text-center">Koti</div>`;
             initializePlayers();
         }
 
@@ -289,7 +272,6 @@
             document.querySelector(`[data-period="${viewId}"]`)?.classList.add('active');
             const mainApp = document.getElementById('main-app'), pmView = document.getElementById('plus-minus-view'), seasonView = document.getElementById('season-view');
             [mainApp, pmView, seasonView].forEach(s => s.classList.add('hidden'));
-
             if (viewId === 'home') { showMainView('landing'); return; }
             if (viewId === 'plus-minus') { renderPlusMinusView(); pmView.classList.remove('hidden'); }
             else if (viewId === 'season') { renderSeasonStats(); seasonView.classList.remove('hidden'); }
@@ -312,81 +294,15 @@
             document.getElementById('edit-outcome-modal').onclick = onEditSelect;
         }
 
-        function onPointerDown(e) {
-            const target = e.target.closest('.player-number');
-            if (!target || currentGame.isReadOnly) return;
-            draggedElement = target;
-            ghostElement = target.cloneNode(true);
-            ghostElement.classList.add('dragging');
-            document.body.appendChild(ghostElement);
-            updateGhost(e.pageX, e.pageY);
-        }
+        function onPointerDown(e) { const target = e.target.closest('.player-number'); if (!target || currentGame.isReadOnly) return; draggedElement = target; ghostElement = target.cloneNode(true); ghostElement.classList.add('dragging'); document.body.appendChild(ghostElement); updateGhost(e.pageX, e.pageY); }
         function onPointerMove(e) { if (ghostElement) updateGhost(e.pageX, e.pageY); }
-        function onPointerUp(e) {
-            if (!ghostElement) return;
-            ghostElement.style.display = 'none';
-            const drop = document.elementFromPoint(e.clientX, e.clientY);
-            ghostElement.style.display = '';
-            const field = document.getElementById('field-container');
-            if (field && field.contains(drop)) {
-                const rect = document.getElementById('shots-layer').getBoundingClientRect();
-                tempShotData = {
-                    player: draggedElement.textContent,
-                    team: draggedElement.classList.contains('away-player') ? 'away' : 'home',
-                    x: ((e.clientX - rect.left) / rect.width) * 100,
-                    y: ((e.clientY - rect.top) / rect.height) * 100,
-                    clientX: e.clientX, clientY: e.clientY
-                };
-                showOutcomeModal(e.clientX, e.clientY);
-            }
-            document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null;
-        }
+        function onPointerUp(e) { if (!ghostElement) return; ghostElement.style.display = 'none'; const drop = document.elementFromPoint(e.clientX, e.clientY); ghostElement.style.display = ''; const field = document.getElementById('field-container'); if (field && field.contains(drop)) { const rect = document.getElementById('shots-layer').getBoundingClientRect(); const x = ((e.clientX - rect.left) / rect.width) * 100, y = ((e.clientY - rect.top) / rect.height) * 100; tempShotData = { player: draggedElement.textContent, team: draggedElement.classList.contains('away-player') ? 'away' : 'home', x, y, clientX: e.clientX, clientY: e.clientY }; showOutcomeModal(e.clientX, e.clientY); } document.body.removeChild(ghostElement); ghostElement = null; draggedElement = null; }
         function updateGhost(x, y) { ghostElement.style.left = `${x-20}px`; ghostElement.style.top = `${y-20}px`; }
-
-        function showOutcomeModal(x, y) {
-            const m = document.getElementById('outcome-modal');
-            m.classList.remove('hidden');
-            m.style.left = `${Math.min(window.innerWidth - 150, x)}px`;
-            m.style.top = `${Math.min(window.innerHeight - 200, y)}px`;
-            m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`;
-        }
-
-        function onOutcomeSelect(e) {
-            const val = e.target.dataset.val; if (!val) return;
-            tempShotData.outcome = val;
-            document.getElementById('outcome-modal').classList.add('hidden');
-            const m = document.getElementById('quality-modal');
-            m.classList.remove('hidden');
-            m.style.left = `${tempShotData.clientX}px`; m.style.top = `${tempShotData.clientY}px`;
-            m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laadukas</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
-        }
-
-        function onQualitySelect(e) {
-            const val = e.target.dataset.val; if (!val) return;
-            const shot = { id: Date.now() + Math.random(), ...tempShotData, quality: val, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) };
-            delete shot.clientX; delete shot.clientY;
-            currentGame.shots.push(shot); saveLocal();
-            document.getElementById('quality-modal').classList.add('hidden');
-            renderShots(); updateStats();
-        }
-
-        function onShotClick(e) {
-            const marker = e.target.closest('.shot-marker'); if (!marker || currentGame.isReadOnly) return;
-            shotToEditId = Number(marker.dataset.shotId);
-            const m = document.getElementById('edit-outcome-modal');
-            m.classList.remove('hidden');
-            m.style.left = `${e.clientX}px`; m.style.top = `${e.clientY}px`;
-            m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`;
-        }
-
-        function onEditSelect(e) {
-            const val = e.target.dataset.val; if (!val) return;
-            const idx = currentGame.shots.findIndex(s => s.id === shotToEditId);
-            if (val === 'delete') currentGame.shots.splice(idx, 1);
-            else currentGame.shots[idx].outcome = val;
-            saveLocal(); document.getElementById('edit-outcome-modal').classList.add('hidden');
-            renderShots(); updateStats();
-        }
+        function showOutcomeModal(x, y) { const m = document.getElementById('outcome-modal'); m.classList.remove('hidden'); m.style.left = `${Math.min(window.innerWidth - 150, x)}px`; m.style.top = `${Math.min(window.innerHeight - 200, y)}px`; m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`; }
+        function onOutcomeSelect(e) { const val = e.target.dataset.val; if (!val) return; tempShotData.outcome = val; document.getElementById('outcome-modal').classList.add('hidden'); const m = document.getElementById('quality-modal'); m.classList.remove('hidden'); m.style.left = `${tempShotData.clientX}px`; m.style.top = `${tempShotData.clientY}px`; m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laadukas</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`; }
+        function onQualitySelect(e) { const val = e.target.dataset.val; if (!val) return; const shot = { id: Date.now() + Math.random(), ...tempShotData, quality: val, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) }; delete shot.clientX; delete shot.clientY; currentGame.shots.push(shot); saveLocal(); document.getElementById('quality-modal').classList.add('hidden'); renderShots(); updateStats(); }
+        function onShotClick(e) { const marker = e.target.closest('.shot-marker'); if (!marker || currentGame.isReadOnly) return; shotToEditId = Number(marker.dataset.shotId); const m = document.getElementById('edit-outcome-modal'); m.classList.remove('hidden'); m.style.left = `${e.clientX}px`; m.style.top = `${e.clientY}px`; m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`; }
+        function onEditSelect(e) { const val = e.target.dataset.val; if (!val) return; const idx = currentGame.shots.findIndex(s => s.id === shotToEditId); if (val === 'delete') currentGame.shots.splice(idx, 1); else currentGame.shots[idx].outcome = val; saveLocal(); document.getElementById('edit-outcome-modal').classList.add('hidden'); renderShots(); updateStats(); }
 
         function renderShots() {
             const layer = document.getElementById('shots-layer'); layer.innerHTML = '';
@@ -405,7 +321,6 @@
             const stats = getStatsForPeriod(currentGame, currentGame.currentPeriod);
             const container = document.getElementById('stats-container');
             const title = currentGame.currentPeriod === 'summary' ? 'Ottelu' : `Erä ${currentGame.currentPeriod}`;
-            
             container.innerHTML = `
                 <h3 class="font-bold text-center mb-3 text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1 text-sm">${title}</h3>
                 <div class="space-y-4 text-[10px]">
@@ -435,7 +350,6 @@
                     </div>
                 </div>
             `;
-            
             if (currentGame.currentPeriod === 'summary') {
                 document.getElementById('player-stats-container').classList.remove('hidden');
                 updatePlayerStatsUI();
@@ -494,12 +408,7 @@
 
         function handleHeaderClick(type, key) {
             const state = type === 'season' ? seasonSort : matchSort;
-            if (state.key === key) {
-                state.dir = (state.dir + 1) % 3;
-            } else {
-                state.key = key;
-                state.dir = 1;
-            }
+            if (state.key === key) { state.dir = (state.dir + 1) % 3; } else { state.key = key; state.dir = 1; }
             if (type === 'season') renderSeasonStats();
         }
 
@@ -556,34 +465,18 @@
             try {
                 const { playerStats, fullRoster } = calculateSeasonStats();
                 const sortedPlayers = sortPlayers([...playerStats], seasonSort);
-                
-                let backButtonHtml = `
-                    <div class="max-w-4xl mx-auto px-2 mb-4">
-                        <button id="back-from-season-btn" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors py-2 font-semibold">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                            Takaisin aloitukseen
-                        </button>
-                    </div>
-                `;
-
+                let backButtonHtml = `<div class="max-w-4xl mx-auto px-2 mb-4"><button id="back-from-season-btn" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors py-2 font-semibold"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>Takaisin aloitukseen</button></div>`;
                 let playerHtml = `<div class="max-w-4xl mx-auto px-2 mb-10 overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-2xl"><div class="bg-slate-700/50 p-4 border-b border-slate-700 text-center"><h3 class="font-bold text-white uppercase tracking-wider">Kauden pelaajakohtainen yhteenveto</h3></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-900/50 text-slate-400 uppercase text-xs"><tr><th class="p-3">Pelaaja</th><th onclick="window.sortSeason('games')" class="p-3 text-center sortable-header">O${getSortIcon(seasonSort, 'games')}</th><th onclick="window.sortSeason('shots')" class="p-3 text-center sortable-header">L${getSortIcon(seasonSort, 'shots')}</th><th onclick="window.sortSeason('goals')" class="p-3 text-center sortable-header">M${getSortIcon(seasonSort, 'goals')}</th><th onclick="window.sortSeason('xg')" class="p-3 text-center sortable-header">xG${getSortIcon(seasonSort, 'xg')}</th><th onclick="window.sortSeason('qH')" class="p-3 text-center text-red-400 sortable-header">L+${getSortIcon(seasonSort, 'qH')}</th><th onclick="window.sortSeason('qL')" class="p-3 text-center text-blue-400 sortable-header">H-${getSortIcon(seasonSort, 'qL')}</th><th onclick="window.sortSeason('bal')" class="p-3 text-center sortable-header">+/-${getSortIcon(seasonSort, 'bal')}</th></tr></thead><tbody class="divide-y divide-slate-700">`;
-                sortedPlayers.forEach(s => {
-                    playerHtml += `<tr class="hover:bg-slate-700/30 transition-colors"><td class="p-3 font-bold text-slate-200">#${s.number} ${fullRoster[s.number] || ''}</td><td class="p-3 text-center">${s.games}</td><td class="p-3 text-center">${s.shots}</td><td class="p-3 text-center font-bold text-emerald-400">${s.goals}</td><td class="p-3 text-center text-slate-400">${s.xg.toFixed(2)}</td><td class="p-3 text-center text-red-300">${s.qH}</td><td class="p-3 text-center text-blue-300">${s.qL}</td><td class="p-3 text-center font-bold ${s.bal>0?'text-emerald-500':s.bal<0?'text-red-500':'text-slate-500'}">${s.bal>0?'+':''}${s.bal}</td></tr>`;
-                });
+                sortedPlayers.forEach(s => { playerHtml += `<tr class="hover:bg-slate-700/30 transition-colors"><td class="p-3 font-bold text-slate-200">#${s.number} ${fullRoster[s.number] || ''}</td><td class="p-3 text-center">${s.games}</td><td class="p-3 text-center">${s.shots}</td><td class="p-3 text-center font-bold text-emerald-400">${s.goals}</td><td class="p-3 text-center text-slate-400">${s.xg.toFixed(2)}</td><td class="p-3 text-center text-red-300">${s.qH}</td><td class="p-3 text-center text-blue-300">${s.qL}</td><td class="p-3 text-center font-bold ${s.bal>0?'text-emerald-500':s.bal<0?'text-red-500':'text-slate-500'}">${s.bal>0?'+':''}${s.bal}</td></tr>`; });
                 playerHtml += `</tbody></table></div></div>`;
-
                 let gamesHtml = `<div class="max-w-4xl mx-auto px-2 pb-10"><h2 class="text-2xl font-bold mb-6 text-white text-center uppercase tracking-wider">Tallennetut ottelut</h2>`;
-                const sortedGames = [...seasonData.games].sort((a,b) => new Date(b.date) - new Date(a.date));
-                sortedGames.forEach(game => {
-                    const s = getGameStats(game);
-                    gamesHtml += `<details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden group"><summary class="p-4 flex justify-between items-center transition-all hover:bg-slate-700/50"><div class="flex-1"><p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p></div><div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div><div class="flex gap-2"><button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg">PDF</button><button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button></div></summary><div class="px-4 pb-4">${generateGameDetailsHTML(game)}</div></details>`;
-                });
+                const sortedGames = [...seasonData.games].sort((a,b) => safeDateValue(b) - safeDateValue(a));
+                sortedGames.forEach(game => { const s = getGameStats(game); gamesHtml += `<details class="bg-slate-800 text-white rounded-lg shadow-xl border border-slate-700 mb-4 overflow-hidden group"><summary class="p-4 flex justify-between items-center transition-all hover:bg-slate-700/50"><div class="flex-1"><p class="font-bold text-indigo-400 text-lg">${new Date(game.date).toLocaleDateString('fi-FI')}</p><p class="text-xs opacity-60 uppercase font-semibold">vs ${game.opponent}</p></div><div class="text-2xl font-black tracking-widest px-4">${s.home.goals} - ${s.away.goals}</div><div class="flex gap-2"><button data-id="${game.id}" class="pdf-btn bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg">PDF</button><button data-id="${game.id}" class="del-btn bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"></path></svg></button></div></summary><div class="px-4 pb-4">${generateGameDetailsHTML(game)}</div></details>`; });
                 view.innerHTML = backButtonHtml + playerHtml + gamesHtml + `</div>`;
-            } catch(e) {
-                console.error(e);
-                view.innerHTML = `<div class="p-8 text-center text-red-500">Virhe tilastojen latauksessa.</div>`;
-            }
+            } catch(e) { console.error(e); view.innerHTML = `<div class="p-8 text-center text-red-500">Virhe tilastojen latauksessa.</div>`; }
         }
+
+        function safeDateValue(game) { if (game?.date) { const d = new Date(game.date); if (!isNaN(+d)) return +d; } const asNum = Number(game?.id); return Number.isFinite(asNum) ? asNum : NaN; }
 
         async function generatePdfReport(gameId, btn) {
             const origText = btn.textContent; btn.textContent = 'Luodaan...'; btn.disabled = true;
@@ -594,17 +487,13 @@
                 const margin = 10, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
                 let yPos = margin;
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.text(`Otteluraportti: ${game.opponent}`, pageW/2, yPos, {align:'center'});
-                yPos += 10;
-                doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW/2, yPos, {align:'center'});
+                yPos += 10; doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(new Date(game.date).toLocaleDateString('fi-FI'), pageW/2, yPos, {align:'center'});
                 yPos += 15;
                 for (const period of [1, 2, 3, 'summary']) {
                     const stats = getStatsForPeriod(game, period), title = period === 'summary' ? 'Koko ottelu' : `Erä ${period}`;
-                    const mapEl = createShotmapElement(game, period);
-                    document.body.appendChild(mapEl);
-                    await new Promise(r => requestAnimationFrame(r));
-                    const canvas = await html2canvas(mapEl, { scale: 1.5 });
-                    document.body.removeChild(mapEl);
-                    const imgData = canvas.toDataURL('image/jpeg', 0.75);
+                    // TÄMÄ ON KORJATTU OSA: Käytetään Canvas-piirtoa HTML-elementtien sijaan
+                    const canvas = createShotmapCanvas(game, period);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.85);
                     const imgW = 180, imgH = 90, approxTableH = 62;
                     if (yPos + 6 + imgH + approxTableH > pageH - margin) { doc.addPage(); yPos = margin; }
                     doc.setFontSize(14); doc.text(title, margin, yPos); yPos += 6;
@@ -613,21 +502,20 @@
                     callAutoTable(doc, {
                         startY: yPos, margin: { left: margin, right: margin }, tableWidth: pageW - margin*2, theme: 'grid',
                         head: [['Tapahtuma', 'Koti', 'Vieras']],
-                        body: [['Maalit', stats.home.goals, stats.away.goals], ['Laukaukset', stats.home.shots, stats.away.shots], ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], ['Laadukkaat (L+)', stats.home.qH, stats.away.qH], ['Heikot (H-)', stats.home.qL, stats.away.qL], ['Torjunnat', stats.home.saves, stats.away.saves], ['Blokit', stats.home.blocks, stats.away.blocks]],
+                        body: [['Maalit', stats.home.goals, stats.away.goals], ['Laukaukset', stats.home.shots, stats.away.shots], ['xG', stats.home.xg.toFixed(2), stats.away.xg.toFixed(2)], ['Laadukkaat (L+)', stats.home.qualityHigh, stats.away.qualityHigh], ['Heikot (H-)', stats.home.qualityLow, stats.away.qualityLow], ['Torjunnat', stats.home.saves, stats.away.saves], ['Blokit', stats.home.blocks, stats.away.blocks]],
                         styles: { fontSize: 10 }, headStyles: { fillColor: [41, 52, 72] },
                         columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 35, halign: 'right' } }
                     });
                     yPos = doc.lastAutoTable.finalY + 14;
                 }
-                doc.addPage(); yPos = margin;
-                doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot', pageW/2, yPos, {align:'center'}); yPos += 10;
+                doc.addPage(); yPos = margin; doc.setFontSize(16); doc.text('Pelaajakohtaiset tilastot', pageW/2, yPos, {align:'center'}); yPos += 10;
                 const rows = [];
                 (game.players || []).sort((a,b)=>a-b).forEach(pNum => {
-                    const shots = (game.shots || []).filter(s => s.team === 'home' && String(s.player) === String(pNum)), goals = shots.filter(s => s.outcome === 'goal').length;
+                    const pShots = getShotsForPeriod(game, 'summary').filter(s => s.team === 'home' && Number(s.player) === Number(pNum)), goals = pShots.filter(s => s.outcome === 'goal').length;
                     const pm = (game.plusMinus && (game.plusMinus[pNum] || game.plusMinus[String(pNum)])) || { plus:0, minus:0 }, bal = pm.plus - pm.minus;
-                    if (shots.length > 0 || pm.plus > 0 || pm.minus > 0) {
+                    if (pShots.length > 0 || pm.plus > 0 || pm.minus > 0) {
                         const name = (game.roster[pNum] || game.roster[String(pNum)] || '').trim();
-                        rows.push([`#${pNum} ${name}`, shots.length, goals, shots.filter(s=>s.quality==='high').length, shots.filter(s=>s.quality==='low').length, `${bal > 0 ? '+' : ''}${bal}`]);
+                        rows.push([`#${pNum} ${name}`, pShots.length, goals, pShots.filter(s=>s.quality==='high').length, pShots.filter(s=>s.quality==='low').length, `${bal > 0 ? '+' : ''}${bal}`]);
                     }
                 });
                 callAutoTable(doc, {
@@ -639,43 +527,63 @@
             } catch (err) { console.error(err); } finally { btn.textContent = origText; btn.disabled = false; }
         }
 
-        function createShotmapElement(game, p) {
-            const w = 900, h = 450, wrap = document.createElement('div');
-            Object.assign(wrap.style, { position:'fixed', left:'-9999px', width:w+'px', height:h+'px', background:'#fff' });
-            wrap.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 400 200" style="position:absolute;inset:0"><rect x="0" y="0" width="400" height="200" fill="none" stroke="#1e293b" stroke-width="2"/><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="1"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/></svg><div id="shot-layer-pdf" style="position:absolute;inset:0;width:100%;height:100%;"></div>`;
-            const layer = wrap.querySelector('#shot-layer-pdf');
-            (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
-                const dot = document.createElement('div');
-                const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
-                const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
-                const borderWidth = s.quality === 'high' ? '3px' : '2px';
-                // KORJATTU PDF: Poistettu Flex-keskitys ja Paddingit, käytetään aiemman koodin span-logiikkaa
-                Object.assign(dot.style, { 
-                    position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
-                    left: s.x + '%', top: s.y + '%', transform:'translate(-50%,-50%)', 
-                    border: `${borderWidth} solid ${borderColor}`, 
-                    color: textColor, fontSize:'12px', fontWeight:'900'
-                });
-                dot.innerHTML = `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">${s.player}</span>`;
-                layer.appendChild(dot);
-            });
-            return wrap;
+        // --- UUDET CANVAS-PIIRTOFUNKTIOT PDF-RAPORTTIA VARTEN ---
+
+        function drawFieldBackground(ctx, w, h) {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 3; ctx.strokeRect(0, 0, w, h);
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+            ctx.strokeRect(w * 0.075, h * 0.375, w * 0.1, h * 0.25); // Vieras maali
+            ctx.strokeRect(w - (w * 0.175), h * 0.375, w * 0.1, h * 0.25); // Koti maali
         }
 
-        function getGameStats(game) { return getStatsForPeriod(game, 'summary'); }
+        function getShotStyle(shot) {
+            const styles = { goal: '#10B981', miss: '#3B82F6', block: '#FACC15', save: '#EF4444' };
+            const fill = styles[shot.outcome] || styles.miss;
+            const text = shot.outcome === 'block' ? '#000000' : '#ffffff';
+            let stroke = '#ffffff';
+            if (shot.quality === 'high') stroke = '#b91c1c';
+            if (shot.quality === 'low') stroke = '#1e3a8a';
+            return { fill, text, stroke };
+        }
 
-        function getStatsForPeriod(game, p) {
-            const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qH:0, qL:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qH:0, qL:0} };
-            const shots = (game.shots || []).filter(s => p === 'summary' || s.period === p);
+        function createShotmapCanvas(game, period) {
+            const canvas = document.createElement('canvas');
+            const w = 800, h = 400; canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            drawFieldBackground(ctx, w, h);
+            const shots = getShotsForPeriod(game, period);
+            shots.forEach(shot => {
+                const px = (shot.x / 100) * w, py = (shot.y / 100) * h;
+                const style = getShotStyle(shot);
+                ctx.fillStyle = style.fill; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = style.stroke; ctx.lineWidth = (shot.quality === 'high' ? 3 : 2); ctx.beginPath(); ctx.arc(px, py, 13, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = style.text; ctx.font = 'bold 11pt Inter, sans-serif'; ctx.textAlign = 'center';
+                // TÄMÄ ON RATKAISU: Canvas-keskitys middlen avulla
+                ctx.textBaseline = 'middle';
+                const label = (shot.team === 'away') ? 'V' : shot.player;
+                ctx.fillText(label, px, py);
+            });
+            return canvas;
+        }
+
+        function getShotsForPeriod(game, period) {
+            const allShots = game?.shots || [];
+            if (period === 'summary') return allShots;
+            return allShots.filter(s => Number(s.period) === Number(period));
+        }
+
+        function getStatsForPeriod(game, period) {
+            const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0, qualityLow:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qualityHigh:0, qualityLow:0} };
+            const shots = getShotsForPeriod(game, period);
             shots.forEach(s => {
                 const t = s.team, o = t === 'home' ? 'away' : 'home';
-                agg[t].shots++; 
-                agg[t].xg += Number(s.xG) || calculateXg(s.x, s.y, s.team);
+                agg[t].shots++; agg[t].xg += Number(s.xG) || calculateXg(s.x, s.y, s.team);
                 if (s.outcome === 'goal') agg[t].goals++;
                 if (s.outcome === 'save') agg[o].saves++;
                 if (s.outcome === 'block') agg[o].blocks++;
-                if (s.quality === 'high') agg[t].qH++;
-                if (s.quality === 'low') agg[t].qL++;
+                if (s.quality === 'high') agg[t].qualityHigh++;
+                if (s.quality === 'low') agg[t].qualityLow++;
             });
             return agg;
         }
