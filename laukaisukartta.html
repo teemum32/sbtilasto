@@ -15,6 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
+        /* LOPULLINEN KESKITYS: Käytetään varminta span + absolute kikkaa aiemmasta versiosta */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -240,7 +241,7 @@
             if (!userId || !currentTeamId) return;
             if (gamesUnsubscribe) gamesUnsubscribe();
             gamesUnsubscribe = onSnapshot(query(collection(db, 'users', userId, 'teams', currentTeamId, 'games')), (snap) => {
-                seasonData.games = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                seasonData.games = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 if (!document.getElementById('season-view').classList.contains('hidden')) renderSeasonStats();
             });
         }
@@ -249,7 +250,6 @@
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
             
-            // POISTETTU pelaajakohtainen summary-div sivupalkista
             document.getElementById('sidebar-content').innerHTML = `
                 <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div>
                 <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div>
@@ -279,6 +279,7 @@
             (currentGame.players || []).forEach(num => {
                 const div = document.createElement('div');
                 div.className = 'player-number'; div.textContent = num;
+                div.title = currentGame.roster?.[num] || '';
                 homeList.appendChild(div);
             });
         }
@@ -362,7 +363,7 @@
 
         function onQualitySelect(e) {
             const val = e.target.dataset.val; if (!val) return;
-            const shot = { id: Date.now(), ...tempShotData, quality: val, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) };
+            const shot = { id: Date.now() + Math.random(), ...tempShotData, quality: val, period: currentGame.currentPeriod, xG: calculateXg(tempShotData.x, tempShotData.y, tempShotData.team) };
             delete shot.clientX; delete shot.clientY;
             currentGame.shots.push(shot); saveLocal();
             document.getElementById('quality-modal').classList.add('hidden');
@@ -371,7 +372,7 @@
 
         function onShotClick(e) {
             const marker = e.target.closest('.shot-marker'); if (!marker || currentGame.isReadOnly) return;
-            shotToEditId = Number(marker.dataset.id);
+            shotToEditId = Number(marker.dataset.shotId);
             const m = document.getElementById('edit-outcome-modal');
             m.classList.remove('hidden');
             m.style.left = `${e.clientX}px`; m.style.top = `${e.clientY}px`;
@@ -394,7 +395,7 @@
                 const m = document.createElement('div');
                 m.className = `shot-marker ${s.outcome} ${s.quality === 'high' ? 'quality-high' : 'quality-low'}`;
                 m.style.left = `${s.x}%`; m.style.top = `${s.y}%`;
-                m.dataset.id = s.id;
+                m.dataset.shotId = s.id;
                 m.innerHTML = `<span>${s.player}</span>`;
                 layer.appendChild(m);
             });
@@ -434,7 +435,21 @@
                     </div>
                 </div>
             `;
-            // Pelaajakohtainen sivupalkkilistaus POISTETTU tästä
+            
+            if (currentGame.currentPeriod === 'summary') {
+                document.getElementById('player-stats-container').classList.remove('hidden');
+                updatePlayerStatsUI();
+            } else document.getElementById('player-stats-container').classList.add('hidden');
+        }
+
+        function updatePlayerStatsUI() {
+            const container = document.getElementById('player-stats-container');
+            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest text-xs">Pelaajat</h3>`;
+            (currentGame.players || []).forEach(p => {
+                const pShots = (currentGame.shots || []).filter(s => s.team === 'home' && Number(s.player) === p);
+                if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700 text-slate-300"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
+            });
+            container.innerHTML = html;
         }
 
         function calculateSeasonStats() {
@@ -449,7 +464,7 @@
                         const p = Number(s.player);
                         if (playerStats[p]) {
                             playerStats[p].shots++;
-                            playerStats[p].xg += Number(s.xG) || 0;
+                            playerStats[p].xg += Number(s.xG) || calculateXg(s.x, s.y, s.team);
                             if (s.outcome === 'goal') playerStats[p].goals++;
                             if (s.quality === 'high') playerStats[p].qH++;
                             if (s.quality === 'low') playerStats[p].qL++;
@@ -505,7 +520,7 @@
                 return {
                     number: Number(pNum),
                     name: (game.roster[pNum] || game.roster[String(pNum)] || '').split(' ')[0],
-                    shots: shots.length, goals: goals, xg: shots.reduce((a, b) => a + (Number(b.xG) || 0), 0),
+                    shots: shots.length, goals: goals, xg: shots.reduce((a, b) => a + (Number(b.xG) || calculateXg(b.x, b.y, b.team)), 0),
                     qH: shots.filter(s => s.quality === 'high').length,
                     qL: shots.filter(s => s.quality === 'low').length,
                     bal: pm.plus - pm.minus
@@ -634,6 +649,7 @@
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
                 const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
                 const borderWidth = s.quality === 'high' ? '3px' : '2px';
+                // KORJATTU PDF: Poistettu Flex-keskitys ja Paddingit, käytetään aiemman koodin span-logiikkaa
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
                     left: s.x + '%', top: s.y + '%', transform:'translate(-50%,-50%)', 
@@ -650,9 +666,11 @@
 
         function getStatsForPeriod(game, p) {
             const agg = { home: {goals:0, shots:0, xg:0, saves:0, blocks:0, qH:0, qL:0}, away: {goals:0, shots:0, xg:0, saves:0, blocks:0, qH:0, qL:0} };
-            (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
+            const shots = (game.shots || []).filter(s => p === 'summary' || s.period === p);
+            shots.forEach(s => {
                 const t = s.team, o = t === 'home' ? 'away' : 'home';
-                agg[t].shots++; agg[t].xg += Number(s.xG) || 0;
+                agg[t].shots++; 
+                agg[t].xg += Number(s.xG) || calculateXg(s.x, s.y, s.team);
                 if (s.outcome === 'goal') agg[t].goals++;
                 if (s.outcome === 'save') agg[o].saves++;
                 if (s.outcome === 'block') agg[o].blocks++;
@@ -680,7 +698,7 @@
             const roster = {}; const matches = rosterStr.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
             for (const m of matches) roster[Number(m[1])] = m[2].trim();
             if (Object.keys(roster).length === 0) return;
-            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opp, roster, teamId: currentTeamId, teamName: document.getElementById('team-name-header').textContent, players: Object.keys(roster).map(Number), shots: [], plusMinus: {}, currentPeriod: 1 };
+            currentGame = { id: Date.now(), date: new Date().toISOString(), opponent: opp, roster, teamId: currentTeamId, teamName: teamNameHeader.textContent, players: Object.keys(roster).map(Number), shots: [], plusMinus: {}, currentPeriod: 1 };
             currentGame.players.forEach(p => currentGame.plusMinus[p] = {plus:0, minus:0});
             await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster });
             saveLocal(); initializeGameUI(); addEventListeners(); showMainView('app'); showView(1);
