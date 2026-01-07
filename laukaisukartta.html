@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* KORJATTU: Flex-keskitys ja leading-none takaa tekstin pysymisen keskellä palloa */
+        /* KORJATTU: Flex-keskitys ja pieni padding-top tekstin laskemiseksi alemmas */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -31,7 +31,8 @@
             align-items: center; 
             justify-content: center; 
             padding: 0;
-            line-height: 1; /* Estetään rivivälin aiheuttama pystysiirtymä */
+            padding-top: 2px; /* Laskee numeroa hieman alemmas pallon sisällä */
+            line-height: 1; 
             text-align: center;
         }
         
@@ -328,7 +329,6 @@
             if (id === 'outcome-modal') {
                 m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="miss" class="w-24 bg-blue-500 text-white p-2 rounded font-bold">Ohi</button><button data-val="save" class="w-24 bg-red-500 text-white p-2 rounded font-bold">Torjunta</button><button data-val="block" class="w-24 bg-yellow-400 text-slate-900 p-2 rounded font-bold">Blokki</button>`;
             } else if (id === 'quality-modal') {
-                // KORJATTU: "Laatu" -> "Laadukas"
                 m.innerHTML = `<button data-val="high" class="w-24 bg-red-700 text-white p-2 rounded font-bold">Laadukas</button><button data-val="low" class="w-24 bg-blue-700 text-white p-2 rounded font-bold">Heikko</button>`;
             } else if (id === 'edit-outcome-modal') {
                 m.innerHTML = `<button data-val="goal" class="w-24 bg-emerald-500 text-white p-2 rounded font-bold">Maali</button><button data-val="delete" class="w-24 bg-slate-600 text-white p-2 rounded font-bold">Poista</button>`;
@@ -696,11 +696,14 @@
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
                 const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
                 const borderWidth = s.quality === 'high' ? '3px' : '2px';
+                // PDF:ssa kaytetaan flex-asettelua ja pystysuuntaista hienosaatoa raportin kuvakaappausta varten
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
                     left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', 
                     border: `${borderWidth} solid ${borderColor}`, 
-                    color: textColor, fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', textAlign:'center', lineHeight: '1' 
+                    color: textColor, fontSize:'12px', fontWeight:'900', 
+                    display:'flex', alignItems:'center', justifyContent:'center', 
+                    paddingTop: '2px', lineHeight: '1', textAlign: 'center'
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
