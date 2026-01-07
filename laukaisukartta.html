@@ -15,7 +15,7 @@
         .away-player { font-size: 1.25rem; }
         .dragging { position: absolute; pointer-events: none; opacity: 0.7; z-index: 1000; }
         
-        /* KORJATTU: Lisätty padding-top: 4px numeron laskemiseksi entistä alemmas */
+        /* LOPULLINEN KESKITYS: Grid on vakain tapa sijoittaa numero palloihin */
         .shot-marker { 
             position: absolute; 
             width: 36px; 
@@ -27,12 +27,10 @@
             transform: translate(-50%, -50%); 
             transition: opacity 0.2s; 
             cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+            display: grid; 
+            place-items: center; 
             padding: 0;
-            padding-top: 4px; /* Laskee numeroa selvästi alemmas pallon sisällä */
-            line-height: 0; 
+            line-height: 1;
             text-align: center;
         }
         
@@ -104,7 +102,7 @@
             <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4 focus:border-indigo-500 outline-none" placeholder="Vastustaja">
             <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4 focus:border-indigo-500 outline-none" placeholder="7 Matti, 10 Pekka..."></textarea>
             <p id="setup-error" class="text-red-500 text-sm mb-4 h-5"></p>
-            <button id="start-button" class="w-full bg-indigo-600 py-3 rounded-lg font-bold">Aloita merkintä</button>
+            <button id="start-button" class="w-full bg-indigo-600 py-3 rounded-lg font-bold shadow-lg transition-transform active:scale-95">Aloita merkintä</button>
             <button id="back-to-landing-btn" class="mt-4 text-slate-400">Takaisin</button>
         </div>
     </div>
@@ -116,7 +114,7 @@
             <div id="main-app" class="absolute inset-0 grid grid-cols-1 md:grid-cols-[256px,1fr]">
                 <aside class="bg-slate-900 p-4 flex flex-col overflow-y-auto border-r border-slate-800">
                     <div id="sidebar-content"></div>
-                    <button id="save-game-button" class="mt-auto w-full bg-blue-600 py-3 rounded-lg font-bold shadow-lg">Tallenna ottelu</button>
+                    <button id="save-game-button" class="mt-auto w-full bg-blue-600 py-3 rounded-lg font-bold shadow-lg transition-transform active:scale-95">Tallenna ottelu</button>
                 </aside>
                 <main class="flex items-center justify-center p-4 bg-slate-200 overflow-hidden">
                     <div id="field-area" class="w-full h-full flex items-center justify-center gap-4"></div>
@@ -138,11 +136,13 @@
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Global State
         let db, auth, userId, currentTeamId;
         let seasonData = { games: [] }, rosterData = {}, currentGame = {};
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
 
+        // Sorting State
         let seasonSort = { key: 'number', dir: 0 }; 
         let matchSort = { key: 'number', dir: 0 };
 
@@ -158,10 +158,7 @@
 
         function showMainView(viewKey) {
             const ids = ['auth-view', 'teams-view', 'landing-view', 'setup-view', 'app-container'];
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
+            ids.forEach(id => document.getElementById(id).classList.add('hidden'));
             const targetId = { auth:'auth-view', teams:'teams-view', landing:'landing-view', setup:'setup-view', app:'app-container' }[viewKey];
             const targetEl = document.getElementById(targetId);
             if (targetEl) {
@@ -230,10 +227,10 @@
         function initializeGameUI() {
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
-            document.getElementById('sidebar-content').innerHTML = `<div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div><div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
+            document.getElementById('sidebar-content').innerHTML = `<div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div><div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
             
             document.getElementById('field-area').innerHTML = `
-                <div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm">Vieras</div>
+                <div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm text-center">Vieras</div>
                 <div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400">
                     <svg class="w-full h-full" viewBox="0 0 400 200">
                         <line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/>
@@ -242,7 +239,7 @@
                     </svg>
                     <div id="shots-layer" class="absolute inset-0"></div>
                 </div>
-                <div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm">Koti</div>
+                <div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm text-center">Koti</div>
             `;
             initializePlayers();
         }
@@ -380,6 +377,7 @@
             });
         }
 
+        // KORJATTU: Laajennetut tilastot sivupalkkiin
         function updateStats() {
             const stats = getStatsForPeriod(currentGame, currentGame.currentPeriod);
             const container = document.getElementById('stats-container');
@@ -389,7 +387,7 @@
                 <h3 class="font-bold text-center mb-3 text-slate-400 uppercase tracking-wider border-b border-slate-700 pb-1">${title}</h3>
                 <div class="space-y-4 text-[10px]">
                     <div class="bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                        <p class="font-black text-emerald-500 uppercase mb-1">Koti</p>
+                        <p class="font-black text-emerald-500 uppercase mb-1 text-center">Koti</p>
                         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
                             <span class="text-slate-400 uppercase">Maalit:</span><span class="text-right font-bold text-white">${stats.home.goals}</span>
                             <span class="text-slate-400 uppercase">xG:</span><span class="text-right font-bold text-white">${stats.home.xg.toFixed(2)}</span>
@@ -401,7 +399,7 @@
                         </div>
                     </div>
                     <div class="bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                        <p class="font-black text-slate-400 uppercase mb-1">Vieras</p>
+                        <p class="font-black text-slate-400 uppercase mb-1 text-center">Vieras</p>
                         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
                             <span class="text-slate-400 uppercase">Maalit:</span><span class="text-right font-bold text-white">${stats.away.goals}</span>
                             <span class="text-slate-400 uppercase">xG:</span><span class="text-right font-bold text-white">${stats.away.xg.toFixed(2)}</span>
@@ -423,7 +421,7 @@
 
         function updatePlayerStatsUI() {
             const container = document.getElementById('player-stats-container');
-            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white">Pelaajat</h3>`;
+            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest">Pelaajat</h3>`;
             (currentGame.players || []).forEach(p => {
                 const pShots = (currentGame.shots || []).filter(s => s.player == p && s.team === 'home');
                 if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700 text-slate-300"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
@@ -435,7 +433,7 @@
             const fullRoster = {}, playerStats = {};
             (seasonData.games || []).forEach(g => Object.assign(fullRoster, g.roster || {}));
             const allPlayers = [...new Set((seasonData.games || []).flatMap(g => g.players || []))].map(Number).sort((a,b)=>a-b);
-            allPlayers.forEach(p => { playerStats[p] = { number: p, games: 0, shots: 0, goals: 0, plus: 0, minus: 0, qH: 0, qL: 0 }; });
+            allPlayers.forEach(p => { playerStats[p] = { number: p, games: 0, shots: 0, goals: 0, plus: 0, minus: 0, qH: 0, qL: 0, xg: 0 }; });
             (seasonData.games || []).forEach(game => {
                 (game.players || []).forEach(p => { if(playerStats[p]) playerStats[p].games++; });
                 (game.shots || []).forEach(s => {
@@ -443,6 +441,7 @@
                         const p = Number(s.player);
                         if (playerStats[p]) {
                             playerStats[p].shots++;
+                            playerStats[p].xg += Number(s.xG) || 0;
                             if (s.outcome === 'goal') playerStats[p].goals++;
                             if (s.quality === 'high') playerStats[p].qH++;
                             if (s.quality === 'low') playerStats[p].qL++;
@@ -490,7 +489,7 @@
                 return {
                     number: Number(pNum),
                     name: (game.roster[pNum] || game.roster[String(pNum)] || '').split(' ')[0],
-                    shots: shots.length, goals: goals,
+                    shots: shots.length, goals: goals, xg: shots.reduce((a, b) => a + (Number(b.xG) || 0), 0),
                     qH: shots.filter(s => s.quality === 'high').length,
                     qL: shots.filter(s => s.quality === 'low').length,
                     bal: pm.plus - pm.minus
@@ -501,27 +500,27 @@
 
             let html = `
                 <div class="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
-                    <div class="grid grid-cols-2 gap-6 mb-4 pb-4 border-b border-slate-700">
-                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                    <div class="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-700">
+                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50 text-[10px]">
                             <p class="text-xs uppercase text-emerald-500 font-black mb-2">KOTI</p>
-                            <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
-                                <span>Laukaukset:</span><span class="text-white font-bold">${stats.home.shots}</span>
-                                <span>xG:</span><span class="text-white font-bold">${stats.home.xg.toFixed(2)}</span>
-                                <span class="text-red-400">L+:</span><span class="text-white font-bold">${stats.home.qH}</span>
-                                <span class="text-blue-400">H-:</span><span class="text-white font-bold">${stats.home.qL}</span>
-                                <span>Torjunnat:</span><span class="text-white font-bold">${stats.home.saves}</span>
-                                <span>Blokit:</span><span class="text-white font-bold">${stats.home.blocks}</span>
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                                <span>Laukaukset:</span><span class="text-right text-white font-bold">${stats.home.shots}</span>
+                                <span>xG:</span><span class="text-right text-white font-bold">${stats.home.xg.toFixed(2)}</span>
+                                <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${stats.home.qH}</span>
+                                <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${stats.home.qL}</span>
+                                <span>Torjunnat:</span><span class="text-right text-white font-bold">${stats.home.saves}</span>
+                                <span>Blokit:</span><span class="text-right text-white font-bold">${stats.home.blocks}</span>
                             </div>
                         </div>
-                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                        <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50 text-[10px]">
                             <p class="text-xs uppercase text-slate-400 font-black mb-2">VIERAS</p>
-                            <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-slate-300">
-                                <span>Laukaukset:</span><span class="text-white font-bold">${stats.away.shots}</span>
-                                <span>xG:</span><span class="text-white font-bold">${stats.away.xg.toFixed(2)}</span>
-                                <span class="text-red-400">L+:</span><span class="text-white font-bold">${stats.away.qH}</span>
-                                <span class="text-blue-400">H-:</span><span class="text-white font-bold">${stats.away.qL}</span>
-                                <span>Torjunnat:</span><span class="text-white font-bold">${stats.away.saves}</span>
-                                <span>Blokit:</span><span class="text-white font-bold">${stats.away.blocks}</span>
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                                <span>Laukaukset:</span><span class="text-right text-white font-bold">${stats.away.shots}</span>
+                                <span>xG:</span><span class="text-right text-white font-bold">${stats.away.xg.toFixed(2)}</span>
+                                <span class="text-red-400 font-bold">L+:</span><span class="text-right text-white font-bold">${stats.away.qH}</span>
+                                <span class="text-blue-400 font-bold">H-:</span><span class="text-right text-white font-bold">${stats.away.qL}</span>
+                                <span>Torjunnat:</span><span class="text-right text-white font-bold">${stats.away.saves}</span>
+                                <span>Blokit:</span><span class="text-right text-white font-bold">${stats.away.blocks}</span>
                             </div>
                         </div>
                     </div>
@@ -532,6 +531,7 @@
                                     <th class="py-2">Pelaaja</th>
                                     <th onclick="window.sortMatch('shots')" class="py-2 text-center sortable-header">L${getSortIcon(matchSort, 'shots')}</th>
                                     <th onclick="window.sortMatch('goals')" class="py-2 text-center sortable-header">M${getSortIcon(matchSort, 'goals')}</th>
+                                    <th onclick="window.sortMatch('xg')" class="py-2 text-center sortable-header">xG${getSortIcon(matchSort, 'xg')}</th>
                                     <th onclick="window.sortMatch('qH')" class="py-2 text-center sortable-header">L+${getSortIcon(matchSort, 'qH')}</th>
                                     <th onclick="window.sortMatch('qL')" class="py-2 text-center sortable-header">H-${getSortIcon(matchSort, 'qL')}</th>
                                     <th onclick="window.sortMatch('bal')" class="py-2 text-center sortable-header">+/-${getSortIcon(matchSort, 'bal')}</th>
@@ -545,6 +545,7 @@
                         <td class="py-2 font-bold text-slate-300">#${p.number} ${p.name}</td>
                         <td class="py-2 text-center">${p.shots}</td>
                         <td class="py-2 text-center text-emerald-400 font-bold">${p.goals}</td>
+                        <td class="py-2 text-center text-slate-400">${p.xg.toFixed(2)}</td>
                         <td class="py-2 text-center text-red-300">${p.qH}</td>
                         <td class="py-2 text-center text-blue-300">${p.qL}</td>
                         <td class="py-2 text-center font-bold ${p.bal > 0 ? 'text-emerald-500' : p.bal < 0 ? 'text-red-500' : 'text-slate-600'}">${p.bal > 0 ? '+' : ''}${p.bal}</td>
@@ -553,6 +554,9 @@
             html += `</tbody></table></div></div>`;
             return html;
         }
+
+        window.sortSeason = (key) => handleHeaderClick('season', key);
+        window.sortMatch = (key) => handleHeaderClick('match', key);
 
         function renderSeasonStats() {
             const view = document.getElementById('season-view');
@@ -570,6 +574,7 @@
                                     <th onclick="window.sortSeason('games')" class="p-3 text-center sortable-header">O${getSortIcon(seasonSort, 'games')}</th>
                                     <th onclick="window.sortSeason('shots')" class="p-3 text-center sortable-header">L${getSortIcon(seasonSort, 'shots')}</th>
                                     <th onclick="window.sortSeason('goals')" class="p-3 text-center sortable-header">M${getSortIcon(seasonSort, 'goals')}</th>
+                                    <th onclick="window.sortSeason('xg')" class="p-3 text-center sortable-header">xG${getSortIcon(seasonSort, 'xg')}</th>
                                     <th onclick="window.sortSeason('qH')" class="p-3 text-center text-red-400 sortable-header">L+${getSortIcon(seasonSort, 'qH')}</th>
                                     <th onclick="window.sortSeason('qL')" class="p-3 text-center text-blue-400 sortable-header">H-${getSortIcon(seasonSort, 'qL')}</th>
                                     <th onclick="window.sortSeason('bal')" class="p-3 text-center sortable-header">+/-${getSortIcon(seasonSort, 'bal')}</th>
@@ -578,13 +583,13 @@
                             <tbody class="divide-y divide-slate-700">`;
             
             sortedPlayers.forEach(s => {
-                playerHtml += `<tr class="hover:bg-slate-700/30 transition-colors"><td class="p-3 font-bold text-slate-200">#${s.number} ${fullRoster[s.number] || ''}</td><td class="p-3 text-center">${s.games}</td><td class="p-3 text-center">${s.shots}</td><td class="p-3 text-center font-bold text-emerald-400">${s.goals}</td><td class="p-3 text-center text-red-300">${s.qH}</td><td class="p-3 text-center text-blue-300">${s.qL}</td><td class="p-3 text-center font-bold ${s.bal>0?'text-emerald-500':s.bal<0?'text-red-500':'text-slate-500'}">${s.bal>0?'+':''}${s.bal}</td></tr>`;
+                playerHtml += `<tr class="hover:bg-slate-700/30 transition-colors"><td class="p-3 font-bold text-slate-200">#${s.number} ${fullRoster[s.number] || ''}</td><td class="p-3 text-center">${s.games}</td><td class="p-3 text-center">${s.shots}</td><td class="p-3 text-center font-bold text-emerald-400">${s.goals}</td><td class="p-3 text-center text-slate-400">${s.xg.toFixed(2)}</td><td class="p-3 text-center text-red-300">${s.qH}</td><td class="p-3 text-center text-blue-300">${s.qL}</td><td class="p-3 text-center font-bold ${s.bal>0?'text-emerald-500':s.bal<0?'text-red-500':'text-slate-500'}">${s.bal>0?'+':''}${s.bal}</td></tr>`;
             });
             playerHtml += `</tbody></table></div></div>`;
 
             let gamesHtml = `<div class="max-w-4xl mx-auto px-2 pb-10"><h2 class="text-2xl font-bold mb-6 text-white text-center uppercase tracking-wider">Tallennetut ottelut</h2>`;
             const sortedGames = [...seasonData.games].sort((a,b) => new Date(b.date) - new Date(a.date));
-            if (sortedGames.length === 0) gamesHtml += `<p class="text-center text-slate-500">Ei tallennettuja otteluita.</p>`;
+            if (sortedGames.length === 0) gamesHtml += `<p class="text-center text-slate-400">Ei tallennettuja otteluita.</p>`;
             
             sortedGames.forEach(game => {
                 const s = getGameStats(game);
@@ -628,6 +633,7 @@
                     const mapEl = createShotmapElement(game, period);
                     document.body.appendChild(mapEl);
                     await new Promise(r => requestAnimationFrame(r));
+                    // LOPULLINEN KORJAUS: scale 1.5 ja JPEG pienentää kokoa huomattavasti
                     const canvas = await html2canvas(mapEl, { scale: 1.5 });
                     document.body.removeChild(mapEl);
 
@@ -680,20 +686,19 @@
         function createShotmapElement(game, p) {
             const w = 900, h = 450, wrap = document.createElement('div');
             Object.assign(wrap.style, { position:'fixed', left:'-9999px', width:w+'px', height:h+'px', background:'#fff' });
-            wrap.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 400 200" style="position:absolute;inset:0"><rect x="10" y="10" width="380" height="180" fill="none" stroke="#1e293b" stroke-width="2"/><line x1="200" y1="10" x2="200" y2="190" stroke="#94a3b8" stroke-width="1"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/></svg><div id="shot-layer-pdf" style="position:absolute;inset:0;width:100%;height:100%;"></div>`;
+            // LOPULLINEN KORJAUS: Käytetään koko 0-400 alueella olevia viivoja, jotta kohdistus osuu täsmälleen pisteisiin
+            wrap.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 400 200" style="position:absolute;inset:0"><rect x="0" y="0" width="400" height="200" fill="none" stroke="#1e293b" stroke-width="2"/><line x1="200" y1="0" x2="200" y2="200" stroke="#94a3b8" stroke-width="1"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#94a3b8" stroke-width="1"/></svg><div id="shot-layer-pdf" style="position:absolute;inset:0;width:100%;height:100%;"></div>`;
             const layer = wrap.querySelector('#shot-layer-pdf');
             (game.shots || []).filter(s => p === 'summary' || s.period === p).forEach(s => {
-                const dot = document.createElement('div'), leftPct = 2.5 + (s.x * 0.95), topPct = 5.0 + (s.y * 0.90);
+                const dot = document.createElement('div');
                 const textColor = s.outcome === 'block' ? '#000000' : '#ffffff';
                 const borderColor = s.quality === 'high' ? '#b91c1c' : '#1e3a8a';
                 const borderWidth = s.quality === 'high' ? '3px' : '2px';
-                // PDF:ssa käytetään entistä isompaa paddingTop arvoa keskittämisen varmistamiseksi kuvakaappauksessa
                 Object.assign(dot.style, { 
                     position:'absolute', width:'28px', height:'28px', background: COLORS[s.outcome], borderRadius:'50%', 
-                    left: leftPct + '%', top: topPct + '%', transform:'translate(-50%,-50%)', 
+                    left: s.x + '%', top: s.y + '%', transform:'translate(-50%,-50%)', 
                     border: `${borderWidth} solid ${borderColor}`, 
-                    color: textColor, fontSize:'12px', fontWeight:'900', display:'flex', alignItems:'center', justifyContent:'center', 
-                    paddingTop: '4px', lineHeight: '1', textAlign: 'center'
+                    color: textColor, fontSize:'12px', fontWeight:'900', display:'grid', placeItems:'center', lineHeight: '1' 
                 });
                 dot.textContent = s.player; layer.appendChild(dot);
             });
