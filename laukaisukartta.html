@@ -54,7 +54,7 @@
         details summary::-webkit-details-marker { display: none; }
         details summary { list-style: none; cursor: pointer; outline: none; }
 
-        .sortable-header { cursor: pointer; transition: color 0.2s; }
+        .sortable-header { cursor: pointer; transition: color 0.2s; position: relative; }
         .sortable-header:hover { color: #818cf8; }
         .sort-icon { font-size: 0.7rem; margin-left: 2px; vertical-align: middle; }
     </style>
@@ -155,11 +155,8 @@
         const firebaseConfig = { apiKey: "AIzaSyDdqRwtwIat2t_qKYE9H3jmbVM1_EIvKy0", authDomain: "sbtilastot.firebaseapp.com", projectId: "sbtilastot", storageBucket: "sbtilastot.appspot.com", messagingSenderId: "1056099775207", appId: "1:1056099775207:web:6dc886fb56b71f708fe842" };
 
         function calculateXg(x, y, team) {
-            const MAX_XG = 0.65;
-            const X_POWER = 3; 
-            const Y_POWER = 1.5;
-            const xNorm = x / 100;
-            const yNorm = Math.abs(y - 50) / 50;
+            const MAX_XG = 0.65, X_POWER = 3, Y_POWER = 1.5;
+            const xNorm = x / 100, yNorm = Math.abs(y - 50) / 50;
             const xFactor = (team === 'home') ? Math.pow(1 - xNorm, X_POWER) : Math.pow(xNorm, X_POWER);
             const yFactor = Math.pow(1 - yNorm, Y_POWER);
             return parseFloat((MAX_XG * xFactor * yFactor).toFixed(2));
@@ -251,7 +248,13 @@
         function initializeGameUI() {
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
-            document.getElementById('sidebar-content').innerHTML = `<div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div><div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div><div id="stats-container" class="border-t border-slate-700 pt-4"></div><div id="player-stats-container" class="hidden border-t border-slate-700 pt-4 mt-4"></div>`;
+            
+            // POISTETTU pelaajakohtainen summary-div sivupalkista
+            document.getElementById('sidebar-content').innerHTML = `
+                <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div>
+                <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div>
+                <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
+            `;
             
             document.getElementById('field-area').innerHTML = `
                 <div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm text-center">Vieras</div>
@@ -431,21 +434,7 @@
                     </div>
                 </div>
             `;
-            
-            if (currentGame.currentPeriod === 'summary') {
-                document.getElementById('player-stats-container').classList.remove('hidden');
-                updatePlayerStatsUI();
-            } else document.getElementById('player-stats-container').classList.add('hidden');
-        }
-
-        function updatePlayerStatsUI() {
-            const container = document.getElementById('player-stats-container');
-            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest text-xs">Pelaajat</h3>`;
-            (currentGame.players || []).forEach(p => {
-                const pShots = (currentGame.shots || []).filter(s => s.player == p && s.team === 'home');
-                if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700 text-slate-300"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
-            });
-            container.innerHTML = html;
+            // Pelaajakohtainen sivupalkkilistaus POISTETTU tästä
         }
 
         function calculateSeasonStats() {
@@ -479,12 +468,6 @@
             return { playerStats: Object.values(playerStats), fullRoster, allPlayers };
         }
 
-        function handleHeaderClick(type, key) {
-            const state = type === 'season' ? seasonSort : matchSort;
-            if (state.key === key) { state.dir = (state.dir + 1) % 3; } else { state.key = key; state.dir = 1; }
-            renderSeasonStats();
-        }
-
         function sortPlayers(players, state) {
             if (state.dir === 0) return players.sort((a,b) => a.number - b.number);
             return players.sort((a,b) => {
@@ -494,10 +477,24 @@
             });
         }
 
+        function handleHeaderClick(type, key) {
+            const state = type === 'season' ? seasonSort : matchSort;
+            if (state.key === key) {
+                state.dir = (state.dir + 1) % 3;
+            } else {
+                state.key = key;
+                state.dir = 1;
+            }
+            if (type === 'season') renderSeasonStats();
+        }
+
         function getSortIcon(state, key) {
             if (state.key !== key || state.dir === 0) return '';
             return state.dir === 1 ? '<span class="sort-icon">▼</span>' : '<span class="sort-icon">▲</span>';
         }
+
+        window.sortSeason = (key) => handleHeaderClick('season', key);
+        window.sortMatch = (key) => renderSeasonStats(); 
 
         function generateGameDetailsHTML(game) {
             const stats = getStatsForPeriod(game, 'summary');
@@ -545,7 +542,6 @@
                 const { playerStats, fullRoster } = calculateSeasonStats();
                 const sortedPlayers = sortPlayers([...playerStats], seasonSort);
                 
-                // LISÄTTY: Takaisin-painike alussa
                 let backButtonHtml = `
                     <div class="max-w-4xl mx-auto px-2 mb-4">
                         <button id="back-from-season-btn" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors py-2 font-semibold">
@@ -735,8 +731,6 @@
 
         document.getElementById('season-view').addEventListener('click', (e) => {
             const pdfBtn = e.target.closest('.pdf-btn'), delBtn = e.target.closest('.del-btn'), backBtn = e.target.closest('#back-from-season-btn');
-            
-            // LISÄTTY: Takaisin-painikkeen logiikka
             if (backBtn) {
                 showView('home');
             } else if (pdfBtn) { 
