@@ -74,16 +74,16 @@
         </div>
     </div>
     
-    <!-- Teams Selection -->
+    <!-- Teams Selection View -->
     <div id="teams-view" class="h-full hidden flex items-center justify-center p-4">
         <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
             <h1 class="text-2xl font-bold mb-6 text-white uppercase tracking-wider">Valitse joukkue</h1>
-            <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto mb-6 px-2"></div>
-            <div class="border-t border-slate-700 pt-6 px-2">
-                <input id="new-team-name" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-2" placeholder="Uuden joukkueen nimi">
-                <button id="create-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold">Luo joukkue</button>
+            <div id="teams-list" class="space-y-2 max-h-60 overflow-y-auto mb-6 px-1"></div>
+            <div class="border-t border-slate-700 pt-6">
+                <input id="new-team-name" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-2 text-white" placeholder="Uuden joukkueen nimi">
+                <button id="create-team-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 py-3 rounded-lg font-bold transition-colors">Luo joukkue</button>
             </div>
-            <button id="logout-btn-teams" class="w-full mt-6 text-slate-400 font-semibold hover:text-white">Kirjaudu ulos</button>
+            <button id="logout-btn-teams" class="w-full mt-6 text-slate-400 font-semibold hover:text-white transition-colors">Kirjaudu ulos</button>
         </div>
     </div>
 
@@ -100,15 +100,36 @@
         </div>
     </div>
 
-    <!-- Setup View -->
+    <!-- Setup View (Match & Roster Setup) -->
     <div id="setup-view" class="h-full hidden flex items-center justify-center p-4">
-        <div class="w-full max-w-md bg-slate-800 p-8 rounded-lg shadow-xl text-center border border-slate-700">
-            <h1 class="text-2xl font-bold mb-4 text-white">Uusi ottelu</h1>
-            <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4 focus:border-indigo-500 outline-none" placeholder="Vastustaja">
-            <textarea id="player-roster-input" class="w-full h-48 p-3 bg-slate-700 border border-slate-600 rounded-lg text-sm font-mono mb-4 focus:border-indigo-500 outline-none" placeholder="7 Matti, 10 Pekka..."></textarea>
-            <p id="setup-error" class="text-red-500 text-sm mb-4 h-5"></p>
-            <button id="start-button" class="w-full bg-indigo-600 py-3 rounded-lg font-bold shadow-lg transition-transform active:scale-95">Aloita merkintä</button>
-            <button id="back-to-landing-btn" class="mt-4 text-slate-400">Takaisin</button>
+        <div class="w-full max-w-lg bg-slate-800 p-6 md:p-8 rounded-lg shadow-xl text-center border border-slate-700 max-h-[90vh] flex flex-col">
+            <h1 class="text-2xl font-bold mb-4 text-white shrink-0">Uusi ottelu</h1>
+            <input id="opponent-name-input" type="text" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-center mb-4 focus:border-indigo-500 outline-none text-white shrink-0" placeholder="Vastustajan nimi">
+            
+            <div class="flex-1 min-h-0 flex flex-col mb-4 overflow-hidden text-left">
+                <div class="flex justify-between items-center mb-2 shrink-0">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Kokoonpanon valinta</span>
+                    <div class="flex gap-2">
+                        <button id="select-all-roster-btn" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold">Valitse kaikki</button>
+                        <span class="text-slate-600">|</span>
+                        <button id="deselect-all-roster-btn" class="text-xs text-slate-400 hover:text-slate-300 font-semibold">Tyhjennä</button>
+                    </div>
+                </div>
+                
+                <!-- Roster selection list -->
+                <div id="setup-roster-list" class="flex-1 overflow-y-auto space-y-2 p-2 bg-slate-900/60 rounded-lg border border-slate-700/60 min-h-[150px]"></div>
+
+                <!-- Inline add extra / loan player -->
+                <div class="mt-3 shrink-0 bg-slate-700/40 p-3 rounded-lg border border-slate-700 flex gap-2 items-center">
+                    <input id="add-player-num" type="number" min="0" max="999" class="w-20 p-2 bg-slate-700 border border-slate-600 rounded text-center text-sm font-bold text-white outline-none focus:border-indigo-500" placeholder="Nro">
+                    <input id="add-player-name" type="text" class="flex-1 p-2 bg-slate-700 border border-slate-600 rounded text-sm text-white outline-none focus:border-indigo-500" placeholder="Uusi / Lainapelaaja">
+                    <button id="add-player-btn" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded text-sm font-bold transition-colors">Lisää</button>
+                </div>
+            </div>
+
+            <p id="setup-error" class="text-red-500 text-sm mb-2 h-5 shrink-0"></p>
+            <button id="start-button" class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold text-white shadow-lg transition-transform active:scale-95 shrink-0">Aloita merkintä</button>
+            <button id="back-to-landing-btn" class="mt-2 text-slate-400 hover:text-white shrink-0">Takaisin</button>
         </div>
     </div>
 
@@ -144,6 +165,7 @@
         // Global State
         let db, auth, userId, currentTeamId;
         let seasonData = { games: [] }, rosterData = {}, currentGame = {};
+        let setupRosterState = []; // [{ number: 7, name: 'Matti', selected: true }]
         let gamesUnsubscribe = () => {}, teamsUnsubscribe = () => {};
         let draggedElement = null, ghostElement = null, tempShotData = {}, shotToEditId = null;
 
@@ -217,13 +239,35 @@
             teamsUnsubscribe = onSnapshot(query(collection(db, 'users', userId, 'teams')), (snap) => {
                 const list = document.getElementById('teams-list');
                 list.innerHTML = '';
-                snap.forEach(doc => {
-                    const team = { id: doc.id, ...doc.data() };
+                if (snap.empty) {
+                    list.innerHTML = '<p class="text-slate-400 py-4 text-sm">Ei joukkueita. Luo joukkue alapuolelta.</p>';
+                    return;
+                }
+                snap.forEach(docSnap => {
+                    const team = { id: docSnap.id, ...docSnap.data() };
+                    
+                    const item = document.createElement('div');
+                    item.className = "flex items-center gap-2 w-full";
+
                     const btn = document.createElement('button');
-                    btn.className = "w-full bg-slate-700 hover:bg-indigo-600 p-4 rounded-lg font-bold transition-colors";
+                    btn.className = "flex-1 bg-slate-700 hover:bg-indigo-600 p-4 rounded-lg font-bold text-left transition-colors text-white truncate";
                     btn.textContent = team.name;
                     btn.onclick = () => selectTeam(team);
-                    list.appendChild(btn);
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = "bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white p-4 rounded-lg font-bold transition-colors shrink-0";
+                    delBtn.title = "Poista joukkue";
+                    delBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+                    delBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        showConfirmation('Poista joukkue?', `Haluatko varmasti poistaa joukkueen "${team.name}"?`, 'Poista', 'bg-red-600', async () => {
+                            await deleteDoc(doc(db, 'users', userId, 'teams', team.id));
+                        });
+                    };
+
+                    item.appendChild(btn);
+                    item.appendChild(delBtn);
+                    list.appendChild(item);
                 });
             });
         }
@@ -245,16 +289,54 @@
             });
         }
 
+        function prepareSetupRoster() {
+            setupRosterState = [];
+            const nums = Object.keys(rosterData).map(Number).sort((a,b)=>a-b);
+            nums.forEach(num => {
+                setupRosterState.push({
+                    number: num,
+                    name: rosterData[num] || '',
+                    selected: true
+                });
+            });
+            renderSetupRosterList();
+        }
+
+        function renderSetupRosterList() {
+            const list = document.getElementById('setup-roster-list');
+            if (!list) return;
+            list.innerHTML = '';
+            if (setupRosterState.length === 0) {
+                list.innerHTML = '<p class="text-slate-400 text-xs text-center py-6">Ei tallennettuja pelaajia. Lisää pelaajia alta.</p>';
+                return;
+            }
+            setupRosterState.sort((a,b) => a.number - b.number);
+            setupRosterState.forEach(p => {
+                const item = document.createElement('label');
+                item.className = 'flex items-center justify-between p-2.5 rounded bg-slate-800 hover:bg-slate-700/80 cursor-pointer transition-colors border border-slate-700/40 select-none';
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" data-num="${p.number}" ${p.selected ? 'checked' : ''} class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                        <span class="font-mono font-bold text-indigo-400 w-8 text-right">#${p.number}</span>
+                        <span class="text-white font-medium text-sm">${p.name || 'Pelaaja ' + p.number}</span>
+                    </div>
+                `;
+                const cb = item.querySelector('input[type="checkbox"]');
+                cb.onchange = (e) => {
+                    p.selected = e.target.checked;
+                };
+                list.appendChild(item);
+            });
+        }
+
         function initializeGameUI() {
             const tabs = document.getElementById('period-tabs');
             tabs.innerHTML = `<button data-period="home" class="period-tab">Koti</button><button data-period="1" class="period-tab active">Erä 1</button><button data-period="2" class="period-tab">Erä 2</button><button data-period="3" class="period-tab">Erä 3</button><button data-period="summary" class="period-tab">Ottelu</button><button data-period="plus-minus" class="period-tab">+/-</button><button data-period="season" class="period-tab">Kausi</button>`;
-            
             document.getElementById('sidebar-content').innerHTML = `
                 <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Koti</h2><div id="home-player-list" class="grid grid-cols-3 gap-2"></div></div>
                 <div class="mb-6"><h2 class="text-center font-bold text-slate-400 mb-2 uppercase tracking-wide">Vieras</h2><div id="away-player-list" class="flex justify-center"></div></div>
                 <div id="stats-container" class="border-t border-slate-700 pt-4"></div>
             `;
-            
             document.getElementById('field-area').innerHTML = `<div class="hidden md:block font-bold text-slate-500 -rotate-90 uppercase tracking-widest text-sm text-center">Vieras</div><div id="field-container" class="relative w-full max-w-[1000px] aspect-[2/1] bg-white rounded shadow-xl border-2 border-slate-400"><svg class="w-full h-full" viewBox="0 0 400 200"><line x1="200" y1="0" x2="200" y2="200" stroke="#cbd5e1" stroke-width="2"/><rect x="30" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/><rect x="330" y="75" width="40" height="50" fill="none" stroke="#cbd5e1" stroke-width="2"/></svg><div id="shots-layer" class="absolute inset-0"></div></div><div class="hidden md:block font-bold text-slate-500 rotate-90 uppercase tracking-widest text-sm text-center">Koti</div>`;
             initializePlayers();
         }
@@ -355,6 +437,20 @@
                     </div>
                 </div>
             `;
+            if (currentGame.currentPeriod === 'summary') {
+                document.getElementById('player-stats-container').classList.remove('hidden');
+                updatePlayerStatsUI();
+            } else document.getElementById('player-stats-container').classList.add('hidden');
+        }
+
+        function updatePlayerStatsUI() {
+            const container = document.getElementById('player-stats-container');
+            let html = `<h3 class="font-bold text-center mb-2 uppercase text-white tracking-widest text-xs">Pelaajat</h3>`;
+            (currentGame.players || []).forEach(p => {
+                const pShots = (currentGame.shots || []).filter(s => s.team === 'home' && Number(s.player) === p);
+                if (pShots.length > 0) html += `<div class="flex justify-between text-xs py-1 border-b border-slate-700 text-slate-300"><span>#${p}</span><span>${pShots.length} L / ${pShots.filter(s=>s.outcome==='goal').length} M</span></div>`;
+            });
+            container.innerHTML = html;
         }
 
         function calculateSeasonStats() {
@@ -593,38 +689,99 @@
         };
         document.getElementById('logout-btn').onclick = () => { sessionStorage.clear(); signOut(auth); };
         document.getElementById('logout-btn-teams').onclick = () => signOut(auth);
-        document.getElementById('start-new-game-btn').onclick = () => { if (currentGame?.id) showMainView('app'); else showMainView('setup'); };
+        document.getElementById('start-new-game-btn').onclick = () => { if (currentGame?.id) showMainView('app'); else { prepareSetupRoster(); showMainView('setup'); } };
         document.getElementById('view-season-data-btn').onclick = () => { showMainView('app'); showView('season'); };
         document.getElementById('change-team-btn').onclick = () => showMainView('teams');
         document.getElementById('back-to-landing-btn').onclick = () => showMainView('landing');
-        
-        // KORJATTU "Aloita merkintä" painike
+
+        // Luo joukkue -painike
+        document.getElementById('create-team-btn').onclick = async () => {
+            const nameInput = document.getElementById('new-team-name');
+            const teamName = nameInput ? nameInput.value.trim() : '';
+            if (!teamName || !userId) return;
+            try {
+                await addDoc(collection(db, 'users', userId, 'teams'), {
+                    name: teamName,
+                    createdAt: serverTimestamp()
+                });
+                nameInput.value = '';
+            } catch (err) {
+                console.error('Joukkueen luonti epäonnistui:', err);
+            }
+        };
+
+        // Kokoonpanon hallintanapit setup-näkymässä
+        document.getElementById('select-all-roster-btn').onclick = () => {
+            setupRosterState.forEach(p => p.selected = true);
+            renderSetupRosterList();
+        };
+        document.getElementById('deselect-all-roster-btn').onclick = () => {
+            setupRosterState.forEach(p => p.selected = false);
+            renderSetupRosterList();
+        };
+
+        // Lisää uusi / lainapelaaja
+        document.getElementById('add-player-btn').onclick = (e) => {
+            e.preventDefault();
+            const numInput = document.getElementById('add-player-num');
+            const nameInput = document.getElementById('add-player-name');
+            const num = Number(numInput.value);
+            const name = nameInput.value.trim();
+
+            if (!numInput.value || isNaN(num) || num < 0 || num > 999) {
+                document.getElementById('setup-error').textContent = 'Syötä kelvollinen pelinumero.';
+                return;
+            }
+
+            document.getElementById('setup-error').textContent = '';
+
+            const existing = setupRosterState.find(p => p.number === num);
+            if (existing) {
+                existing.selected = true;
+                if (name) existing.name = name;
+            } else {
+                setupRosterState.push({
+                    number: num,
+                    name: name || `Pelaaja ${num}`,
+                    selected: true
+                });
+            }
+
+            numInput.value = '';
+            nameInput.value = '';
+            renderSetupRosterList();
+        };
+
+        // Aloita merkintä -painike
         document.getElementById('start-button').onclick = async () => {
             document.getElementById('setup-error').textContent = '';
             try {
                 const opp = document.getElementById('opponent-name-input').value.trim();
-                const rosterStr = document.getElementById('player-roster-input').value;
-                
                 if (!opp) {
                     document.getElementById('setup-error').textContent = 'Vastustajan nimi puuttuu.';
                     return;
                 }
                 
-                const roster = {};
-                // Parempi regex, joka hakee numeron ja nimen
-                const matches = rosterStr.matchAll(/(\d{1,3})\s*([^,\n\r]*)/g);
-                for (const m of matches) {
-                    const num = Number(m[1]);
-                    const name = m[2] ? m[2].trim() : "";
-                    roster[num] = name;
-                }
-                
-                if (Object.keys(roster).length === 0) {
-                    document.getElementById('setup-error').textContent = 'Lisää vähintään yksi pelaaja (nro nimi).';
+                const selectedPlayers = setupRosterState.filter(p => p.selected);
+                if (selectedPlayers.length === 0) {
+                    document.getElementById('setup-error').textContent = 'Valitse vähintään yksi pelaaja kokoonpanoon.';
                     return;
                 }
                 
-                const teamName = document.getElementById('team-name-header').textContent;
+                const roster = {};
+                const masterRosterObj = {};
+
+                // Päivitetään runkorosteri kaikilla setupRosterState-pelaajilla
+                setupRosterState.forEach(p => {
+                    masterRosterObj[p.number] = p.name;
+                });
+
+                // Nykyisen ottelun rosteri valituista
+                selectedPlayers.forEach(p => {
+                    roster[p.number] = p.name;
+                });
+                
+                const teamName = document.getElementById('team-name-header').textContent || 'Joukkue';
                 
                 currentGame = { 
                     id: Date.now(), 
@@ -641,9 +798,10 @@
                 
                 currentGame.players.forEach(p => currentGame.plusMinus[p] = {plus:0, minus:0});
                 
-                // Tallenna rosteri Firestoreen tulevaa käyttöä varten
+                // Tallenna päivitetty runkorosteri Firestoreen
                 if (userId && currentTeamId) {
-                    await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: roster });
+                    await setDoc(doc(db, 'users', userId, 'teams', currentTeamId, 'roster', 'main'), { players: masterRosterObj });
+                    rosterData = masterRosterObj;
                 }
                 
                 saveLocal(); 
